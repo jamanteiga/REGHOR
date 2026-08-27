@@ -21,33 +21,33 @@
     <div class="w-full bg-white p-4 rounded-lg shadow-md">
       <h2 class="text-base font-semibold mb-3 text-gray-700">Nueva Tarea</h2>
       
-      <form id="task-form" class="w-full flex flex-wrap lg:flex-nowrap items-end gap-2">
+      <form id="task-form" class="w-full flex flex-wrap lg:flex-nowrap items-end gap-2" novalidate>
         
         <!-- 1. Fecha -->
         <div class="w-[48%] sm:w-auto sm:flex-1 min-w-[130px]">
           <label class="block text-[11px] font-semibold text-gray-600 uppercase mb-1">Fecha</label>
-          <input type="date" id="fecha" required class="w-full border border-gray-300 rounded p-1.5 text-xs">
+          <input type="date" id="fecha" class="w-full border border-gray-300 rounded p-1.5 text-xs">
         </div>
 
-        <!-- 2. Tarea (Desplegable + Botón Config) -->
+        <!-- 2. Tarea -->
         <div class="w-full sm:w-auto sm:flex-[2] min-w-[160px]">
           <div class="flex justify-between items-center mb-1">
             <label class="text-[11px] font-semibold text-gray-600 uppercase">Tarea</label>
             <button type="button" id="btn-gestionar-tareas" class="text-[10px] text-blue-600 hover:underline">+ Config</button>
           </div>
-          <select id="tarea" required class="w-full border border-gray-300 rounded p-1.5 text-xs bg-white">
+          <select id="tarea" class="w-full border border-gray-300 rounded p-1.5 text-xs bg-white">
             <!-- Carga dinámica -->
           </select>
         </div>
 
-        <!-- 3. Proyecto -->
+        <!-- 3. Proyecto (BAC2 por defecto) -->
         <div class="w-[48%] sm:w-auto sm:flex-1 min-w-[110px]">
           <div class="flex justify-between items-center mb-1">
             <label class="text-[11px] font-semibold text-gray-600 uppercase">Proyecto</label>
             <button type="button" id="btn-gestionar-proyectos" class="text-[10px] text-blue-600 hover:underline">+ Config</button>
           </div>
-          <select id="proyecto" required class="w-full border border-gray-300 rounded p-1.5 text-xs bg-white">
-            <!-- Carga dinámica -->
+          <select id="proyecto" class="w-full border border-gray-300 rounded p-1.5 text-xs bg-white">
+            <option value="BAC2" selected>BAC2</option>
           </select>
         </div>
 
@@ -63,7 +63,7 @@
             <label class="text-[11px] font-semibold text-gray-600 uppercase">H. Inicio</label>
             <button type="button" id="btn-usar-ultima-fin" class="text-[9px] bg-gray-200 hover:bg-gray-300 text-gray-700 px-1 rounded" title="Usar última hora fin">⬅ Copiar</button>
           </div>
-          <input type="time" id="hora-inicio" required class="w-full border border-gray-300 rounded p-1.5 text-xs">
+          <input type="time" id="hora-inicio" class="w-full border border-gray-300 rounded p-1.5 text-xs">
         </div>
 
         <!-- 6. Hora Fin -->
@@ -87,7 +87,7 @@
           <input type="text" id="notas" placeholder="Anotaciones..." class="w-full border border-gray-300 rounded p-1.5 text-xs">
         </div>
 
-        <!-- 9. Duración -->
+        <!-- 9. Duración (Al final de la fila) -->
         <div class="w-[48%] sm:w-auto sm:flex-1 min-w-[80px]">
           <label class="block text-[11px] font-semibold text-gray-600 uppercase mb-1">Duración</label>
           <input type="text" id="duracion" readonly placeholder="00:00" class="w-full bg-gray-100 border border-gray-300 rounded p-1.5 text-xs font-bold text-gray-700 text-center">
