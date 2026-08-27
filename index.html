@@ -29,10 +29,15 @@
           <input type="date" id="fecha" required class="w-full border border-gray-300 rounded p-1.5 text-xs">
         </div>
 
-        <!-- 2. Tarea -->
-        <div class="w-full sm:w-auto sm:flex-[2] min-w-[150px]">
-          <label class="block text-[11px] font-semibold text-gray-600 uppercase mb-1">Tarea</label>
-          <input type="text" id="tarea" placeholder="Ej. Revisión código" required class="w-full border border-gray-300 rounded p-1.5 text-xs">
+        <!-- 2. Tarea (Desplegable + Botón Config) -->
+        <div class="w-full sm:w-auto sm:flex-[2] min-w-[160px]">
+          <div class="flex justify-between items-center mb-1">
+            <label class="text-[11px] font-semibold text-gray-600 uppercase">Tarea</label>
+            <button type="button" id="btn-gestionar-tareas" class="text-[10px] text-blue-600 hover:underline">+ Config</button>
+          </div>
+          <select id="tarea" required class="w-full border border-gray-300 rounded p-1.5 text-xs bg-white">
+            <!-- Carga dinámica -->
+          </select>
         </div>
 
         <!-- 3. Proyecto -->
@@ -82,7 +87,7 @@
           <input type="text" id="notas" placeholder="Anotaciones..." class="w-full border border-gray-300 rounded p-1.5 text-xs">
         </div>
 
-        <!-- 9. Duración (Al final de la fila) -->
+        <!-- 9. Duración -->
         <div class="w-[48%] sm:w-auto sm:flex-1 min-w-[80px]">
           <label class="block text-[11px] font-semibold text-gray-600 uppercase mb-1">Duración</label>
           <input type="text" id="duracion" readonly placeholder="00:00" class="w-full bg-gray-100 border border-gray-300 rounded p-1.5 text-xs font-bold text-gray-700 text-center">
@@ -98,15 +103,15 @@
       </form>
     </div>
 
-    <!-- Modal Gestión de Proyectos -->
-    <div id="modal-proyectos" class="fixed inset-0 bg-black bg-opacity-40 hidden flex items-center justify-center p-4 z-50">
-      <div class="bg-white rounded-lg p-5 max-w-sm w-full space-y-4">
-        <h3 class="text-lg font-bold">Gestionar Lista de Proyectos</h3>
+    <!-- Modal Gestión (Proyectos y Tareas) -->
+    <div id="modal-config" class="fixed inset-0 bg-black bg-opacity-40 hidden flex items-center justify-center p-4 z-50">
+      <div class="bg-white rounded-lg p-5 max-w-md w-full space-y-4">
+        <h3 id="modal-titulo" class="text-lg font-bold">Gestionar Lista</h3>
         <div class="flex gap-2">
-          <input type="text" id="nuevo-proyecto-input" placeholder="NUEVO_CODIGO" class="border p-2 rounded text-sm flex-1 uppercase">
-          <button id="btn-add-proyecto" class="bg-green-600 text-white px-3 py-1 rounded text-sm font-semibold">+ Añadir</button>
+          <input type="text" id="nuevo-item-input" placeholder="Añadir nuevo..." class="border p-2 rounded text-sm flex-1">
+          <button id="btn-add-item" class="bg-green-600 text-white px-3 py-1 rounded text-sm font-semibold">+ Añadir</button>
         </div>
-        <ul id="lista-proyectos-gestor" class="max-h-48 overflow-y-auto border rounded divide-y text-sm"></ul>
+        <ul id="lista-gestor" class="max-h-48 overflow-y-auto border rounded divide-y text-sm"></ul>
         <div class="text-right">
           <button id="btn-cerrar-modal" class="bg-gray-500 text-white px-4 py-1.5 rounded text-sm">Cerrar</button>
         </div>
@@ -131,7 +136,7 @@
           </tr>
         </thead>
         <tbody id="tabla-registros" class="divide-y">
-          <!-- Se rellena automáticamente desde app.js -->
+          <!-- Se rellena automáticamente -->
         </tbody>
       </table>
     </div>
