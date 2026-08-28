@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" class="h-full bg-gray-100">
+<html lang="es" class="h-full bg-gray-100 transition-colors duration-200" id="html-root">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,121 +9,151 @@
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body class="w-full min-h-full p-4 font-sans text-gray-800 box-border">
+<body class="w-full min-h-full p-4 font-sans text-gray-800 dark:bg-gray-900 dark:text-gray-100 box-border transition-colors duration-200">
   <div class="w-full space-y-4">
     
-    <!-- Encabezado con Menú de Navegación -->
-    <div class="w-full flex justify-between items-center bg-white p-3 rounded-lg shadow-sm relative">
-      <h1 class="text-xl font-bold text-gray-800">REGHOR - Registro de Horas y Tareas</h1>
-      
-      <!-- Menú Desplegable -->
-      <div class="relative inline-block text-left">
-        <button id="btn-menu-graficos" type="button" class="inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-3 py-1.5 bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 focus:outline-none">
-          📊 Gráficos ▾
+    <!-- Encabezado con Idiomas, Modo Oscuro y Menú de Gráficos -->
+    <div class="w-full flex flex-wrap justify-between items-center bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm gap-2">
+      <div class="flex items-center gap-3">
+        <h1 class="text-xl font-bold text-gray-800 dark:text-white">REGHOR</h1>
+        <!-- Banderas de Idioma -->
+        <div class="flex items-center gap-1.5 border-l pl-3 border-gray-300 dark:border-gray-700">
+          <button id="btn-lang-es" title="Español" class="hover:opacity-80 transition-opacity">
+            <svg class="w-6 h-4 rounded shadow-sm" viewBox="0 0 750 500">
+              <rect width="750" height="500" fill="#c60b1e"/>
+              <rect width="750" height="250" y="125" fill="#ffc400"/>
+            </svg>
+          </button>
+          <button id="btn-lang-gl" title="Galego" class="hover:opacity-80 transition-opacity">
+            <svg class="w-6 h-4 rounded shadow-sm border border-gray-200" viewBox="0 0 3 2">
+              <rect width="3" height="2" fill="#fff"/>
+              <path d="M0 0 L3 2" stroke="#0099ce" stroke-width="0.4"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <!-- Modo Oscuro Toggle -->
+        <button id="btn-dark-mode" class="p-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600">
+          🌙 <span id="txt-dark-mode">Modo Oscuro</span>
         </button>
 
-        <div id="dropdown-menu-graficos" class="hidden origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
-          <div class="py-1" role="menu">
-            <button id="opcion-por-proyecto" class="w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-gray-100">Por proyecto</button>
-            <button id="opcion-por-proyecto-bloque" class="w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-gray-100">Por Proyecto-Bloque</button>
+        <!-- Menú Desplegable Gráficos -->
+        <div class="relative inline-block text-left">
+          <button id="btn-menu-graficos" type="button" class="inline-flex justify-center w-full rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-3 py-1.5 bg-white dark:bg-gray-700 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">
+            📊 <span id="txt-menu-graficos">Gráficos</span> ▾
+          </button>
+
+          <div id="dropdown-menu-graficos" class="hidden origin-top-right absolute right-0 mt-2 w-52 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 z-50">
+            <div class="py-1">
+              <button id="opcion-por-proyecto" class="w-full text-left px-4 py-2 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" data-i18n="grafProyecto">Por proyecto</button>
+              <button id="opcion-por-proyecto-bloque" class="w-full text-left px-4 py-2 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" data-i18n="grafProyectoBloque">Por Proyecto-Bloque</button>
+              <button id="opcion-por-tarea" class="w-full text-left px-4 py-2 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" data-i18n="grafTarea">Por Tareas</button>
+              <button id="opcion-evolucion" class="w-full text-left px-4 py-2 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" data-i18n="grafEvolucion">Evolución por Fecha (Barras)</button>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
     <!-- Formulario de Entrada -->
-    <div class="w-full bg-white p-4 rounded-lg shadow-md">
-      <h2 class="text-base font-semibold mb-3 text-gray-700">Nueva Tarea</h2>
+    <div class="w-full bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md">
+      <h2 id="lbl-nueva-tarea" class="text-base font-semibold mb-3 text-gray-700 dark:text-gray-200">Nueva Tarea</h2>
       
       <form id="task-form" class="w-full flex flex-wrap lg:flex-nowrap items-end gap-2" novalidate>
-        
-        <!-- 1. Fecha -->
+        <!-- Campo Oculto para Edición -->
+        <input type="hidden" id="edit-index" value="-1">
+
+        <!-- Fecha -->
         <div class="w-[48%] sm:w-auto sm:flex-1 min-w-[130px]">
-          <label class="block text-[11px] font-semibold text-gray-600 uppercase mb-1">Fecha</label>
-          <input type="date" id="fecha" class="w-full border border-gray-300 rounded p-1.5 text-xs">
+          <label id="lbl-fecha" class="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 uppercase mb-1">Fecha</label>
+          <input type="date" id="fecha" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded p-1.5 text-xs">
         </div>
 
-        <!-- 2. Tarea -->
+        <!-- Tarea -->
         <div class="w-full sm:w-auto sm:flex-[2] min-w-[160px]">
           <div class="flex justify-between items-center mb-1">
-            <label class="text-[11px] font-semibold text-gray-600 uppercase">Tarea</label>
-            <button type="button" id="btn-gestionar-tareas" class="text-[10px] text-blue-600 hover:underline">+ Config</button>
+            <label id="lbl-tarea" class="text-[11px] font-semibold text-gray-600 dark:text-gray-400 uppercase">Tarea</label>
+            <button type="button" id="btn-gestionar-tareas" class="text-[10px] text-blue-600 dark:text-blue-400 hover:underline">+ Config</button>
           </div>
-          <select id="tarea" class="w-full border border-gray-300 rounded p-1.5 text-xs bg-white"></select>
+          <select id="tarea" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded p-1.5 text-xs bg-white"></select>
         </div>
 
-        <!-- 3. Proyecto -->
+        <!-- Proyecto -->
         <div class="w-[48%] sm:w-auto sm:flex-1 min-w-[110px]">
           <div class="flex justify-between items-center mb-1">
-            <label class="text-[11px] font-semibold text-gray-600 uppercase">Proyecto</label>
-            <button type="button" id="btn-gestionar-proyectos" class="text-[10px] text-blue-600 hover:underline">+ Config</button>
+            <label id="lbl-proyecto" class="text-[11px] font-semibold text-gray-600 dark:text-gray-400 uppercase">Proyecto</label>
+            <button type="button" id="btn-gestionar-proyectos" class="text-[10px] text-blue-600 dark:text-blue-400 hover:underline">+ Config</button>
           </div>
-          <select id="proyecto" class="w-full border border-gray-300 rounded p-1.5 text-xs bg-white">
+          <select id="proyecto" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded p-1.5 text-xs bg-white">
             <option value="BAC2" selected>BAC2</option>
           </select>
         </div>
 
-        <!-- 4. Bloque -->
+        <!-- Bloque -->
         <div class="w-[48%] sm:w-auto sm:flex-1 min-w-[100px]">
-          <label class="block text-[11px] font-semibold text-gray-600 uppercase mb-1">Bloque</label>
-          <input type="text" id="bloque" placeholder="Bloque 1" class="w-full border border-gray-300 rounded p-1.5 text-xs">
+          <label id="lbl-bloque" class="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 uppercase mb-1">Bloque</label>
+          <input type="text" id="bloque" placeholder="Bloque 1" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded p-1.5 text-xs">
         </div>
 
-        <!-- 5. Hora Inicio -->
+        <!-- Hora Inicio -->
         <div class="w-[48%] sm:w-auto sm:flex-1 min-w-[110px]">
           <div class="flex justify-between items-center mb-1">
-            <label class="text-[11px] font-semibold text-gray-600 uppercase">H. Inicio</label>
-            <button type="button" id="btn-usar-ultima-fin" class="text-[9px] bg-gray-200 hover:bg-gray-300 text-gray-700 px-1 rounded" title="Usar última hora fin">⬅ Copiar</button>
+            <label id="lbl-hinicio" class="text-[11px] font-semibold text-gray-600 dark:text-gray-400 uppercase">H. Inicio</label>
+            <button type="button" id="btn-usar-ultima-fin" class="text-[9px] bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 text-gray-700 dark:text-gray-200 px-1 rounded" title="Usar última hora fin">⬅ Copiar</button>
           </div>
-          <input type="time" id="hora-inicio" class="w-full border border-gray-300 rounded p-1.5 text-xs">
+          <input type="time" id="hora-inicio" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded p-1.5 text-xs">
         </div>
 
-        <!-- 6. Hora Fin -->
+        <!-- Hora Fin -->
         <div class="w-[48%] sm:w-auto sm:flex-1 min-w-[110px]">
           <div class="flex justify-between items-center mb-1">
-            <label class="text-[11px] font-semibold text-gray-600 uppercase">H. Fin</label>
-            <button type="button" id="btn-hora-actual" class="text-[9px] bg-blue-100 hover:bg-blue-200 text-blue-700 px-1 rounded" title="Poner hora actual">⏱ Ahora</button>
+            <label id="lbl-hfin" class="text-[11px] font-semibold text-gray-600 dark:text-gray-400 uppercase">H. Fin</label>
+            <button type="button" id="btn-hora-actual" class="text-[9px] bg-blue-100 dark:bg-blue-900 hover:bg-blue-200 text-blue-700 dark:text-blue-200 px-1 rounded">⏱ Ahora</button>
           </div>
-          <input type="time" id="hora-fin" class="w-full border border-gray-300 rounded p-1.5 text-xs">
+          <input type="time" id="hora-fin" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded p-1.5 text-xs">
         </div>
 
-        <!-- 7. Comentario -->
+        <!-- Comentario -->
         <div class="w-full sm:w-auto sm:flex-[3] min-w-[160px]">
-          <label class="block text-[11px] font-semibold text-gray-600 uppercase mb-1">Comentario</label>
-          <input type="text" id="comentario" placeholder="Explicación breve..." class="w-full border border-gray-300 rounded p-1.5 text-xs">
+          <label id="lbl-comentario" class="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 uppercase mb-1">Comentario</label>
+          <input type="text" id="comentario" placeholder="Explicación breve..." class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded p-1.5 text-xs">
         </div>
 
-        <!-- 8. Notas -->
+        <!-- Notas -->
         <div class="w-full sm:w-auto sm:flex-[2] min-w-[140px]">
-          <label class="block text-[11px] font-semibold text-gray-600 uppercase mb-1">Notas</label>
-          <input type="text" id="notas" placeholder="Anotaciones..." class="w-full border border-gray-300 rounded p-1.5 text-xs">
+          <label id="lbl-notas" class="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 uppercase mb-1">Notas</label>
+          <input type="text" id="notas" placeholder="Anotaciones..." class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded p-1.5 text-xs">
         </div>
 
-        <!-- 9. Duración -->
+        <!-- Duración -->
         <div class="w-[48%] sm:w-auto sm:flex-1 min-w-[80px]">
-          <label class="block text-[11px] font-semibold text-gray-600 uppercase mb-1">Duración</label>
-          <input type="text" id="duracion" readonly placeholder="00:00" class="w-full bg-gray-100 border border-gray-300 rounded p-1.5 text-xs font-bold text-gray-700 text-center">
+          <label id="lbl-duracion" class="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 uppercase mb-1">Duración</label>
+          <input type="text" id="duracion" readonly placeholder="00:00" class="w-full bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded p-1.5 text-xs font-bold text-gray-700 dark:text-gray-200 text-center">
         </div>
 
-        <!-- Botón Guardar -->
-        <div class="w-full sm:w-auto sm:flex-1 min-w-[100px]">
-          <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold p-1.5 rounded text-xs transition-colors">
+        <!-- Botón Guardar / Cancelar -->
+        <div class="w-full sm:w-auto sm:flex-1 min-w-[120px] flex gap-1">
+          <button type="submit" id="btn-guardar" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold p-1.5 rounded text-xs transition-colors">
             + Guardar
           </button>
+          <button type="button" id="btn-cancelar-edit" class="hidden bg-gray-500 hover:bg-gray-600 text-white font-semibold p-1.5 rounded text-xs">
+            ✕
+          </button>
         </div>
-
       </form>
     </div>
 
     <!-- Modal Gestión (Proyectos y Tareas) -->
     <div id="modal-config" class="fixed inset-0 bg-black bg-opacity-40 hidden flex items-center justify-center p-4 z-50">
-      <div class="bg-white rounded-lg p-5 max-w-md w-full space-y-4">
-        <h3 id="modal-titulo" class="text-lg font-bold">Gestionar Lista</h3>
+      <div class="bg-white dark:bg-gray-800 rounded-lg p-5 max-w-md w-full space-y-4">
+        <h3 id="modal-titulo" class="text-lg font-bold dark:text-white">Gestionar Lista</h3>
         <div class="flex gap-2">
-          <input type="text" id="nuevo-item-input" placeholder="Añadir nuevo..." class="border p-2 rounded text-sm flex-1">
+          <input type="text" id="nuevo-item-input" placeholder="Añadir nuevo..." class="border dark:border-gray-600 dark:bg-gray-700 dark:text-white p-2 rounded text-sm flex-1">
           <button id="btn-add-item" class="bg-green-600 text-white px-3 py-1 rounded text-sm font-semibold">+ Añadir</button>
         </div>
-        <ul id="lista-gestor" class="max-h-48 overflow-y-auto border rounded divide-y text-sm"></ul>
+        <ul id="lista-gestor" class="max-h-48 overflow-y-auto border dark:border-gray-700 rounded divide-y dark:divide-gray-700 text-sm dark:text-gray-200"></ul>
         <div class="text-right">
           <button id="btn-cerrar-modal" class="bg-gray-500 text-white px-4 py-1.5 rounded text-sm">Cerrar</button>
         </div>
@@ -131,42 +161,90 @@
     </div>
 
     <!-- Panel de Gráficos (Oculto de inicio) -->
-    <div id="panel-grafico" class="w-full bg-white p-4 rounded-lg shadow-md hidden">
-      <div class="flex justify-between items-center mb-3">
-        <h2 id="titulo-grafico" class="text-base font-semibold text-gray-700">Gráfico</h2>
-        <button id="btn-ocultar-grafico" class="text-xs bg-gray-200 hover:bg-gray-300 text-gray-600 px-2 py-1 rounded">Cerrar vista</button>
+    <div id="panel-grafico" class="w-full bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md hidden">
+      <div class="flex flex-wrap justify-between items-center mb-3 gap-2">
+        <h2 id="titulo-grafico" class="text-base font-semibold text-gray-700 dark:text-gray-200">Gráfico</h2>
+        
+        <!-- Filtro Rango Temporal para Gráfico -->
+        <div class="flex items-center gap-2">
+          <label id="lbl-rango-grafico" class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">Rango:</label>
+          <select id="filtro-rango-grafico" class="border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded p-1 text-xs">
+            <option value="dia" data-i18n="rangoDia">Día actual</option>
+            <option value="semana" data-i18n="rangoSemana">Esta semana</option>
+            <option value="mes" data-i18n="rangoMes">Este mes</option>
+            <option value="todo" selected data-i18n="rangoTodo">Todo el histórico</option>
+          </select>
+          <button id="btn-ocultar-grafico" class="text-xs bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 text-gray-600 dark:text-gray-300 px-2 py-1 rounded">✕</button>
+        </div>
       </div>
 
       <!-- Resumen de Horas por Bloques (Visible solo en vista 'Por proyecto') -->
       <div id="contenedor-resumen-bloques" class="mb-4 hidden">
-        <h3 class="text-xs font-bold text-gray-500 uppercase mb-2">Horas por Bloque</h3>
+        <h3 id="lbl-horas-bloque" class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2">Horas por Bloque</h3>
         <div id="lista-resumen-bloques" class="flex flex-wrap gap-2"></div>
       </div>
 
-      <div class="w-full max-w-sm mx-auto">
+      <div class="w-full max-w-lg mx-auto">
         <canvas id="myChart"></canvas>
       </div>
     </div>
 
-    <!-- Tabla de Registros del Día -->
-    <div class="w-full bg-white p-4 rounded-lg shadow-md overflow-x-auto">
-      <h2 class="text-base font-semibold mb-3 text-gray-700">Registros de Hoy</h2>
-      <table class="w-full text-left text-xs border-collapse">
-        <thead>
-          <tr class="bg-gray-100 text-gray-600 border-b">
-            <th class="p-2">Fecha</th>
-            <th class="p-2">Tarea</th>
-            <th class="p-2">Proyecto</th>
-            <th class="p-2">Bloque</th>
-            <th class="p-2">Inicio</th>
-            <th class="p-2">Fin</th>
-            <th class="p-2">Comentario</th>
-            <th class="p-2">Notas</th>
-            <th class="p-2">Duración</th>
-          </tr>
-        </thead>
-        <tbody id="tabla-registros" class="divide-y"></tbody>
-      </table>
+    <!-- Tabla de Registros + Filtros y Totales -->
+    <div class="w-full bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md">
+      
+      <!-- Barra Superior Tabla: Filtros y Totales -->
+      <div class="flex flex-wrap justify-between items-center mb-4 gap-3 bg-gray-50 dark:bg-gray-700/50 p-3 rounded-md border border-gray-200 dark:border-gray-700">
+        <div>
+          <h2 id="lbl-registros" class="text-base font-semibold text-gray-700 dark:text-gray-200">Registros</h2>
+          <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+            <span id="lbl-total-jornada">Total filtrado:</span> <strong id="total-horas-jornada" class="text-blue-600 dark:text-blue-400 text-sm">00:00h</strong>
+          </div>
+        </div>
+
+        <!-- Filtros de Tabla -->
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- Filtro Fecha -->
+          <div>
+            <input type="date" id="filtro-fecha" class="border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded p-1 text-xs">
+          </div>
+          <!-- Filtro Proyecto -->
+          <div>
+            <select id="filtro-proyecto" class="border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded p-1 text-xs">
+              <option value="" data-i18n="todosProyectos">Todos los proyectos</option>
+            </select>
+          </div>
+          <!-- Filtro Tarea -->
+          <div>
+            <select id="filtro-tarea" class="border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded p-1 text-xs">
+              <option value="" data-i18n="todasTareas">Todas las tareas</option>
+            </select>
+          </div>
+          <!-- Limpiar Filtros -->
+          <button id="btn-limpiar-filtros" class="text-xs bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 text-gray-700 dark:text-gray-200 px-2 py-1 rounded" data-i18n="limpiarFiltros">Limpiar</button>
+        </div>
+      </div>
+
+      <!-- Tabla Responsiva -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-b dark:border-gray-600">
+              <th class="p-2" id="th-fecha">Fecha</th>
+              <th class="p-2" id="th-tarea">Tarea</th>
+              <th class="p-2" id="th-proyecto">Proyecto</th>
+              <th class="p-2" id="th-bloque">Bloque</th>
+              <th class="p-2" id="th-inicio">Inicio</th>
+              <th class="p-2" id="th-fin">Fin</th>
+              <th class="p-2" id="th-comentario">Comentario</th>
+              <th class="p-2" id="th-notas">Notas</th>
+              <th class="p-2" id="th-duracion">Duración</th>
+              <th class="p-2 text-center" id="th-acciones">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tabla-registros" class="divide-y dark:divide-gray-700"></tbody>
+        </table>
+      </div>
+
     </div>
 
   </div>
