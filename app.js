@@ -1,10 +1,10 @@
-// PEGA AQUÍ LA URL Y LA ANON KEY DE TU SUPABASE
-const SUPABASE_URL = 'https://TU-PROYECTO.supabase.co'; 
-const SUPABASE_KEY = 'TU-ANON-KEY-PUBLICA';
+// Configuración de conexión directa a Supabase con tus credenciales
+const SUPABASE_URL = 'https://oppieocootkgddhazikw.supabase.co'; 
+const SUPABASE_KEY = 'sb_publishable_6_pEKDfVrdKKuewB_qn_cw_fzNXPjT-';
 
 let supabaseClient = null;
 
-if (window.supabase && !SUPABASE_URL.includes('TU-PROYECTO')) {
+if (window.supabase) {
   supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 }
 
@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (supabaseClient) {
     cargarTareas();
   } else {
-    document.getElementById('tabla-body').innerHTML = '<tr><td colspan="10" style="color:red;">⚠️ Falta configurar la URL y la Anon Key de Supabase en app.js</td></tr>';
+    document.getElementById('tabla-body').innerHTML = '<tr><td colspan="10" style="color:red;">⚠️ Error al inicializar la librería de Supabase.</td></tr>';
   }
 });
 
@@ -133,10 +133,7 @@ function setHoraActual(inputId) {
 }
 
 async function copiarHoraFinAnterior() {
-  if (!supabaseClient) {
-    alert("Supabase no está configurado.");
-    return;
-  }
+  if (!supabaseClient) return;
   try {
     const { data, error } = await supabaseClient
       .from(TABLA)
@@ -182,7 +179,7 @@ async function cargarTareas() {
     }
 
     if (error) {
-      tablaBody.innerHTML = `<tr><td colspan="10">Error de conexión: ${error.message}</td></tr>`;
+      tablaBody.innerHTML = `<tr><td colspan="10" style="color:red;">Error de base de datos: ${error.message}</td></tr>`;
       return;
     }
 
@@ -208,16 +205,12 @@ async function cargarTareas() {
       </tr>
     `).join('');
   } catch(err) {
-    tablaBody.innerHTML = `<tr><td colspan="10">Error de red (Failed to fetch). Revisa tus datos de Supabase.</td></tr>`;
+    tablaBody.innerHTML = `<tr><td colspan="10" style="color:red;">Error de conexión (TypeError: Failed to fetch). Verifica que la tabla '${TABLA}' existe en Supabase y permite lectura pública.</td></tr>`;
   }
 }
 
 document.getElementById('tarea-form').addEventListener('submit', async (e) => {
   e.preventDefault();
-  if (!supabaseClient) {
-    alert('Introduce primero la URL y la Anon Key válidas en app.js para poder guardar.');
-    return;
-  }
 
   const registro = {
     fecha: document.getElementById('fecha').value,
@@ -241,7 +234,7 @@ document.getElementById('tarea-form').addEventListener('submit', async (e) => {
       cargarTareas();
     }
   } catch (err) {
-    alert('Error al conectar con Supabase. Revisa las credenciales en app.js.');
+    alert('Error de red al guardar en Supabase. Asegúrate de tener conexión a Internet.');
   }
 });
 

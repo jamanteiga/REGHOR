@@ -21,7 +21,13 @@
       --header-bg: #0b5ed7;
     }
 
-    body { font-family: Arial, sans-serif; margin: 20px; background-color: var(--bg-color); color: var(--text-color); transition: background 0.3s, color 0.3s; }
+    body { 
+      font-family: Arial, sans-serif; 
+      margin: 20px; 
+      background-color: var(--bg-color); 
+      color: var(--text-color); 
+      transition: background 0.3s, color 0.3s; 
+    }
     
     .header-container { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
     .controls-right { display: flex; gap: 10px; align-items: center; position: relative; }
@@ -175,7 +181,7 @@
         <input type="text" id="notas">
       </div>
 
-      <!-- Botón de tamaño ajustado al texto -->
+      <!-- Botón de tamaño ajustado exclusivamente al texto -->
       <div class="form-group">
         <button type="submit" id="btn-guardar" class="btn-submit">Guardar</button>
         <button type="button" id="btn-cancelar" class="btn-cancel" onclick="resetearFormulario()">Cancelar</button>
