@@ -33,17 +33,20 @@
     .dropdown-content a:hover { background-color: rgba(0,0,0,0.05); }
     .dropdown-chart:hover .dropdown-content { display: block; }
 
-    .flag-btn { background: none; border: none; font-size: 20px; cursor: pointer; padding: 2px 5px; }
-    .icon-btn { padding: 6px 12px; cursor: pointer; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-color); }
+    .flag-btn { background: none; border: 1px solid var(--border-color); border-radius: 4px; padding: 4px 8px; cursor: pointer; display: flex; align-items: center; gap: 5px; background: var(--card-bg); }
+    .flag-icon { width: 22px; height: 15px; display: inline-block; vertical-align: middle; }
+    
+    .icon-btn { padding: 6px 12px; cursor: pointer; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-color); font-weight: bold; }
 
     form, .modal-content { background: var(--card-bg); padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
     .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
     .form-group { display: flex; flex-direction: column; }
     .label-wrapper { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+    .label-wrapper label, .form-group > label { font-weight: bold; }
     
     input, select { padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--card-bg); color: var(--text-color); }
     
-    .btn-mini { padding: 3px 6px; font-size: 11px; cursor: pointer; border-radius: 3px; border: 1px solid var(--border-color); background: #e9ecef; color: #000; }
+    .btn-mini { padding: 3px 6px; font-size: 11px; cursor: pointer; border-radius: 3px; border: 1px solid var(--border-color); background: #e9ecef; color: #000; font-weight: bold; }
     body.dark-mode .btn-mini { background: #333; color: #fff; }
 
     .btn-container { margin-top: 15px; display: flex; gap: 10px; }
@@ -71,23 +74,31 @@
     <h1 id="txt-titulo">Registro de Obras y Tareas</h1>
     
     <div class="controls-right">
-      <!-- 3. Botón de Gráfico arriba a la derecha con menú desplegable -->
+      <!-- Menú de Gráficos -->
       <div class="dropdown-chart">
-        <button class="icon-btn">📊 Gráficos ▾</button>
+        <button class="icon-btn" id="btn-graficos">📊 Gráficos ▾</button>
         <div class="dropdown-content">
-          <a href="#" onclick="filtrarGrafico('proyecto')">Por Proyecto</a>
-          <a href="#" onclick="filtrarGrafico('proyecto-bloque')">Por Proyecto-Bloque</a>
-          <a href="#" onclick="filtrarGrafico('semana')">Por Semana</a>
-          <a href="#" onclick="filtrarGrafico('mes')">Por Mes</a>
-          <a href="#" onclick="filtrarGrafico('dia')">Por Día</a>
+          <a href="#" onclick="filtrarGrafico('proyecto'); return false;">Por Proyecto</a>
+          <a href="#" onclick="filtrarGrafico('proyecto-bloque'); return false;">Por Proyecto-Bloque</a>
+          <a href="#" onclick="filtrarGrafico('semana'); return false;">Por Semana</a>
+          <a href="#" onclick="filtrarGrafico('mes'); return false;">Por Mes</a>
+          <a href="#" onclick="filtrarGrafico('dia'); return false;">Por Día</a>
         </div>
       </div>
 
-      <!-- 1. Banderas ES / GL -->
-      <button class="flag-btn" onclick="cambiarIdioma('es')" title="Español">🇪🇸 ES</button>
-      <button class="flag-btn" onclick="cambiarIdioma('gl')" title="Galego">🟦 GL</button>
+      <!-- Banderas de Idioma -->
+      <button class="flag-btn" onclick="cambiarIdioma('es')" title="Español">
+        <span>🇪🇸</span>
+      </button>
+      <button class="flag-btn" onclick="cambiarIdioma('gl')" title="Galego">
+        <!-- SVG Oficial Bandera de Galicia -->
+        <svg class="flag-icon" viewBox="0 0 3 2">
+          <rect width="3" height="2" fill="#fff"/>
+          <path d="M0 0 L3 2" stroke="#009ac6" stroke-width="0.4"/>
+        </svg>
+      </button>
 
-      <!-- 2. Botón Modo Oscuro -->
+      <!-- Modo Oscuro -->
       <button class="icon-btn" onclick="toggleTheme()" id="btn-theme">🌙 Oscuro</button>
     </div>
   </div>
@@ -99,13 +110,13 @@
     <input type="hidden" id="tarea-id">
     
     <div class="form-grid">
-      <!-- 8. Fecha actual -->
+      <!-- Fecha por defecto -->
       <div class="form-group">
         <label for="fecha" id="lbl-fecha">Fecha</label>
         <input type="date" id="fecha" required>
       </div>
 
-      <!-- 4 y 6. Tarea con select y +config -->
+      <!-- Tarea -->
       <div class="form-group">
         <div class="label-wrapper">
           <label for="tarea" id="lbl-tarea">Tarea</label>
@@ -114,7 +125,7 @@
         <select id="tarea" required></select>
       </div>
 
-      <!-- 5 y 6. Proyecto con select y +config -->
+      <!-- Proyecto -->
       <div class="form-group">
         <div class="label-wrapper">
           <label for="proyecto" id="lbl-proyecto">Proyecto</label>
@@ -128,7 +139,7 @@
         <input type="text" id="bloque">
       </div>
 
-      <!-- 7. Botones Ahora y Copia -->
+      <!-- Hora Inicio -->
       <div class="form-group">
         <div class="label-wrapper">
           <label for="horainicio" id="lbl-horainicio">Hora Inicio</label>
@@ -140,6 +151,7 @@
         <input type="time" id="horainicio" required>
       </div>
 
+      <!-- Hora Fin -->
       <div class="form-group">
         <div class="label-wrapper">
           <label for="horafin" id="lbl-horafin">Hora Fin</label>
@@ -184,7 +196,7 @@
     <tbody id="tabla-body"></tbody>
   </table>
 
-  <!-- Ventana Modal +config -->
+  <!-- Modal +config -->
   <div id="modal-config" class="modal">
     <div class="modal-content">
       <span class="close-modal" onclick="cerrarConfig()">&times;</span>
