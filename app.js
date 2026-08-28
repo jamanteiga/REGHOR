@@ -1,4 +1,3 @@
-// CONFIGURACIÓN DE SUPABASE
 const SUPABASE_URL = 'https://TU-PROYECTO.supabase.co';
 const SUPABASE_KEY = 'TU-ANON-KEY-PUBLICA';
 
@@ -8,7 +7,6 @@ if (window.supabase) {
 }
 const TABLA = 'obras';
 
-// DATOS POR DEFECTO Y PERSISTENCIA
 const tareasDefecto = ['Revisión de planos', 'Hormigonado', 'Inspección', 'Mediciones'];
 const proyectosDefecto = ['Reforma Centro', 'Obra Norte', 'Mantenimiento General'];
 
@@ -18,53 +16,58 @@ let configData = {
 };
 
 let tipoConfigActual = '';
+let idiomaActual = 'es';
 
-// INICIALIZACIÓN
 document.addEventListener('DOMContentLoaded', () => {
   establecerFechaHoy();
   poblarSelects();
   
   if (supabaseClient) {
     cargarTareas();
-  } else {
-    console.warn('Supabase no está inicializado. Revisa las credenciales.');
   }
 });
 
-// 1. FECHA AUTOMÁTICA DEL DÍA ACTUAL
 function establecerFechaHoy() {
   const inputFecha = document.getElementById('fecha');
   const hoy = new Date();
-  
-  // Garantizar el formato YYYY-MM-DD
   const year = hoy.getFullYear();
   const month = String(hoy.getMonth() + 1).padStart(2, '0');
   const day = String(hoy.getDate()).padStart(2, '0');
-  
   inputFecha.value = `${year}-${month}-${day}`;
 }
 
-// 2. MODO CLARO / OSCURO
 function toggleTheme() {
   document.body.classList.toggle('dark-mode');
   const isDark = document.body.classList.contains('dark-mode');
   document.getElementById('btn-theme').textContent = isDark ? '☀️ Claro' : '🌙 Oscuro';
 }
 
-// 3. SELECTS TAREA Y PROYECTO
+// Rellenar selects y ordenar Tareas alfabéticamente
 function poblarSelects() {
   const selTarea = document.getElementById('tarea');
   const selProyecto = document.getElementById('proyecto');
   
+  // Ordenar alfabéticamente la lista de tareas
+  configData.tareas.sort((a, b) => a.localeCompare(b, idiomaActual, { sensitivity: 'base' }));
+
   if (selTarea) {
     selTarea.innerHTML = configData.tareas.map(t => `<option value="${t}">${t}</option>`).join('');
+    sincronizarComentario(); // Copiar la primera tarea en el comentario por defecto
   }
   if (selProyecto) {
     selProyecto.innerHTML = configData.proyectos.map(p => `<option value="${p}">${p}</option>`).join('');
   }
 }
 
-// 4. VENTANA EMERGENTE +CONFIG
+// Copia automáticamente el texto de Tarea a Comentario
+function sincronizarComentario() {
+  const selTarea = document.getElementById('tarea');
+  const inputComentario = document.getElementById('comentario');
+  if (selTarea && inputComentario) {
+    inputComentario.value = selTarea.value;
+  }
+}
+
 function abrirConfig(tipo) {
   tipoConfigActual = tipo;
   document.getElementById('modal-titulo').textContent = `Configurar ${tipo}`;
@@ -105,7 +108,6 @@ function eliminarOpcionConfig(idx) {
   poblarSelects();
 }
 
-// 5. HORA AHORA Y COPIA
 function setHoraActual(inputId) {
   const now = new Date();
   const hh = String(now.getHours()).padStart(2, '0');
@@ -115,7 +117,6 @@ function setHoraActual(inputId) {
 
 async function copiarHoraFinAnterior() {
   if (!supabaseClient) return;
-
   const { data, error } = await supabaseClient
     .from(TABLA)
     .select('horafin')
@@ -125,30 +126,25 @@ async function copiarHoraFinAnterior() {
   if (!error && data && data.length > 0 && data[0].horafin) {
     document.getElementById('horainicio').value = data[0].horafin;
   } else {
-    alert('No se encontró ninguna hora fin registrada en la base de datos.');
+    alert('No se encontró ninguna hora fin registrada.');
   }
 }
 
-// 6. MENÚ DE GRÁFICOS
 function filtrarGrafico(criterio) {
   alert(`Criterio de visualización seleccionado: ${criterio}`);
 }
 
-// 7. CARGAR Y MOSTRAR DATOS DESDE SUPABASE
 async function cargarTareas() {
   const tablaBody = document.getElementById('tabla-body');
   tablaBody.innerHTML = '<tr><td colspan="10">Cargando datos...</td></tr>';
-
   const hoyStr = document.getElementById('fecha').value;
 
-  // 1. Intentar cargar los registros de la fecha actual
   let { data: tareas, error } = await supabaseClient
     .from(TABLA)
     .select('*')
     .eq('fecha', hoyStr)
     .order('id', { ascending: false });
 
-  // 2. Si no hay nada hoy, traer al menos los últimos registros guardados
   if (!error && (!tareas || tareas.length === 0)) {
     const res = await supabaseClient
       .from(TABLA)
@@ -187,14 +183,9 @@ async function cargarTareas() {
   `).join('');
 }
 
-// GUARDAR NUEVO REGISTRO
 document.getElementById('tarea-form').addEventListener('submit', async (e) => {
   e.preventDefault();
-  
-  if (!supabaseClient) {
-    alert('Configura tus credenciales de Supabase en app.js');
-    return;
-  }
+  if (!supabaseClient) return;
 
   const registro = {
     fecha: document.getElementById('fecha').value,
@@ -210,23 +201,21 @@ document.getElementById('tarea-form').addEventListener('submit', async (e) => {
   const { error } = await supabaseClient.from(TABLA).insert([registro]);
 
   if (error) {
-    alert('Error al insertar registro: ' + error.message);
+    alert('Error al insertar: ' + error.message);
   } else {
-    document.getElementById('comentario').value = '';
     document.getElementById('notas').value = '';
+    sincronizarComentario();
     cargarTareas();
   }
 });
 
-// ELIMINAR REGISTRO
 async function borrarTarea(id) {
-  if (confirm('¿Seguro que deseas eliminar este registro?')) {
+  if (confirm('¿Eliminar este registro?')) {
     await supabaseClient.from(TABLA).delete().eq('id', id);
     cargarTareas();
   }
 }
 
-// CÁLCULO DE DURACIÓN
 function calcularDuracion(horaInicio, horaFin) {
   if (!horaInicio || !horaFin) return "00:00";
   const [hIni, mIni] = horaInicio.split(':').map(Number);
@@ -236,11 +225,11 @@ function calcularDuracion(horaInicio, horaFin) {
   return `${String(Math.floor(dif / 60)).padStart(2, '0')}:${String(dif % 60).padStart(2, '0')}`;
 }
 
-// CAMBIO DE IDIOMA
 function cambiarIdioma(lang) {
+  idiomaActual = lang;
   const t = {
-    es: { titulo: 'Registro de Obras y Tareas', fecha: 'Fecha', tarea: 'Tarea', proyecto: 'Proyecto', listado: 'Listado de Tareas', graficos: '📊 Gráficos ▾' },
-    gl: { titulo: 'Rexistro de Obras e Tascas', fecha: 'Data', tarea: 'Tasca', proyecto: 'Proxecto', listado: 'Listaxe de Tascas', graficos: '📊 Gráficos ▾' }
+    es: { titulo: 'Registro de Obras y Tareas', fecha: 'Fecha', tarea: 'Tarea', proyecto: 'Proyecto', listado: 'Listado de Tareas', graficos: '📊 Gráficos ▾', guardar: 'Guardar' },
+    gl: { titulo: 'Rexistro de Obras e Tarefas', fecha: 'Data', tarea: 'Tarefa', proyecto: 'Proxecto', listado: 'Listaxe de Tarefas', graficos: '📊 Gráficos ▾', guardar: 'Gardar' }
   }[lang];
 
   document.getElementById('txt-titulo').textContent = t.titulo;
@@ -249,4 +238,11 @@ function cambiarIdioma(lang) {
   document.getElementById('lbl-proyecto').textContent = t.proyecto;
   document.getElementById('txt-listado').textContent = t.listado;
   document.getElementById('btn-graficos').textContent = t.graficos;
+  document.getElementById('btn-guardar').textContent = t.guardar;
+
+  document.getElementById('th-fecha').textContent = t.fecha;
+  document.getElementById('th-tarea').textContent = t.tarea;
+  document.getElementById('th-proyecto').textContent = t.proyecto;
+
+  poblarSelects(); // Reordenar alfabéticamente según las normas del idioma seleccionado
 }
