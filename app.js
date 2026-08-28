@@ -1,4 +1,3 @@
-// --- ESTADO Y DATOS INICIALES ---
 let listaProyectos = ["ABAC", "BAC2", "BLOR", "COM", "DES", "FOR", "INFO", "INT", "MAN", "NAV", "PROG", "VAC"];
 
 let listaTareas = [
@@ -31,10 +30,10 @@ let listaTareas = [
 let tareas = [];
 let chart = null;
 let modoModal = 'proyectos';
-let tipoGraficoActual = 'proyecto'; // 'proyecto', 'proyecto-bloque', 'tarea', 'evolucion'
+let tipoGraficoActual = 'proyecto';
 let idiomaActual = 'es';
 
-// --- DICCIONARIO DE TRADUCCIÓN (ESPAÑOL / GALEGO) ---
+// --- DICCIONARIO DE TRADUCCIÓN ---
 const i18n = {
   es: {
     darkOn: "Modo Claro",
@@ -111,11 +110,14 @@ const i18n = {
 // --- MODO OSCURO ---
 const btnDarkMode = document.getElementById('btn-dark-mode');
 const txtDarkMode = document.getElementById('txt-dark-mode');
+const iconDarkMode = document.getElementById('icon-dark-mode');
 const htmlRoot = document.getElementById('html-root');
 
 btnDarkMode.addEventListener('click', () => {
   htmlRoot.classList.toggle('dark');
   const isDark = htmlRoot.classList.contains('dark');
+  
+  iconDarkMode.textContent = isDark ? '☀️' : '🌙';
   txtDarkMode.textContent = isDark ? i18n[idiomaActual].darkOn : i18n[idiomaActual].darkOff;
 });
 
@@ -127,7 +129,6 @@ function cambiarIdioma(lang) {
   idiomaActual = lang;
   const t = i18n[lang];
 
-  // Traducir etiquetas estáticas
   txtDarkMode.textContent = htmlRoot.classList.contains('dark') ? t.darkOn : t.darkOff;
   document.getElementById('txt-menu-graficos').textContent = t.graficos;
   
@@ -150,7 +151,6 @@ function cambiarIdioma(lang) {
   document.getElementById('lbl-horas-bloque').textContent = t.horasBloque;
   document.getElementById('btn-limpiar-filtros').textContent = t.limpiarFiltros;
 
-  // Encabezados de Tabla
   document.getElementById('th-fecha').textContent = t.fecha;
   document.getElementById('th-tarea').textContent = t.tarea;
   document.getElementById('th-proyecto').textContent = t.proyecto;
@@ -162,7 +162,6 @@ function cambiarIdioma(lang) {
   document.getElementById('th-duracion').textContent = t.duracion;
   document.getElementById('th-acciones').textContent = t.acciones;
 
-  // Traducir selectores de menú
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const key = el.getAttribute('data-i18n');
     if (t[key]) el.textContent = t[key];
@@ -172,7 +171,6 @@ function cambiarIdioma(lang) {
   renderTabla();
 }
 
-// Cargar fecha actual
 function setFechaDefecto() {
   const inputFecha = document.getElementById('fecha');
   if (inputFecha && !inputFecha.value) {
@@ -184,7 +182,6 @@ function setFechaDefecto() {
   }
 }
 
-// Renderizar Select Proyectos
 function renderProyectosSelect() {
   const select = document.getElementById('proyecto');
   if (!select) return;
@@ -199,7 +196,6 @@ function renderProyectosSelect() {
   select.value = valPrevio && listaProyectos.includes(valPrevio) ? valPrevio : (listaProyectos.includes("BAC2") ? "BAC2" : listaProyectos[0]);
 }
 
-// Renderizar Select Tareas
 function renderTareasSelect() {
   const select = document.getElementById('tarea');
   if (!select) return;
@@ -214,7 +210,6 @@ function renderTareasSelect() {
   if (valPrevio && listaTareas.includes(valPrevio)) select.value = valPrevio;
 }
 
-// Rellenar Opciones de los Filtros de Tabla
 function renderFiltrosSelects() {
   const selProj = document.getElementById('filtro-proyecto');
   const selTar = document.getElementById('filtro-tarea');
@@ -235,7 +230,6 @@ function renderFiltrosSelects() {
   selTar.value = currTar;
 }
 
-// Calcular Duración HH:mm
 function calcularDuracion() {
   const hInicio = document.getElementById('hora-inicio').value;
   const hFin = document.getElementById('hora-fin').value;
@@ -261,7 +255,6 @@ function calcularDuracion() {
   }
 }
 
-// Botones Auxiliares de Horas
 document.getElementById('btn-hora-actual').addEventListener('click', () => {
   const ahora = new Date();
   const hh = String(ahora.getHours()).padStart(2, '0');
@@ -283,7 +276,7 @@ document.getElementById('btn-usar-ultima-fin').addEventListener('click', () => {
 document.getElementById('hora-inicio').addEventListener('change', calcularDuracion);
 document.getElementById('hora-fin').addEventListener('change', calcularDuracion);
 
-// --- TABLA, FILTROS Y EDICIÓN ---
+// --- TABLA Y FILTROS ---
 const filtroFecha = document.getElementById('filtro-fecha');
 const filtroProyecto = document.getElementById('filtro-proyecto');
 const filtroTarea = document.getElementById('filtro-tarea');
@@ -300,7 +293,6 @@ btnLimpiarFiltros.addEventListener('click', () => {
   renderTabla();
 });
 
-// Renderizar Tabla con Filtros y Totales
 function renderTabla() {
   const tbody = document.getElementById('tabla-registros');
   if (!tbody) return;
@@ -312,7 +304,6 @@ function renderTabla() {
   const fProj = filtroProyecto.value;
   const fTar = filtroTarea.value;
 
-  // Filtrado de la lista
   const tareasFiltradas = tareas.filter(t => {
     if (fFecha && t.fecha !== fFecha) return false;
     if (fProj && t.proyecto !== fProj) return false;
@@ -321,7 +312,6 @@ function renderTabla() {
   });
 
   tareasFiltradas.slice().reverse().forEach((t) => {
-    // Sumar duración si es válida
     if (t.duracion && t.duracion !== 'Error') {
       const [h, m] = t.duracion.split(':').map(Number);
       totalMinutosFiltrados += (h * 60) + m;
@@ -348,14 +338,12 @@ function renderTabla() {
     tbody.appendChild(tr);
   });
 
-  // Mostrar Total de la jornada filtrada
   const horasTot = Math.floor(totalMinutosFiltrados / 60);
   const minTot = totalMinutosFiltrados % 60;
   document.getElementById('total-horas-jornada').textContent = 
     `${String(horasTot).padStart(2, '0')}:${String(minTot).padStart(2, '0')}h`;
 }
 
-// Cargar datos en el formulario para editar
 window.prepararEdicion = function(index) {
   const t = tareas[index];
   document.getElementById('edit-index').value = index;
@@ -374,7 +362,6 @@ window.prepararEdicion = function(index) {
   document.getElementById('btn-cancelar-edit').classList.remove('hidden');
 };
 
-// Cancelar modo edición
 document.getElementById('btn-cancelar-edit').addEventListener('click', resetearFormulario);
 
 function resetearFormulario() {
@@ -390,7 +377,6 @@ function resetearFormulario() {
   setFechaDefecto();
 }
 
-// Eliminar Registro
 window.eliminarRegistro = function(index) {
   if (confirm(i18n[idiomaActual].confirmBorrar)) {
     tareas.splice(index, 1);
@@ -399,7 +385,6 @@ window.eliminarRegistro = function(index) {
   }
 };
 
-// Formulario Submit (Crear o Editar)
 document.getElementById('task-form').addEventListener('submit', (e) => {
   e.preventDefault();
 
@@ -501,7 +486,6 @@ function abrirGrafico(titulo, mostrarBloques) {
 function actualizarGraficoSiVisible() {
   if (panelGrafico.classList.contains('hidden')) return;
 
-  // Filtrar tareas por rango temporal
   const rango = filtroRangoGrafico.value;
   const hoyStr = new Date().toISOString().split('T')[0];
   const ahora = new Date();
@@ -516,7 +500,7 @@ function actualizarGraficoSiVisible() {
     if (rango === 'mes') {
       return t.fecha.startsWith(hoyStr.substring(0, 7));
     }
-    return true; // todo
+    return true;
   });
 
   if (tipoGraficoActual === 'proyecto') {
@@ -561,7 +545,6 @@ function generarGraficoEvolucionBarras(lista) {
     }
   });
 
-  // Ordenar fechas cronológicamente
   const fechasOrdenadas = Object.keys(datosPorFecha).sort();
   const valores = fechasOrdenadas.map(f => datosPorFecha[f].toFixed(2));
 
@@ -626,7 +609,7 @@ function generarResumenBloquesConColores(lista) {
   });
 }
 
-// Modal Configuración Tareas/Proyectos
+// Modal Configuración
 const modal = document.getElementById('modal-config');
 
 document.getElementById('btn-gestionar-proyectos').addEventListener('click', () => {

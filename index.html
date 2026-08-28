@@ -6,6 +6,11 @@
   <title>REGHOR - Registro de Tareas</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+    }
+  </script>
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
@@ -16,27 +21,25 @@
     <div class="w-full flex flex-wrap justify-between items-center bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm gap-2">
       <div class="flex items-center gap-3">
         <h1 class="text-xl font-bold text-gray-800 dark:text-white">REGHOR</h1>
+        
         <!-- Banderas de Idioma -->
-        <div class="flex items-center gap-1.5 border-l pl-3 border-gray-300 dark:border-gray-700">
-          <button id="btn-lang-es" title="Español" class="hover:opacity-80 transition-opacity">
-            <svg class="w-6 h-4 rounded shadow-sm" viewBox="0 0 750 500">
-              <rect width="750" height="500" fill="#c60b1e"/>
-              <rect width="750" height="250" y="125" fill="#ffc400"/>
-            </svg>
+        <div class="flex items-center gap-2 border-l pl-3 border-gray-300 dark:border-gray-700">
+          <!-- Bandera España -->
+          <button id="btn-lang-es" title="Español" class="hover:scale-110 transition-transform focus:outline-none">
+            <img src="https://flagcdn.com/w40/es.png" alt="Español" class="w-6 h-4 rounded shadow-sm object-cover">
           </button>
-          <button id="btn-lang-gl" title="Galego" class="hover:opacity-80 transition-opacity">
-            <svg class="w-6 h-4 rounded shadow-sm border border-gray-200" viewBox="0 0 3 2">
-              <rect width="3" height="2" fill="#fff"/>
-              <path d="M0 0 L3 2" stroke="#0099ce" stroke-width="0.4"/>
-            </svg>
+          <!-- Bandera Galicia -->
+          <button id="btn-lang-gl" title="Galego" class="hover:scale-110 transition-transform focus:outline-none">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/64/Flag_of_Galicia.svg/40px-Flag_of_Galicia.svg.png" alt="Galego" class="w-6 h-4 rounded shadow-sm border border-gray-200 object-cover">
           </button>
         </div>
       </div>
 
       <div class="flex items-center gap-3">
-        <!-- Modo Oscuro Toggle -->
-        <button id="btn-dark-mode" class="p-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600">
-          🌙 <span id="txt-dark-mode">Modo Oscuro</span>
+        <!-- Botón Modo Oscuro / Claro -->
+        <button id="btn-dark-mode" type="button" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-xs font-semibold text-gray-800 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600 shadow-sm transition-colors cursor-pointer">
+          <span id="icon-dark-mode">🌙</span>
+          <span id="txt-dark-mode">Modo Oscuro</span>
         </button>
 
         <!-- Menú Desplegable Gráficos -->
@@ -45,7 +48,7 @@
             📊 <span id="txt-menu-graficos">Gráficos</span> ▾
           </button>
 
-          <div id="dropdown-menu-graficos" class="hidden origin-top-right absolute right-0 mt-2 w-52 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 z-50">
+          <div id="dropdown-menu-graficos" class="hidden origin-top-right absolute right-0 mt-2 w-52 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 z-50 border border-gray-100 dark:border-gray-700">
             <div class="py-1">
               <button id="opcion-por-proyecto" class="w-full text-left px-4 py-2 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" data-i18n="grafProyecto">Por proyecto</button>
               <button id="opcion-por-proyecto-bloque" class="w-full text-left px-4 py-2 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" data-i18n="grafProyectoBloque">Por Proyecto-Bloque</button>
@@ -62,7 +65,6 @@
       <h2 id="lbl-nueva-tarea" class="text-base font-semibold mb-3 text-gray-700 dark:text-gray-200">Nueva Tarea</h2>
       
       <form id="task-form" class="w-full flex flex-wrap lg:flex-nowrap items-end gap-2" novalidate>
-        <!-- Campo Oculto para Edición -->
         <input type="hidden" id="edit-index" value="-1">
 
         <!-- Fecha -->
@@ -165,7 +167,6 @@
       <div class="flex flex-wrap justify-between items-center mb-3 gap-2">
         <h2 id="titulo-grafico" class="text-base font-semibold text-gray-700 dark:text-gray-200">Gráfico</h2>
         
-        <!-- Filtro Rango Temporal para Gráfico -->
         <div class="flex items-center gap-2">
           <label id="lbl-rango-grafico" class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">Rango:</label>
           <select id="filtro-rango-grafico" class="border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded p-1 text-xs">
@@ -178,7 +179,6 @@
         </div>
       </div>
 
-      <!-- Resumen de Horas por Bloques (Visible solo en vista 'Por proyecto') -->
       <div id="contenedor-resumen-bloques" class="mb-4 hidden">
         <h3 id="lbl-horas-bloque" class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2">Horas por Bloque</h3>
         <div id="lista-resumen-bloques" class="flex flex-wrap gap-2"></div>
@@ -192,7 +192,6 @@
     <!-- Tabla de Registros + Filtros y Totales -->
     <div class="w-full bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md">
       
-      <!-- Barra Superior Tabla: Filtros y Totales -->
       <div class="flex flex-wrap justify-between items-center mb-4 gap-3 bg-gray-50 dark:bg-gray-700/50 p-3 rounded-md border border-gray-200 dark:border-gray-700">
         <div>
           <h2 id="lbl-registros" class="text-base font-semibold text-gray-700 dark:text-gray-200">Registros</h2>
@@ -201,30 +200,24 @@
           </div>
         </div>
 
-        <!-- Filtros de Tabla -->
         <div class="flex flex-wrap items-center gap-2">
-          <!-- Filtro Fecha -->
           <div>
             <input type="date" id="filtro-fecha" class="border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded p-1 text-xs">
           </div>
-          <!-- Filtro Proyecto -->
           <div>
             <select id="filtro-proyecto" class="border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded p-1 text-xs">
               <option value="" data-i18n="todosProyectos">Todos los proyectos</option>
             </select>
           </div>
-          <!-- Filtro Tarea -->
           <div>
             <select id="filtro-tarea" class="border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded p-1 text-xs">
               <option value="" data-i18n="todasTareas">Todas las tareas</option>
             </select>
           </div>
-          <!-- Limpiar Filtros -->
           <button id="btn-limpiar-filtros" class="text-xs bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 text-gray-700 dark:text-gray-200 px-2 py-1 rounded" data-i18n="limpiarFiltros">Limpiar</button>
         </div>
       </div>
 
-      <!-- Tabla Responsiva -->
       <div class="overflow-x-auto">
         <table class="w-full text-left text-xs border-collapse">
           <thead>
