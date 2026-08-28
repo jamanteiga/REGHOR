@@ -1,18 +1,18 @@
-const SUPABASE_URL = 'https://TU-PROYECTO.supabase.co';
+// PEGA AQUÍ LA URL Y LA ANON KEY DE TU SUPABASE
+const SUPABASE_URL = 'https://TU-PROYECTO.supabase.co'; 
 const SUPABASE_KEY = 'TU-ANON-KEY-PUBLICA';
 
 let supabaseClient = null;
-if (window.supabase) {
+
+if (window.supabase && !SUPABASE_URL.includes('TU-PROYECTO')) {
   supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 }
+
 const TABLA = 'obras';
 
-const tareasDefecto = ['Revisión de planos', 'Hormigonado', 'Inspección', 'Mediciones'];
-const proyectosDefecto = ['Reforma Centro', 'Obra Norte', 'Mantenimiento General'];
-
 let configData = {
-  tareas: JSON.parse(localStorage.getItem('cfg_tareas')) || tareasDefecto,
-  proyectos: JSON.parse(localStorage.getItem('cfg_proyectos')) || proyectosDefecto
+  tareas: JSON.parse(localStorage.getItem('cfg_tareas')) || [],
+  proyectos: JSON.parse(localStorage.getItem('cfg_proyectos')) || []
 };
 
 let tipoConfigActual = '';
@@ -24,8 +24,24 @@ document.addEventListener('DOMContentLoaded', () => {
   
   if (supabaseClient) {
     cargarTareas();
+  } else {
+    document.getElementById('tabla-body').innerHTML = '<tr><td colspan="10" style="color:red;">⚠️ Falta configurar la URL y la Anon Key de Supabase en app.js</td></tr>';
   }
 });
+
+window.addEventListener('click', (e) => {
+  if (!e.target.matches('#btn-graficos')) {
+    const dropdown = document.getElementById('dropdown-graficos-container');
+    if (dropdown && dropdown.classList.contains('show')) {
+      dropdown.classList.remove('show');
+    }
+  }
+});
+
+function toggleDropdownGraficos(e) {
+  e.stopPropagation();
+  document.getElementById('dropdown-graficos-container').classList.toggle('show');
+}
 
 function establecerFechaHoy() {
   const inputFecha = document.getElementById('fecha');
@@ -42,28 +58,29 @@ function toggleTheme() {
   document.getElementById('btn-theme').textContent = isDark ? '☀️ Claro' : '🌙 Oscuro';
 }
 
-// Rellenar selects y ordenar Tareas alfabéticamente
 function poblarSelects() {
   const selTarea = document.getElementById('tarea');
   const selProyecto = document.getElementById('proyecto');
   
-  // Ordenar alfabéticamente la lista de tareas
   configData.tareas.sort((a, b) => a.localeCompare(b, idiomaActual, { sensitivity: 'base' }));
 
   if (selTarea) {
-    selTarea.innerHTML = configData.tareas.map(t => `<option value="${t}">${t}</option>`).join('');
-    sincronizarComentario(); // Copiar la primera tarea en el comentario por defecto
+    selTarea.innerHTML = configData.tareas.length > 0 
+      ? configData.tareas.map(t => `<option value="${t}">${t}</option>`).join('')
+      : '<option value="">-- Añade tareas con +config --</option>';
+    sincronizarComentario();
   }
   if (selProyecto) {
-    selProyecto.innerHTML = configData.proyectos.map(p => `<option value="${p}">${p}</option>`).join('');
+    selProyecto.innerHTML = configData.proyectos.length > 0
+      ? configData.proyectos.map(p => `<option value="${p}">${p}</option>`).join('')
+      : '<option value="">-- Añade proyectos con +config --</option>';
   }
 }
 
-// Copia automáticamente el texto de Tarea a Comentario
 function sincronizarComentario() {
   const selTarea = document.getElementById('tarea');
   const inputComentario = document.getElementById('comentario');
-  if (selTarea && inputComentario) {
+  if (selTarea && inputComentario && selTarea.value && !selTarea.value.includes('--')) {
     inputComentario.value = selTarea.value;
   }
 }
@@ -116,22 +133,30 @@ function setHoraActual(inputId) {
 }
 
 async function copiarHoraFinAnterior() {
-  if (!supabaseClient) return;
-  const { data, error } = await supabaseClient
-    .from(TABLA)
-    .select('horafin')
-    .order('id', { ascending: false })
-    .limit(1);
+  if (!supabaseClient) {
+    alert("Supabase no está configurado.");
+    return;
+  }
+  try {
+    const { data, error } = await supabaseClient
+      .from(TABLA)
+      .select('horafin')
+      .order('id', { ascending: false })
+      .limit(1);
 
-  if (!error && data && data.length > 0 && data[0].horafin) {
-    document.getElementById('horainicio').value = data[0].horafin;
-  } else {
-    alert('No se encontró ninguna hora fin registrada.');
+    if (!error && data && data.length > 0 && data[0].horafin) {
+      document.getElementById('horainicio').value = data[0].horafin;
+    } else {
+      alert('No se encontró ninguna hora fin registrada.');
+    }
+  } catch(e) {
+    alert("Error de conexión al consultar Supabase.");
   }
 }
 
 function filtrarGrafico(criterio) {
   alert(`Criterio de visualización seleccionado: ${criterio}`);
+  document.getElementById('dropdown-graficos-container').classList.remove('show');
 }
 
 async function cargarTareas() {
@@ -139,53 +164,60 @@ async function cargarTareas() {
   tablaBody.innerHTML = '<tr><td colspan="10">Cargando datos...</td></tr>';
   const hoyStr = document.getElementById('fecha').value;
 
-  let { data: tareas, error } = await supabaseClient
-    .from(TABLA)
-    .select('*')
-    .eq('fecha', hoyStr)
-    .order('id', { ascending: false });
-
-  if (!error && (!tareas || tareas.length === 0)) {
-    const res = await supabaseClient
+  try {
+    let { data: tareas, error } = await supabaseClient
       .from(TABLA)
       .select('*')
-      .order('id', { ascending: false })
-      .limit(15);
-    tareas = res.data;
-    error = res.error;
-  }
+      .eq('fecha', hoyStr)
+      .order('id', { ascending: false });
 
-  if (error) {
-    tablaBody.innerHTML = `<tr><td colspan="10">Error de conexión: ${error.message}</td></tr>`;
-    return;
-  }
+    if (!error && (!tareas || tareas.length === 0)) {
+      const res = await supabaseClient
+        .from(TABLA)
+        .select('*')
+        .order('id', { ascending: false })
+        .limit(15);
+      tareas = res.data;
+      error = res.error;
+    }
 
-  if (!tareas || tareas.length === 0) {
-    tablaBody.innerHTML = '<tr><td colspan="10">No existen registros guardados.</td></tr>';
-    return;
-  }
+    if (error) {
+      tablaBody.innerHTML = `<tr><td colspan="10">Error de conexión: ${error.message}</td></tr>`;
+      return;
+    }
 
-  tablaBody.innerHTML = tareas.map(item => `
-    <tr>
-      <td>${item.fecha || ''}</td>
-      <td>${item.tarea || ''}</td>
-      <td>${item.proyecto || ''}</td>
-      <td>${item.bloque || ''}</td>
-      <td>${item.horainicio || ''}</td>
-      <td>${item.horafin || ''}</td>
-      <td><strong>${calcularDuracion(item.horainicio, item.horafin)}</strong></td>
-      <td>${item.comentario || ''}</td>
-      <td>${item.notas || ''}</td>
-      <td>
-        <button class="btn-mini" onclick="borrarTarea(${item.id})">Eliminar</button>
-      </td>
-    </tr>
-  `).join('');
+    if (!tareas || tareas.length === 0) {
+      tablaBody.innerHTML = '<tr><td colspan="10">No existen registros guardados.</td></tr>';
+      return;
+    }
+
+    tablaBody.innerHTML = tareas.map(item => `
+      <tr>
+        <td>${item.fecha || ''}</td>
+        <td>${item.tarea || ''}</td>
+        <td>${item.proyecto || ''}</td>
+        <td>${item.bloque || ''}</td>
+        <td>${item.horainicio || ''}</td>
+        <td>${item.horafin || ''}</td>
+        <td><strong>${calcularDuracion(item.horainicio, item.horafin)}</strong></td>
+        <td>${item.comentario || ''}</td>
+        <td>${item.notas || ''}</td>
+        <td>
+          <button class="btn-mini" onclick="borrarTarea(${item.id})">Eliminar</button>
+        </td>
+      </tr>
+    `).join('');
+  } catch(err) {
+    tablaBody.innerHTML = `<tr><td colspan="10">Error de red (Failed to fetch). Revisa tus datos de Supabase.</td></tr>`;
+  }
 }
 
 document.getElementById('tarea-form').addEventListener('submit', async (e) => {
   e.preventDefault();
-  if (!supabaseClient) return;
+  if (!supabaseClient) {
+    alert('Introduce primero la URL y la Anon Key válidas en app.js para poder guardar.');
+    return;
+  }
 
   const registro = {
     fecha: document.getElementById('fecha').value,
@@ -198,14 +230,18 @@ document.getElementById('tarea-form').addEventListener('submit', async (e) => {
     notas: document.getElementById('notas').value
   };
 
-  const { error } = await supabaseClient.from(TABLA).insert([registro]);
+  try {
+    const { error } = await supabaseClient.from(TABLA).insert([registro]);
 
-  if (error) {
-    alert('Error al insertar: ' + error.message);
-  } else {
-    document.getElementById('notas').value = '';
-    sincronizarComentario();
-    cargarTareas();
+    if (error) {
+      alert('Error de Supabase: ' + error.message);
+    } else {
+      document.getElementById('notas').value = '';
+      sincronizarComentario();
+      cargarTareas();
+    }
+  } catch (err) {
+    alert('Error al conectar con Supabase. Revisa las credenciales en app.js.');
   }
 });
 
@@ -244,5 +280,5 @@ function cambiarIdioma(lang) {
   document.getElementById('th-tarea').textContent = t.tarea;
   document.getElementById('th-proyecto').textContent = t.proyecto;
 
-  poblarSelects(); // Reordenar alfabéticamente según las normas del idioma seleccionado
+  poblarSelects();
 }
