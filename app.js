@@ -1,82 +1,181 @@
-// ==========================================
-// 1. CONFIGURACIÓN DE SUPABASE
-// ==========================================
-// Sustituye estos dos valores por las credenciales de tu proyecto
 const SUPABASE_URL = 'https://TU-PROYECTO.supabase.co';
 const SUPABASE_KEY = 'TU-ANON-KEY-PUBLICA';
-
 const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const TABLA = 'obras';
 
-// Referencias a elementos de la interfaz (DOM)
-const form = document.getElementById('tarea-form');
-const tablaBody = document.getElementById('tabla-body');
-const inputId = document.getElementById('tarea-id');
-const btnGuardar = document.getElementById('btn-guardar');
-const btnCancelar = document.getElementById('btn-cancelar');
+// Listas de configuración (Persistidas en localStorage)
+let configData = {
+  tareas: JSON.parse(localStorage.getItem('cfg_tareas')) || ['Revisión de planos', 'Hormigonado', 'Inspección'],
+  proyectos: JSON.parse(localStorage.getItem('cfg_proyectos')) || ['Reforma Centro', 'Obra Norte', 'Mantenimiento']
+};
 
-// Inicialización de eventos al cargar la página
-document.addEventListener('DOMContentLoaded', cargarTareas);
-form.addEventListener('submit', guardarOActualizar);
+let tipoConfigActual = '';
+let idiomaActual = 'es';
 
-// ==========================================
-// 2. LÓGICA Y OPERACIONES CRUD
-// ==========================================
+const traducciones = {
+  es: {
+    titulo: 'Registro de Obras y Tareas',
+    graficos: 'Visualización / Gráficos',
+    agrupar: 'Agrupar por:',
+    fecha: 'Fecha', tarea: 'Tarea', proyecto: 'Proyecto', bloque: 'Bloque',
+    horainicio: 'Hora Inicio', horafin: 'Hora Fin', comentario: 'Comentario', notas: 'Notas',
+    guardar: 'Guardar Tarea', listado: 'Listado de Tareas', acciones: 'Acciones', duracion: 'Duración'
+  },
+  gl: {
+    titulo: 'Rexistro de Obras e Tascas',
+    graficos: 'Visualización / Gráficos',
+    agrupar: 'Agrupar por:',
+    fecha: 'Data', tarea: 'Tasca', proyecto: 'Proxecto', bloque: 'Bloque',
+    horainicio: 'Hora Inicio', horafin: 'Hora Fin', comentario: 'Comentario', notas: 'Notas',
+    guardar: 'Gardar Tasca', listado: 'Listaxe de Tascas', acciones: 'Accións', duracion: 'Duración'
+  }
+};
 
-/**
- * Consulta la base de datos y renderiza las filas en la tabla HTML.
- */
-async function cargarTareas() {
-  tablaBody.innerHTML = '<tr><td colspan="10">Cargando tareas...</td></tr>';
+document.addEventListener('DOMContentLoaded', () => {
+  // 8. Fecha por defecto en el día actual (YYYY-MM-DD)
+  document.getElementById('fecha').value = new Date().toISOString().split('T')[0];
   
-  const { data: tareas, error } = await supabase
-    .from(TABLA)
-    .select('*')
-    .order('fecha', { ascending: false });
+  poblarSelects();
+  cargarTareas();
+});
 
-  if (error) {
-    console.error('Error al cargar datos:', error.message);
-    mostrarNotificacion('Error al cargar la lista de tareas: ' + error.message, true);
-    tablaBody.innerHTML = '<tr><td colspan="10">Error al obtener los datos.</td></tr>';
+// 1. Idioma
+function cambiarIdioma(lang) {
+  idiomaActual = lang;
+  const t = traducciones[lang];
+  document.getElementById('txt-titulo').textContent = t.titulo;
+  document.getElementById('txt-graficos').textContent = t.graficos;
+  document.getElementById('lbl-agrupar').textContent = t.agrupar;
+  document.getElementById('lbl-fecha').textContent = t.fecha;
+  document.getElementById('lbl-tarea').textContent = t.tarea;
+  document.getElementById('lbl-proyecto').textContent = t.proyecto;
+  document.getElementById('lbl-bloque').textContent = t.bloque;
+  document.getElementById('lbl-horainicio').textContent = t.horainicio;
+  document.getElementById('lbl-horafin').textContent = t.horafin;
+  document.getElementById('lbl-comentario').textContent = t.comentario;
+  document.getElementById('lbl-notas').textContent = t.notas;
+  document.getElementById('btn-guardar').textContent = t.guardar;
+  document.getElementById('txt-listado').textContent = t.listado;
+  
+  document.getElementById('th-fecha').textContent = t.fecha;
+  document.getElementById('th-tarea').textContent = t.tarea;
+  document.getElementById('th-proyecto').textContent = t.proyecto;
+  document.getElementById('th-bloque').textContent = t.bloque;
+  document.getElementById('th-inicio').textContent = 'Inicio';
+  document.getElementById('th-fin').textContent = 'Fin';
+  document.getElementById('th-duracion').textContent = t.duracion;
+  document.getElementById('th-comentario').textContent = t.comentario;
+  document.getElementById('th-notas').textContent = t.notas;
+  document.getElementById('th-acciones').textContent = t.acciones;
+}
+
+// 2. Modo Claro / Oscuro
+function toggleTheme() {
+  document.body.classList.toggle('dark-mode');
+  const isDark = document.body.classList.contains('dark-mode');
+  document.getElementById('btn-theme').textContent = isDark ? '☀️ Modo Claro' : '🌙 Modo Oscuro';
+}
+
+// 4 y 5. Llenar Selects desde configuración
+function poblarSelects() {
+  const selTarea = document.getElementById('tarea');
+  const selProyecto = document.getElementById('proyecto');
+  
+  selTarea.innerHTML = configData.tareas.map(t => `<option value="${t}">${t}</option>`).join('');
+  selProyecto.innerHTML = configData.proyectos.map(p => `<option value="${p}">${p}</option>`).join('');
+}
+
+// 6. Ventana emergente Modal +config
+function abrirConfig(tipo) {
+  tipoConfigActual = tipo;
+  document.getElementById('modal-titulo').textContent = `Configurar ${tipo}`;
+  renderListaConfig();
+  document.getElementById('modal-config').style.display = 'flex';
+}
+
+function cerrarConfig() {
+  document.getElementById('modal-config').style.display = 'none';
+}
+
+function renderListaConfig() {
+  const ul = document.getElementById('lista-config');
+  ul.innerHTML = configData[tipoConfigActual].map((item, idx) => `
+    <li style="display:flex; justify-content:space-between; margin-bottom:5px;">
+      <span>${item}</span>
+      <button type="button" onclick="eliminarOpcionConfig(${idx})">🗑️</button>
+    </li>
+  `).join('');
+}
+
+function agregarOpcionConfig() {
+  const val = document.getElementById('nuevo-valor-config').value.trim();
+  if (val) {
+    configData[tipoConfigActual].push(val);
+    localStorage.setItem(`cfg_${tipoConfigActual}`, JSON.stringify(configData[tipoConfigActual]));
+    document.getElementById('nuevo-valor-config').value = '';
+    renderListaConfig();
+    poblarSelects();
+  }
+}
+
+function eliminarOpcionConfig(idx) {
+  configData[tipoConfigActual].splice(idx, 1);
+  localStorage.setItem(`cfg_${tipoConfigActual}`, JSON.stringify(configData[tipoConfigActual]));
+  renderListaConfig();
+  poblarSelects();
+}
+
+// 7. Botones "Ahora" y "Copia"
+function setHoraActual(inputId) {
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  document.getElementById(inputId).value = `${hh}:${mm}`;
+}
+
+async function copiarHoraFinAnterior() {
+  const { data } = await supabase.from(TABLA).select('horafin').order('id', { ascending: false }).limit(1);
+  if (data && data.length > 0 && data[0].horafin) {
+    document.getElementById('horainicio').value = data[0].horafin;
+  }
+}
+
+// 3. Menú de gráfico
+function renderizarGrafico() {
+  const tipo = document.getElementById('tipo-grafico').value;
+  document.getElementById('contenedor-grafico').textContent = `Agrupación por [${tipo}] lista para integrar con librería de gráficos (ej: Chart.js).`;
+}
+
+// Operaciones CRUD Supabase
+async function cargarTareas() {
+  const { data: tareas, error } = await supabase.from(TABLA).select('*').order('fecha', { ascending: false });
+  const tablaBody = document.getElementById('tabla-body');
+  
+  if (error || !tareas) {
+    tablaBody.innerHTML = '<tr><td colspan="10">Sin datos.</td></tr>';
     return;
   }
 
-  if (!tareas || tareas.length === 0) {
-    tablaBody.innerHTML = '<tr><td colspan="10">No hay tareas registradas.</td></tr>';
-    return;
-  }
-
-  tablaBody.innerHTML = '';
-  tareas.forEach(item => {
-    const duracion = calcularDuracion(item.horainicio, item.horafin);
-    const tr = document.createElement('tr');
-    
-    tr.innerHTML = `
+  tablaBody.innerHTML = tareas.map(item => `
+    <tr>
       <td>${item.fecha || ''}</td>
       <td>${item.tarea || ''}</td>
       <td>${item.proyecto || ''}</td>
       <td>${item.bloque || ''}</td>
       <td>${item.horainicio || ''}</td>
       <td>${item.horafin || ''}</td>
-      <td><strong>${duracion}</strong></td>
+      <td><strong>${calcularDuracion(item.horainicio, item.horafin)}</strong></td>
       <td>${item.comentario || ''}</td>
       <td>${item.notas || ''}</td>
       <td>
-        <button class="btn-edit" onclick="prepararEdicion(${JSON.stringify(item).replace(/"/g, '&quot;')})">Editar</button>
-        <button class="btn-delete" onclick="borrarTarea(${item.id})">Eliminar</button>
+        <button onclick="borrarTarea(${item.id})">Eliminar</button>
       </td>
-    `;
-    tablaBody.appendChild(tr);
-  });
+    </tr>
+  `).join('');
 }
 
-/**
- * Inserta un nuevo registro o actualiza uno existente según la presencia de un ID.
- */
-async function guardarOActualizar(e) {
+document.getElementById('tarea-form').addEventListener('submit', async (e) => {
   e.preventDefault();
-
-  const id = inputId.value;
   const registro = {
     fecha: document.getElementById('fecha').value,
     tarea: document.getElementById('tarea').value,
@@ -88,110 +187,22 @@ async function guardarOActualizar(e) {
     notas: document.getElementById('notas').value
   };
 
-  let error;
+  await supabase.from(TABLA).insert([registro]);
+  cargarTareas();
+});
 
-  if (id) {
-    // Modo Edición
-    const res = await supabase.from(TABLA).update(registro).eq('id', id);
-    error = res.error;
-    if (!error) mostrarNotificacion('Registro actualizado correctamente.');
-  } else {
-    // Modo Inserción
-    const res = await supabase.from(TABLA).insert([registro]);
-    error = res.error;
-    if (!error) mostrarNotificacion('Nuevo registro añadido correctamente.');
-  }
-
-  if (error) {
-    mostrarNotificacion('Error al guardar: ' + error.message, true);
-  } else {
-    resetearFormulario();
-    cargarTareas(); // Vuelve a consultar la base de datos para actualizar la vista
-  }
-}
-
-/**
- * Vuelca los datos del registro seleccionado en el formulario para editarlo.
- */
-function prepararEdicion(item) {
-  inputId.value = item.id;
-  document.getElementById('fecha').value = item.fecha || '';
-  document.getElementById('tarea').value = item.tarea || '';
-  document.getElementById('proyecto').value = item.proyecto || '';
-  document.getElementById('bloque').value = item.bloque || '';
-  document.getElementById('horainicio').value = item.horainicio || '';
-  document.getElementById('horafin').value = item.horafin || '';
-  document.getElementById('comentario').value = item.comentario || '';
-  document.getElementById('notas').value = item.notas || '';
-
-  btnGuardar.textContent = 'Actualizar Tarea';
-  btnCancelar.style.display = 'inline-block';
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-/**
- * Elimina una fila por su ID tras confirmación del usuario.
- */
 async function borrarTarea(id) {
-  if (!confirm('¿Seguro que deseas eliminar esta tarea?')) return;
-
-  const { error } = await supabase.from(TABLA).delete().eq('id', id);
-
-  if (error) {
-    mostrarNotificacion('Error al eliminar: ' + error.message, true);
-  } else {
-    mostrarNotificacion('Registro eliminado correctamente.');
+  if (confirm('¿Eliminar registro?')) {
+    await supabase.from(TABLA).delete().eq('id', id);
     cargarTareas();
   }
 }
 
-/**
- * Restablece el formulario a su estado original para crear nuevos registros.
- */
-function resetearFormulario() {
-  form.reset();
-  inputId.value = '';
-  btnGuardar.textContent = 'Guardar Tarea';
-  btnCancelar.style.display = 'none';
-}
-
-// ==========================================
-// 3. FUNCIONES AUXILIARES
-// ==========================================
-
-/**
- * Muestra alertas dinámicas de éxito o error en la parte superior.
- */
-function mostrarNotificacion(texto, esError = false) {
-  const alerta = document.getElementById('mensaje-alerta');
-  alerta.style.display = 'block';
-  alerta.style.backgroundColor = esError ? '#f8d7da' : '#d4edda';
-  alerta.style.color = esError ? '#721c24' : '#155724';
-  alerta.style.border = esError ? '1px solid #f5c6cb' : '1px solid #c3e6cb';
-  alerta.textContent = texto;
-
-  setTimeout(() => {
-    alerta.style.display = 'none';
-  }, 3500);
-}
-
-/**
- * Calcula dinámicamente la diferencia en HH:MM entre inicio y fin para mostrarla en la tabla.
- */
 function calcularDuracion(horaInicio, horaFin) {
   if (!horaInicio || !horaFin) return "00:00";
-  
   const [hIni, mIni] = horaInicio.split(':').map(Number);
   const [hFin, mFin] = horaFin.split(':').map(Number);
-  
-  let minutosInicio = hIni * 60 + mIni;
-  let minutosFin = hFin * 60 + mFin;
-  
-  let diferencia = minutosFin - minutosInicio;
-  if (diferencia < 0) diferencia += 24 * 60; // Ajuste si la tarea cruza la medianoche
-
-  const horas = Math.floor(diferencia / 60).toString().padStart(2, '0');
-  const minutos = (diferencia % 60).toString().padStart(2, '0');
-  
-  return `${horas}:${minutos}`;
+  let dif = (hFin * 60 + mFin) - (hIni * 60 + mIni);
+  if (dif < 0) dif += 1440;
+  return `${String(Math.floor(dif / 60)).padStart(2, '0')}:${String(dif % 60).padStart(2, '0')}`;
 }
