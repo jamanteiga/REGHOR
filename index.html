@@ -12,9 +12,23 @@
 <body class="w-full min-h-full p-4 font-sans text-gray-800 box-border">
   <div class="w-full space-y-4">
     
-    <!-- Encabezado -->
-    <div class="w-full flex justify-between items-center bg-white p-3 rounded-lg shadow-sm">
+    <!-- Encabezado con Menú de Navegación -->
+    <div class="w-full flex justify-between items-center bg-white p-3 rounded-lg shadow-sm relative">
       <h1 class="text-xl font-bold text-gray-800">REGHOR - Registro de Horas y Tareas</h1>
+      
+      <!-- Menú Desplegable -->
+      <div class="relative inline-block text-left">
+        <button id="btn-menu-graficos" type="button" class="inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-3 py-1.5 bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 focus:outline-none">
+          📊 Gráficos ▾
+        </button>
+
+        <div id="dropdown-menu-graficos" class="hidden origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
+          <div class="py-1" role="menu">
+            <button id="opcion-por-proyecto" class="w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-gray-100">Por proyecto</button>
+            <button id="opcion-por-proyecto-bloque" class="w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-gray-100">Por Proyecto-Bloque</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Formulario de Entrada -->
@@ -35,12 +49,10 @@
             <label class="text-[11px] font-semibold text-gray-600 uppercase">Tarea</label>
             <button type="button" id="btn-gestionar-tareas" class="text-[10px] text-blue-600 hover:underline">+ Config</button>
           </div>
-          <select id="tarea" class="w-full border border-gray-300 rounded p-1.5 text-xs bg-white">
-            <!-- Carga dinámica -->
-          </select>
+          <select id="tarea" class="w-full border border-gray-300 rounded p-1.5 text-xs bg-white"></select>
         </div>
 
-        <!-- 3. Proyecto (BAC2 por defecto) -->
+        <!-- 3. Proyecto -->
         <div class="w-[48%] sm:w-auto sm:flex-1 min-w-[110px]">
           <div class="flex justify-between items-center mb-1">
             <label class="text-[11px] font-semibold text-gray-600 uppercase">Proyecto</label>
@@ -87,7 +99,7 @@
           <input type="text" id="notas" placeholder="Anotaciones..." class="w-full border border-gray-300 rounded p-1.5 text-xs">
         </div>
 
-        <!-- 9. Duración (Al final de la fila) -->
+        <!-- 9. Duración -->
         <div class="w-[48%] sm:w-auto sm:flex-1 min-w-[80px]">
           <label class="block text-[11px] font-semibold text-gray-600 uppercase mb-1">Duración</label>
           <input type="text" id="duracion" readonly placeholder="00:00" class="w-full bg-gray-100 border border-gray-300 rounded p-1.5 text-xs font-bold text-gray-700 text-center">
@@ -118,6 +130,24 @@
       </div>
     </div>
 
+    <!-- Panel de Gráficos (Oculto de inicio) -->
+    <div id="panel-grafico" class="w-full bg-white p-4 rounded-lg shadow-md hidden">
+      <div class="flex justify-between items-center mb-3">
+        <h2 id="titulo-grafico" class="text-base font-semibold text-gray-700">Gráfico</h2>
+        <button id="btn-ocultar-grafico" class="text-xs bg-gray-200 hover:bg-gray-300 text-gray-600 px-2 py-1 rounded">Cerrar vista</button>
+      </div>
+
+      <!-- Resumen de Horas por Bloques (Visible solo en vista 'Por proyecto') -->
+      <div id="contenedor-resumen-bloques" class="mb-4 hidden">
+        <h3 class="text-xs font-bold text-gray-500 uppercase mb-2">Horas por Bloque</h3>
+        <div id="lista-resumen-bloques" class="flex flex-wrap gap-2"></div>
+      </div>
+
+      <div class="w-full max-w-sm mx-auto">
+        <canvas id="myChart"></canvas>
+      </div>
+    </div>
+
     <!-- Tabla de Registros del Día -->
     <div class="w-full bg-white p-4 rounded-lg shadow-md overflow-x-auto">
       <h2 class="text-base font-semibold mb-3 text-gray-700">Registros de Hoy</h2>
@@ -135,18 +165,8 @@
             <th class="p-2">Duración</th>
           </tr>
         </thead>
-        <tbody id="tabla-registros" class="divide-y">
-          <!-- Se rellena automáticamente -->
-        </tbody>
+        <tbody id="tabla-registros" class="divide-y"></tbody>
       </table>
-    </div>
-
-    <!-- Panel de Gráficos -->
-    <div class="w-full bg-white p-4 rounded-lg shadow-md">
-      <h2 class="text-base font-semibold mb-2 text-gray-700">Resumen de Horas por Proyecto</h2>
-      <div class="w-full max-w-xs mx-auto">
-        <canvas id="myChart"></canvas>
-      </div>
     </div>
 
   </div>

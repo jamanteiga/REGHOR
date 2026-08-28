@@ -1,4 +1,3 @@
-// Listas predeterminadas
 let listaProyectos = ["ABAC", "BAC2", "BLOR", "COM", "DES", "FOR", "INFO", "INT", "MAN", "NAV", "PROG", "VAC"];
 
 let listaTareas = [
@@ -32,7 +31,7 @@ let tareas = [];
 let chart = null;
 let modoModal = 'proyectos';
 
-// Cargar fecha actual del sistema
+// Cargar fecha actual
 function setFechaDefecto() {
   const inputFecha = document.getElementById('fecha');
   if (inputFecha) {
@@ -44,11 +43,10 @@ function setFechaDefecto() {
   }
 }
 
-// Renderizar desplegable Proyectos (forzando asignación de BAC2)
+// Renderizar Proyectos
 function renderProyectosSelect() {
   const select = document.getElementById('proyecto');
   if (!select) return;
-  
   select.innerHTML = '';
   listaProyectos.forEach(proj => {
     const opt = document.createElement('option');
@@ -56,13 +54,12 @@ function renderProyectosSelect() {
     opt.textContent = proj;
     select.appendChild(opt);
   });
-
   if (listaProyectos.includes("BAC2")) {
     select.value = "BAC2";
   }
 }
 
-// Renderizar desplegable Tareas
+// Renderizar Tareas
 function renderTareasSelect() {
   const select = document.getElementById('tarea');
   if (!select) return;
@@ -75,7 +72,7 @@ function renderTareasSelect() {
   });
 }
 
-// Calcular Duración HH:mm
+// Calcular Duración
 function calcularDuracion() {
   const hInicio = document.getElementById('hora-inicio').value;
   const hFin = document.getElementById('hora-fin').value;
@@ -101,7 +98,6 @@ function calcularDuracion() {
   }
 }
 
-// Eventos botones auxiliares
 document.getElementById('btn-hora-actual').addEventListener('click', () => {
   const ahora = new Date();
   const hh = String(ahora.getHours()).padStart(2, '0');
@@ -123,7 +119,7 @@ document.getElementById('btn-usar-ultima-fin').addEventListener('click', () => {
 document.getElementById('hora-inicio').addEventListener('change', calcularDuracion);
 document.getElementById('hora-fin').addEventListener('change', calcularDuracion);
 
-// Renderizar Tabla de Registros
+// Renderizar Tabla
 function renderTabla() {
   const tbody = document.getElementById('tabla-registros');
   if (!tbody) return;
@@ -147,37 +143,134 @@ function renderTabla() {
   });
 }
 
-// Actualizar Gráfico Chart.js
-function updateChart() {
+// --- LÓGICA DE GRÁFICOS Y MENÚ ---
+const dropdownMenu = document.getElementById('dropdown-menu-graficos');
+const panelGrafico = document.getElementById('panel-grafico');
+const tituloGrafico = document.getElementById('titulo-grafico');
+const contenedorBloques = document.getElementById('contenedor-resumen-bloques');
+const listaResumenBloques = document.getElementById('lista-resumen-bloques');
+
+// Abrir/Cerrar desplegable del menú
+document.getElementById('btn-menu-graficos').addEventListener('click', () => {
+  dropdownMenu.classList.toggle('hidden');
+});
+
+// Cerrar vistas de gráfico
+document.getElementById('btn-ocultar-grafico').addEventListener('click', () => {
+  panelGrafico.classList.add('hidden');
+});
+
+// Opción 1: Por Proyecto
+document.getElementById('opcion-por-proyecto').addEventListener('click', () => {
+  dropdownMenu.classList.add('hidden');
+  panelGrafico.classList.remove('hidden');
+  tituloGrafico.textContent = 'Gráficos: Por Proyecto';
+  contenedorBloques.classList.remove('hidden');
+  
+  generarGraficoPorProyecto();
+  generarResumenBloquesConColores();
+});
+
+// Opción 2: Por Proyecto-Bloque
+document.getElementById('opcion-por-proyecto-bloque').addEventListener('click', () => {
+  dropdownMenu.classList.add('hidden');
+  panelGrafico.classList.remove('hidden');
+  tituloGrafico.textContent = 'Gráficos: Por Proyecto - Bloque';
+  contenedorBloques.classList.add('hidden');
+  
+  generarGraficoPorProyectoBloque();
+});
+
+// Generar Gráficos
+function generarGraficoPorProyecto() {
   const canvas = document.getElementById('myChart');
-  if (!canvas) return;
   const ctx = canvas.getContext('2d');
   
-  const proyectosMinutos = {};
+  const datos = {};
   tareas.forEach(t => {
     if (t.duracion && t.duracion !== 'Error') {
       const [h, m] = t.duracion.split(':').map(Number);
       const totalHoras = h + (m / 60);
-      proyectosMinutos[t.proyecto] = (proyectosMinutos[t.proyecto] || 0) + totalHoras;
+      datos[t.proyecto] = (datos[t.proyecto] || 0) + totalHoras;
     }
   });
 
-  if (chart) chart.destroy();
+  renderChart(ctx, Object.keys(datos), Object.values(datos).map(v => v.toFixed(2)));
+}
 
+function generarGraficoPorProyectoBloque() {
+  const canvas = document.getElementById('myChart');
+  const ctx = canvas.getContext('2d');
+  
+  const datos = {};
+  tareas.forEach(t => {
+    if (t.duracion && t.duracion !== 'Error') {
+      const [h, m] = t.duracion.split(':').map(Number);
+      const totalHoras = h + (m / 60);
+      const clave = `${t.proyecto} (${t.bloque || 'Sin Bloque'})`;
+      datos[clave] = (datos[clave] || 0) + totalHoras;
+    }
+  });
+
+  renderChart(ctx, Object.keys(datos), Object.values(datos).map(v => v.toFixed(2)));
+}
+
+function renderChart(ctx, labels, data) {
+  if (chart) chart.destroy();
   chart = new Chart(ctx, {
     type: 'doughnut',
     data: {
-      labels: Object.keys(proyectosMinutos),
+      labels: labels,
       datasets: [{
         label: 'Horas',
-        data: Object.values(proyectosMinutos).map(v => v.toFixed(2)),
-        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
+        data: data,
+        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6']
       }]
     }
   });
 }
 
-// Guardar Tarea con Validación Visual
+// Resumen de horas por bloque (Rojo = Máximo, Azul = Mínimo, Verde = Resto)
+function generarResumenBloquesConColores() {
+  listaResumenBloques.innerHTML = '';
+  
+  const horasPorBloque = {};
+  tareas.forEach(t => {
+    if (t.duracion && t.duracion !== 'Error') {
+      const [h, m] = t.duracion.split(':').map(Number);
+      const totalHoras = h + (m / 60);
+      const bloqueNombre = t.bloque ? t.bloque.trim() : 'Sin Bloque';
+      horasPorBloque[bloqueNombre] = (horasPorBloque[bloqueNombre] || 0) + totalHoras;
+    }
+  });
+
+  const entradas = Object.entries(horasPorBloque);
+  if (entradas.length === 0) {
+    listaResumenBloques.innerHTML = '<span class="text-xs text-gray-400">Sin datos registrados</span>';
+    return;
+  }
+
+  const valores = entradas.map(e => e[1]);
+  const maxHoras = Math.max(...valores);
+  const minHoras = Math.min(...valores);
+
+  entradas.forEach(([bloque, horas]) => {
+    let colorClass = "bg-green-100 text-green-800 border-green-300"; // Por defecto Verde
+
+    if (horas === maxHoras && maxHoras !== minHoras) {
+      colorClass = "bg-red-100 text-red-800 border-red-300 font-bold"; // Máximo Rojo
+    } else if (horas === minHoras && maxHoras !== minHoras) {
+      colorClass = "bg-blue-100 text-blue-800 border-blue-300 font-bold"; // Mínimo Azul
+    }
+
+    const item = document.createElement('div');
+    item.className = `px-2.5 py-1 rounded border text-xs ${colorClass}`;
+    item.innerHTML = `${bloque}: <span>${horas.toFixed(2)}h</span>`;
+    listaResumenBloques.appendChild(item);
+  });
+}
+
+// Formulario Submit con validación
 document.getElementById('task-form').addEventListener('submit', (e) => {
   e.preventDefault();
 
@@ -212,7 +305,6 @@ document.getElementById('task-form').addEventListener('submit', (e) => {
   };
 
   tareas.push(nuevaTarea);
-  
   const horaFinActual = nuevaTarea.horaFin;
 
   document.getElementById('comentario').value = '';
@@ -229,17 +321,26 @@ document.getElementById('task-form').addEventListener('submit', (e) => {
   }
 
   renderTabla();
-  updateChart();
+  
+  // Actualizar gráficos si la vista está activa
+  if (!panelGrafico.classList.contains('hidden')) {
+    if (tituloGrafico.textContent.includes('Por proyecto - Bloque')) {
+      generarGraficoPorProyectoBloque();
+    } else {
+      generarGraficoPorProyecto();
+      generarResumenBloquesConColores();
+    }
+  }
 });
 
-// Limpieza dinámica de errores al interactuar
+// Quitar alertas al teclear
 document.querySelectorAll('#task-form input, #task-form select').forEach(elemento => {
   elemento.addEventListener('input', function() {
     this.classList.remove('border-red-500', 'bg-red-50');
   });
 });
 
-// Modal de Configuración
+// Modal Configuración
 const modal = document.getElementById('modal-config');
 
 document.getElementById('btn-gestionar-proyectos').addEventListener('click', () => {
@@ -310,10 +411,9 @@ document.getElementById('btn-add-item').addEventListener('click', () => {
   }
 });
 
-// Inicialización de la app
+// Inicialización
 document.addEventListener('DOMContentLoaded', () => {
   setFechaDefecto();
   renderProyectosSelect();
   renderTareasSelect();
-  updateChart();
 });
