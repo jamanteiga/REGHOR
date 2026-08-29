@@ -3,281 +3,354 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>REGHOR</title>
+  <title>REGHOR - Registro de Horas</title>
   <style>
     :root {
-      --bg-color: #f4f7f6;
-      --card-bg: #ffffff;
-      --text-color: #333333;
+      --bg-primary: #f4f6f9;
+      --bg-card: #ffffff;
+      --text-main: #333333;
       --border-color: #cccccc;
-      --header-bg: #007bff;
+      --header-bg: #0056b3;
+      --header-text: #ffffff;
+      --btn-bg: #0056b3;
+      --btn-text: #ffffff;
+      --table-stripe: #f9f9f9;
     }
 
     body.dark-mode {
-      --bg-color: #121212;
-      --card-bg: #1e1e1e;
-      --text-color: #e0e0e0;
-      --border-color: #333333;
-      --header-bg: #0b5ed7;
+      --bg-primary: #121212;
+      --bg-card: #1e1e1e;
+      --text-main: #e0e0e0;
+      --border-color: #444444;
+      --header-bg: #1f1f1f;
+      --header-text: #66b2ff;
+      --btn-bg: #3700b3;
+      --btn-text: #ffffff;
+      --table-stripe: #252525;
     }
 
-    body { 
-      font-family: Arial, sans-serif; 
-      margin: 20px; 
-      background-color: var(--bg-color); 
-      color: var(--text-color); 
-      transition: background 0.3s, color 0.3s; 
-    }
-    
-    .header-container { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-    .controls-right { display: flex; gap: 10px; align-items: center; position: relative; }
-
-    /* Dropdown Gráficos */
-    .dropdown-chart { position: relative; display: inline-block; }
-    .dropdown-content { display: none; position: absolute; right: 0; background-color: var(--card-bg); min-width: 160px; box-shadow: 0px 8px 16px rgba(0,0,0,0.2); z-index: 100; border-radius: 4px; border: 1px solid var(--border-color); }
-    .dropdown-content a { color: var(--text-color); padding: 10px 14px; text-decoration: none; display: block; font-size: 14px; }
-    .dropdown-content a:hover { background-color: rgba(0,0,0,0.1); }
-    .dropdown-chart.show .dropdown-content { display: block; }
-
-    /* Banderas SVG */
-    .flag-btn { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 4px; padding: 4px 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-    .flag-icon { width: 24px; height: 16px; display: block; }
-    
-    .icon-btn { padding: 6px 12px; cursor: pointer; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-color); font-weight: bold; }
-
-    /* Formulario: Disposición en UNA SOLA FILA */
-    form, .modal-content { background: var(--card-bg); padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    
-    .form-grid { 
-      display: flex; 
-      flex-direction: row; 
-      flex-wrap: nowrap; 
-      gap: 8px; 
-      align-items: flex-end; 
-      width: 100%;
-      box-sizing: border-box;
-    }
-    
-    .form-group { 
-      display: flex; 
-      flex-direction: column; 
-      flex: 1 1 0px; 
-      min-width: 0; 
+    body {
+      font-family: Arial, sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      margin: 0;
+      padding: 20px;
     }
 
-    .form-group-btn {
-      flex: 0 0 auto;
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: var(--bg-card);
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    header {
       display: flex;
-      gap: 5px;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid var(--border-color);
+      padding-bottom: 10px;
+      margin-bottom: 20px;
     }
-    
-    .label-wrapper { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-    .label-wrapper label, .form-group > label { font-weight: bold; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    
-    input, select { padding: 6px 6px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--card-bg); color: var(--text-color); font-size: 12px; width: 100%; box-sizing: border-box; }
-    
-    .btn-mini { padding: 2px 4px; font-size: 10px; cursor: pointer; border-radius: 3px; border: 1px solid var(--border-color); background: #e9ecef; color: #000; font-weight: bold; white-space: nowrap; }
-    body.dark-mode .btn-mini { background: #333; color: #fff; }
 
-    /* Botones de acción */
-    .btn-submit { 
-      background-color: #28a745; 
-      color: white; 
-      padding: 6px 12px; 
-      border: none; 
-      border-radius: 4px; 
-      cursor: pointer; 
-      font-weight: bold; 
-      font-size: 12px;
-      white-space: nowrap;
-      height: 31px; 
-    }
-    .btn-cancel { 
-      background-color: #6c757d; 
-      color: white; 
-      padding: 6px 12px; 
-      border: none; 
-      border-radius: 4px; 
-      cursor: pointer; 
-      font-weight: bold; 
-      font-size: 12px;
-      white-space: nowrap;
-      height: 31px; 
-      display: none; 
-    }
-    
-    /* Modal Config */
-    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
-    .modal-content { width: 350px; max-width: 90%; }
-    .close-modal { float: right; cursor: pointer; font-weight: bold; font-size: 20px; }
+    h1 { margin: 0; }
 
-    /* Tabla y Pie de tabla */
-    table { width: 100%; border-collapse: collapse; background: var(--card-bg); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    th, td { padding: 10px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 13px; }
-    th { background-color: var(--header-bg); color: white; }
-    
-    tfoot tr { background-color: rgba(0, 123, 255, 0.08); font-weight: bold; }
-    tfoot tr.row-extra { background-color: rgba(40, 167, 69, 0.12); }
-    tfoot td { border-top: 1px solid var(--border-color); }
-    
-    .saldo-positivo { color: #28a745; font-weight: bold; }
-    .saldo-negativo { color: #dc3545; font-weight: bold; }
-    .saldo-neutro { color: #6c757d; font-weight: bold; }
+    .header-controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .form-group label {
+      font-weight: bold;
+      margin-bottom: 5px;
+      font-size: 0.9em;
+    }
+
+    input, select, textarea {
+      padding: 8px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background: var(--bg-card);
+      color: var(--text-main);
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    button, .btn {
+      padding: 8px 15px;
+      background: var(--btn-bg);
+      color: var(--btn-text);
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    button:hover, .btn:hover { opacity: 0.9; }
+
+    .btn-secondary { background: #6c757d; }
+    .btn-danger { background: #dc3545; }
+    .btn-mini { padding: 4px 8px; font-size: 0.8em; margin-right: 2px; }
+
+    /* Estilos del Panel de Filtros Avanzados */
+    .panel-filtros {
+      background: rgba(0,0,0,0.03);
+      padding: 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+
+    th, td {
+      border: 1px solid var(--border-color);
+      padding: 8px;
+      text-align: left;
+      font-size: 0.9em;
+    }
+
+    th { background: var(--header-bg); color: var(--header-text); }
+    tr:nth-child(even) { background-color: var(--table-stripe); }
+
+    .resumen-panel {
+      display: flex;
+      justify-content: space-around;
+      background: rgba(0,0,0,0.05);
+      padding: 15px;
+      border-radius: 6px;
+      margin-top: 20px;
+      font-weight: bold;
+    }
+
+    .saldo-positivo { color: #28a745; }
+    .saldo-negativo { color: #dc3545; }
+    .saldo-neutro { color: var(--text-main); }
+
+    .dropdown { position: relative; inline-block; }
+    .dropdown-content {
+      display: none;
+      position: absolute;
+      background-color: var(--bg-card);
+      min-width: 160px;
+      box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+      z-index: 1;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+    }
+    .dropdown-content a {
+      color: var(--text-main);
+      padding: 12px 16px;
+      text-decoration: none;
+      display: block;
+    }
+    .dropdown-content a:hover { background-color: var(--table-stripe); }
+    .show { display: block; }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5);
+      justify-content: center; align-items: center;
+      z-index: 100;
+    }
+    .modal-content {
+      background: var(--bg-card);
+      padding: 20px;
+      border-radius: 8px;
+      width: 350px;
+    }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
-  <div class="header-container">
+<div class="container">
+  <header>
     <h1 id="txt-titulo">REGHOR</h1>
-    
-    <div class="controls-right">
-      <div class="dropdown-chart" id="dropdown-graficos-container">
-        <button class="icon-btn" id="btn-graficos" onclick="toggleDropdownGraficos(event)">📊 Gráficos ▾</button>
-        <div class="dropdown-content" id="dropdown-graficos-menu">
-          <a href="#" onclick="filtrarGrafico('proyecto'); return false;">Por Proyecto</a>
-          <a href="#" onclick="filtrarGrafico('proyecto-bloque'); return false;">Por Proyecto-Bloque</a>
-          <a href="#" onclick="filtrarGrafico('semana'); return false;">Por Semana</a>
-          <a href="#" onclick="filtrarGrafico('mes'); return false;">Por Mes</a>
-          <a href="#" onclick="filtrarGrafico('dia'); return false;">Por Día</a>
-        </div>
-      </div>
-
-      <!-- Bandera España SVG -->
-      <button class="flag-btn" onclick="cambiarIdioma('es')" title="Español">
-        <svg class="flag-icon" viewBox="0 0 750 500">
-          <rect width="750" height="500" fill="#c60b1e"/>
-          <rect y="125" width="750" height="250" fill="#ffc400"/>
-        </svg>
-      </button>
-
-      <!-- Bandera Galicia SVG -->
-      <button class="flag-btn" onclick="cambiarIdioma('gl')" title="Galego">
-        <svg class="flag-icon" viewBox="0 0 3 2">
-          <rect width="3" height="2" fill="#fff"/>
-          <path d="M0 0 L3 2" stroke="#009ac6" stroke-width="0.4"/>
-        </svg>
-      </button>
-
-      <button class="icon-btn" onclick="toggleTheme()" id="btn-theme">🌙 Oscuro</button>
+    <div class="header-controls">
+      <button id="btn-theme" type="button" class="btn-secondary" onclick="toggleTheme()">🌙 Oscuro</button>
+      <button type="button" class="btn-secondary" onclick="cambiarIdioma('es')">ES</button>
+      <button type="button" class="btn-secondary" onclick="cambiarIdioma('gl')">GL</button>
     </div>
-  </div>
+  </header>
 
+  <!-- FORMULARIO PRINCIPAL -->
   <form id="tarea-form">
     <input type="hidden" id="tarea-id">
-    
+
     <div class="form-grid">
       <div class="form-group">
-        <label for="fecha" id="lbl-fecha">Fecha</label>
-        <input type="date" id="fecha" onchange="cargarTareas()" required>
+        <label id="lbl-fecha" for="fecha">Fecha</label>
+        <input type="date" id="fecha" required>
       </div>
 
       <div class="form-group">
-        <div class="label-wrapper">
-          <label for="tarea" id="lbl-tarea">Tarea</label>
-          <button type="button" class="btn-mini" onclick="abrirConfig('tareas')">+config</button>
+        <label id="lbl-tarea" for="tarea">Tarea</label>
+        <div style="display: flex; gap: 5px;">
+          <select id="tarea" required onchange="sincronizarComentario()"></select>
+          <button type="button" class="btn-secondary" onclick="abrirConfig('tareas')">⚙️</button>
         </div>
-        <select id="tarea" onchange="sincronizarComentario()" required></select>
       </div>
 
       <div class="form-group">
-        <div class="label-wrapper">
-          <label for="proyecto" id="lbl-proyecto">Proyecto</label>
-          <button type="button" class="btn-mini" onclick="abrirConfig('proyectos')">+config</button>
+        <label id="lbl-proyecto" for="proyecto">Proyecto</label>
+        <div style="display: flex; gap: 5px;">
+          <select id="proyecto" required></select>
+          <button type="button" class="btn-secondary" onclick="abrirConfig('proyectos')">⚙️</button>
         </div>
-        <select id="proyecto" required></select>
       </div>
 
       <div class="form-group">
-        <label for="bloque" id="lbl-bloque">Bloque</label>
-        <input type="text" id="bloque" placeholder="Ej: B242-PI-SB4">
+        <label for="bloque">Bloque</label>
+        <input type="text" id="bloque" placeholder="Bloque...">
       </div>
 
       <div class="form-group">
-        <div class="label-wrapper">
-          <label for="horainicio" id="lbl-horainicio">Inicio</label>
-          <div>
-            <button type="button" class="btn-mini" onclick="setHoraActual('horainicio')">⏱️</button>
-            <button type="button" class="btn-mini" onclick="copiarHoraFinAnterior()">📋</button>
-          </div>
+        <label for="horainicio">Hora Inicio</label>
+        <div style="display: flex; gap: 2px;">
+          <input type="time" id="horainicio" required>
+          <button type="button" class="btn-secondary btn-mini" onclick="setHoraActual('horainicio')">⏱️</button>
+          <button type="button" class="btn-secondary btn-mini" onclick="copiarHoraFinAnterior()">📋</button>
         </div>
-        <input type="time" id="horainicio" required>
       </div>
 
       <div class="form-group">
-        <div class="label-wrapper">
-          <label for="horafin" id="lbl-horafin">Fin</label>
-          <button type="button" class="btn-mini" onclick="setHoraActual('horafin')">⏱️</button>
+        <label for="horafin">Hora Fin</label>
+        <div style="display: flex; gap: 2px;">
+          <input type="time" id="horafin" required>
+          <button type="button" class="btn-secondary btn-mini" onclick="setHoraActual('horafin')">⏱️</button>
         </div>
-        <input type="time" id="horafin" required>
       </div>
+    </div>
 
-      <div class="form-group">
-        <label for="comentario" id="lbl-comentario">Comentario</label>
+    <div class="form-grid">
+      <div class="form-group" style="grid-column: span 2;">
+        <label for="comentario">Comentario</label>
         <input type="text" id="comentario">
       </div>
-
-      <div class="form-group">
-        <label for="notas" id="lbl-notas">Notas</label>
+      <div class="form-group" style="grid-column: span 2;">
+        <label for="notas">Notas</label>
         <input type="text" id="notas">
       </div>
+    </div>
 
-      <div class="form-group-btn">
-        <button type="submit" id="btn-guardar" class="btn-submit">Guardar</button>
-        <button type="button" id="btn-cancelar" class="btn-cancel" onclick="resetearFormulario()">Cancelar</button>
+    <div class="btn-row">
+      <button type="submit" id="btn-guardar" style="background-color: #28a745;">Guardar</button>
+      <button type="button" id="btn-cancelar" class="btn-danger" style="display:none;" onclick="resetearFormulario()">Cancelar</button>
+      
+      <div class="dropdown">
+        <button type="button" id="btn-graficos" class="btn-secondary" onclick="toggleDropdownGraficos(event)">📊 Gráficos ▾</button>
+        <div id="dropdown-graficos-container" class="dropdown-content">
+          <a href="#" onclick="filtrarGrafico('Tareas')">Por Tareas</a>
+          <a href="#" onclick="filtrarGrafico('Proyectos')">Por Proyectos</a>
+        </div>
       </div>
     </div>
   </form>
 
+  <hr style="margin: 25px 0; border: 0; border-top: 1px solid var(--border-color);">
+
+  <!-- PANEL DE FILTROS AVANZADOS DE LA TABLA -->
+  <div class="panel-filtros">
+    <label for="tipo-filtro"><strong>Filtrar por:</strong></label>
+    <select id="tipo-filtro" onchange="cambiarModoFiltro()">
+      <option value="dia">Día concreto</option>
+      <option value="semana">Semana</option>
+      <option value="mes">Mes</option>
+      <option value="trimestre">Trimestre</option>
+      <option value="semestre">Semestre</option>
+      <option value="rango">Entre dos fechas</option>
+      <option value="proyecto">Proyecto / Bloque</option>
+    </select>
+
+    <!-- Fecha desde (se usa como base en día, semana, mes, trimestre, semestre y rango) -->
+    <input type="date" id="filtro-fecha-desde">
+
+    <!-- Fecha hasta (sólo para rango) -->
+    <input type="date" id="filtro-fecha-hasta" style="display: none;">
+
+    <!-- Filtro de Proyecto y Bloque -->
+    <select id="filtro-proyecto" style="display: none;"></select>
+    <input type="text" id="filtro-bloque" placeholder="Bloque..." style="display: none;">
+
+    <button type="button" class="btn" onclick="aplicarFiltros()">🔍 Filtrar</button>
+    <button type="button" class="btn-secondary" onclick="limpiarFiltros()">Restablecer</button>
+  </div>
+
   <h2 id="txt-listado">Listado de Tareas</h2>
+  
+  <!-- TABLA DE REGISTROS -->
   <table>
     <thead>
       <tr>
         <th id="th-fecha">Fecha</th>
         <th id="th-tarea">Tarea</th>
         <th id="th-proyecto">Proyecto</th>
-        <th id="th-bloque">Bloque</th>
-        <th id="th-inicio">Inicio</th>
-        <th id="th-fin">Fin</th>
-        <th id="th-duracion">Duración</th>
-        <th id="th-comentario">Comentario</th>
-        <th id="th-notas">Notas</th>
-        <th id="th-acciones">Acciones</th>
+        <th>Bloque</th>
+        <th>Inicio</th>
+        <th>Fin</th>
+        <th>Duración</th>
+        <th>Comentario</th>
+        <th>Notas</th>
+        <th>Acciones</th>
       </tr>
     </thead>
-    <tbody id="tabla-body"></tbody>
-    <tfoot>
-      <tr>
-        <td colspan="6" style="text-align: right;" id="txt-teorica-label">Jornada Teórica del Día:</td>
-        <td id="total-teorica">00:00</td>
-        <td colspan="3"></td>
-      </tr>
-      <tr>
-        <td colspan="6" style="text-align: right;" id="txt-total-label">Total Horas Trabajadas:</td>
-        <td id="total-duracion">00:00</td>
-        <td colspan="3"></td>
-      </tr>
-      <tr class="row-extra">
-        <td colspan="6" style="text-align: right;" id="txt-balance-label">Balance / Horas Extra:</td>
-        <td id="total-balance">00:00</td>
-        <td colspan="3"></td>
-      </tr>
-    </tfoot>
+    <tbody id="tabla-body">
+      <tr><td colspan="10">Cargando datos desde Supabase...</td></tr>
+    </tbody>
   </table>
 
-  <!-- Modal Config -->
-  <div id="modal-config" class="modal">
-    <div class="modal-content">
-      <span class="close-modal" onclick="cerrarConfig()">&times;</span>
-      <h3 id="modal-titulo">Configuración</h3>
-      <div style="display:flex; gap:5px; margin-bottom:10px;">
-        <input type="text" id="nuevo-valor-config" placeholder="Nuevo valor...">
-        <button type="button" onclick="agregarOpcionConfig()">Añadir</button>
-      </div>
-      <ul id="lista-config" style="list-style:none; padding:0;"></ul>
+  <!-- RESUMEN DE HORAS -->
+  <div class="resumen-panel">
+    <div><span id="txt-teorica-label">Jornada Teórica del Día:</span> <span id="total-teorica">00:00</span></div>
+    <div><span id="txt-total-label">Total Horas Trabajadas:</span> <span id="total-duracion">00:00</span></div>
+    <div><span id="txt-balance-label">Balance / Horas Extra:</span> <span id="total-balance">00:00</span></div>
+  </div>
+</div>
+
+<!-- MODAL DE CONFIGURACIÓN DE SELECTS -->
+<div id="modal-config" class="modal">
+  <div class="modal-content">
+    <h3 id="modal-titulo">Configuración</h3>
+    <ul id="lista-config" style="list-style: none; padding: 0; max-height: 200px; overflow-y: auto;"></ul>
+    <div style="display: flex; gap: 5px; margin-top: 10px;">
+      <input type="text" id="nuevo-valor-config" placeholder="Nuevo elemento..." style="flex: 1;">
+      <button type="button" onclick="agregarOpcionConfig()">Añadir</button>
+    </div>
+    <div style="margin-top: 15px; text-align: right;">
+      <button type="button" class="btn-secondary" onclick="cerrarConfig()">Cerrar</button>
     </div>
   </div>
+</div>
 
-  <script src="app.js"></script>
+<script src="app.js"></script>
 </body>
 </html>

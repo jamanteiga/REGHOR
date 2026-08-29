@@ -10,7 +10,7 @@ if (window.supabase) {
 
 const TABLA = 'obras';
 
-// Las 35 Tareas
+// Las 35 Tareas predeterminadas
 const TAREAS_DEFAULT = [
   "Análisis especificaciones cliente", "Anidado de ficheros 3000's", "AOYV", "Comida",
   "Descanso 20'", "Descanso 30'", "Espera de nueva tarea", "Generación .e2", "Generación .e3",
@@ -24,7 +24,7 @@ const TAREAS_DEFAULT = [
   "Revisión maquillaje 6000's", "Solicitada nueva tarea"
 ];
 
-// Los 12 Proyectos
+// Los 12 Proyectos predeterminados
 const PROYECTOS_DEFAULT = [
   "ABAC", "BAC2", "BLOR", "COM", "DES", "FOR", "INFO", "INT", "MAN", "NAV", "PROG", "VAC"
 ];
@@ -50,15 +50,22 @@ function obtenerFechaHoyISO() {
 document.addEventListener('DOMContentLoaded', async () => {
   poblarSelects();
 
-  // Establecer por defecto la fecha de hoy en el input
+  const fechaHoy = obtenerFechaHoyISO();
+
+  // Asignar hoy al formulario principal
   const inputFecha = document.getElementById('fecha');
   if (inputFecha) {
-    inputFecha.value = obtenerFechaHoyISO();
-    inputFecha.addEventListener('change', () => cargarTareas());
+    inputFecha.value = fechaHoy;
+  }
+
+  // Asignar hoy al filtro de búsqueda inicial
+  const inputFiltroDesde = document.getElementById('filtro-fecha-desde');
+  if (inputFiltroDesde) {
+    inputFiltroDesde.value = fechaHoy;
   }
 
   if (supabaseClient) {
-    await cargarTareas();
+    await aplicarFiltros();
   } else {
     document.getElementById('tabla-body').innerHTML = '<tr><td colspan="10" style="color:red;">⚠️ Error al inicializar Supabase.</td></tr>';
   }
@@ -91,6 +98,7 @@ function ordenarLista(array) {
 function poblarSelects() {
   const selTarea = document.getElementById('tarea');
   const selProyecto = document.getElementById('proyecto');
+  const selFiltroProyecto = document.getElementById('filtro-proyecto');
   
   configData.tareas = ordenarLista(configData.tareas);
   configData.proyectos = ordenarLista(configData.proyectos);
@@ -106,6 +114,11 @@ function poblarSelects() {
       selProyecto.value = 'BAC2';
     }
   }
+
+  if (selFiltroProyecto) {
+    selFiltroProyecto.innerHTML = '<option value="">-- Todos los proyectos --</option>' + 
+      configData.proyectos.map(p => `<option value="${p}">${p}</option>`).join('');
+  }
 }
 
 function sincronizarComentario() {
@@ -116,6 +129,7 @@ function sincronizarComentario() {
   }
 }
 
+/* --- GESTIÓN DE CONFIGURACIÓN Y OPCIONES --- */
 function abrirConfig(tipo) {
   tipoConfigActual = tipo;
   document.getElementById('modal-titulo').textContent = `Configurar ${tipo}`;
@@ -205,48 +219,120 @@ function obtenerJornadaTeoricaMinutos(fechaStr) {
   return 510;                             // Lunes a Jueves: 8h 30m
 }
 
-/**
- * Carga las tareas de la fecha seleccionada (por defecto la de hoy)
- */
-async function cargarTareas() {
-  const tablaBody = document.getElementById('tabla-body');
-  tablaBody.innerHTML = '<tr><td colspan="10">Cargando datos desde Supabase...</td></tr>';
-  
-  const inputFecha = document.getElementById('fecha');
-  let fechaFiltroStr = inputFecha ? inputFecha.value.trim() : '';
+/* --- LOGICA DEL PANEL DE FILTROS AVANZADOS --- */
 
-  // Si por alguna razón el input estuviera vacío, asignar hoy
-  if (!fechaFiltroStr) {
-    fechaFiltroStr = obtenerFechaHoyISO();
-    if (inputFecha) inputFecha.value = fechaFiltroStr;
+function cambiarModoFiltro() {
+  const modo = document.getElementById('tipo-filtro').value;
+  const inputDesde = document.getElementById('filtro-fecha-desde');
+  const inputHasta = document.getElementById('filtro-fecha-hasta');
+  const selProyecto = document.getElementById('filtro-proyecto');
+  const inputBloque = document.getElementById('filtro-bloque');
+
+  inputDesde.style.display = (modo === 'proyecto') ? 'none' : 'inline-block';
+  inputHasta.style.display = (modo === 'rango') ? 'inline-block' : 'none';
+  selProyecto.style.display = (modo === 'proyecto') ? 'inline-block' : 'none';
+  inputBloque.style.display = (modo === 'proyecto') ? 'inline-block' : 'none';
+}
+
+function obtenerRangosFechaCalculados() {
+  const modo = document.getElementById('tipo-filtro').value;
+  const valFecha = document.getElementById('filtro-fecha-desde').value;
+
+  if (!valFecha && modo !== 'proyecto') return { desde: null, hasta: null };
+
+  const baseDate = new Date(valFecha + 'T00:00:00');
+  const yyyy = baseDate.getFullYear();
+  const mm = baseDate.getMonth(); // 0 a 11
+
+  let desde = valFecha;
+  let hasta = valFecha;
+
+  if (modo === 'semana') {
+    const dayOfWeek = baseDate.getDay() === 0 ? 7 : baseDate.getDay(); 
+    const lunes = new Date(baseDate);
+    lunes.setDate(baseDate.getDate() - (dayOfWeek - 1));
+    const domingo = new Date(lunes);
+    domingo.setDate(lunes.getDate() + 6);
+
+    desde = lunes.toISOString().split('T')[0];
+    hasta = domingo.toISOString().split('T')[0];
+
+  } else if (modo === 'mes') {
+    const primerDia = new Date(yyyy, mm, 1);
+    const ultimoDia = new Date(yyyy, mm + 1, 0);
+    desde = primerDia.toISOString().split('T')[0];
+    hasta = ultimoDia.toISOString().split('T')[0];
+
+  } else if (modo === 'trimestre') {
+    const qTrim = Math.floor(mm / 3);
+    const primerDia = new Date(yyyy, qTrim * 3, 1);
+    const ultimoDia = new Date(yyyy, (qTrim + 1) * 3, 0);
+    desde = primerDia.toISOString().split('T')[0];
+    hasta = ultimoDia.toISOString().split('T')[0];
+
+  } else if (modo === 'semestre') {
+    const sSem = mm < 6 ? 0 : 6;
+    const primerDia = new Date(yyyy, sSem, 1);
+    const ultimoDia = new Date(yyyy, sSem + 6, 0);
+    desde = primerDia.toISOString().split('T')[0];
+    hasta = ultimoDia.toISOString().split('T')[0];
+
+  } else if (modo === 'rango') {
+    hasta = document.getElementById('filtro-fecha-hasta').value || valFecha;
   }
 
+  return { desde, hasta };
+}
+
+async function aplicarFiltros() {
+  const tablaBody = document.getElementById('tabla-body');
+  tablaBody.innerHTML = '<tr><td colspan="10">Filtrando datos desde Supabase...</td></tr>';
+
+  const modo = document.getElementById('tipo-filtro').value;
+  const { desde, hasta } = obtenerRangosFechaCalculados();
+
   try {
-    const { data: tareas, error } = await supabaseClient
-      .from(TABLA)
-      .select('*')
-      .ilike('fecha', `%${fechaFiltroStr}%`);
+    let query = supabaseClient.from(TABLA).select('*');
+
+    if (modo !== 'proyecto' && desde && hasta) {
+      if (desde === hasta) {
+        // Coincidencia con ilike por seguridad sobre campos TEXT con espacios
+        query = query.ilike('fecha', `%${desde}%`);
+      } else {
+        query = query.gte('fecha', desde).lte('fecha', hasta);
+      }
+    }
+
+    if (modo === 'proyecto') {
+      const proy = document.getElementById('filtro-proyecto').value;
+      const bloq = document.getElementById('filtro-bloque').value.trim();
+
+      if (proy) query = query.eq('proyecto', proy);
+      if (bloq) query = query.ilike('bloque', `%${bloq}%`);
+    }
+
+    const { data: tareas, error } = await query;
 
     if (error) {
-      console.error("Error al cargar registros:", error);
+      console.error("Error al filtrar:", error);
       tablaBody.innerHTML = `<tr><td colspan="10" style="color:red;">Error Supabase: ${error.message}</td></tr>`;
-      actualizarResumenHoras([], fechaFiltroStr);
+      actualizarResumenHoras([], '');
       return;
     }
 
     if (!tareas || tareas.length === 0) {
-      tablaBody.innerHTML = `<tr><td colspan="10">No existen registros guardados para la fecha ${fechaFiltroStr}.</td></tr>`;
-      actualizarResumenHoras([], fechaFiltroStr);
+      tablaBody.innerHTML = '<tr><td colspan="10">No se encontraron registros para el filtro seleccionado.</td></tr>';
+      actualizarResumenHoras([], desde || '');
       return;
     }
 
-    tareas.sort((a, b) => (a.id || 0) - (b.id || 0));
+    tareas.sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)) || ((a.id || 0) - (b.id || 0)));
     tareasCargadasCache = tareas;
 
     tablaBody.innerHTML = tareas.map(item => {
       let rawF = String(item.fecha || '').trim();
       let fDisplay = rawF.includes('T') ? rawF.split('T')[0] : rawF.split(' ')[0];
-      
+
       return `
         <tr>
           <td>${fDisplay}</td>
@@ -266,14 +352,26 @@ async function cargarTareas() {
       `;
     }).join('');
 
-    actualizarResumenHoras(tareas, fechaFiltroStr);
+    actualizarResumenHoras(tareas, desde || obtenerFechaHoyISO());
 
-  } catch(err) {
-    console.error("Error inesperado en cargarTareas:", err);
-    tablaBody.innerHTML = `<tr><td colspan="10" style="color:red;">Error al procesar la solicitud.</td></tr>`;
-    actualizarResumenHoras([], fechaFiltroStr);
+  } catch (err) {
+    console.error("Error inesperado al aplicar filtros:", err);
+    tablaBody.innerHTML = '<tr><td colspan="10" style="color:red;">Error procesando la búsqueda.</td></tr>';
+    actualizarResumenHoras([], '');
   }
 }
+
+function limpiarFiltros() {
+  document.getElementById('tipo-filtro').value = 'dia';
+  document.getElementById('filtro-fecha-desde').value = obtenerFechaHoyISO();
+  document.getElementById('filtro-fecha-hasta').value = '';
+  document.getElementById('filtro-proyecto').value = '';
+  document.getElementById('filtro-bloque').value = '';
+  cambiarModoFiltro();
+  aplicarFiltros();
+}
+
+/* --- EDICIÓN Y REGISTRO DE FORMULARIO --- */
 
 function cargarParaEditar(id) {
   const registro = tareasCargadasCache.find(t => t.id === id);
@@ -352,7 +450,7 @@ document.getElementById('tarea-form').addEventListener('submit', async (e) => {
       alert('Error de Supabase: ' + response.error.message);
     } else {
       resetearFormulario();
-      cargarTareas();
+      aplicarFiltros();
     }
   } catch (err) {
     alert('Error de red al conectar con Supabase.');
@@ -362,9 +460,11 @@ document.getElementById('tarea-form').addEventListener('submit', async (e) => {
 async function borrarTarea(id) {
   if (confirm('¿Eliminar este registro?')) {
     await supabaseClient.from(TABLA).delete().eq('id', id);
-    cargarTareas();
+    aplicarFiltros();
   }
 }
+
+/* --- CÁLCULOS Y RESUMEN --- */
 
 function obtenerMinutosDuracion(horaInicio, horaFin) {
   if (!horaInicio || !horaFin) return 0;
