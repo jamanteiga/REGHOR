@@ -10,7 +10,7 @@ if (window.supabase) {
 
 const TABLA = 'obras';
 
-// Las 35 Tareas predeterminadas
+// Las 35 Tareas exactas
 const TAREAS_DEFAULT = [
   "Análisis especificaciones cliente", "Anidado de ficheros 3000's", "AOYV", "Comida",
   "Descanso 20'", "Descanso 30'", "Espera de nueva tarea", "Generación .e2", "Generación .e3",
@@ -24,11 +24,12 @@ const TAREAS_DEFAULT = [
   "Revisión maquillaje 6000's", "Solicitada nueva tarea"
 ];
 
-// Los 12 Proyectos predeterminados
+// Los 12 Proyectos exactos
 const PROYECTOS_DEFAULT = [
   "ABAC", "BAC2", "BLOR", "COM", "DES", "FOR", "INFO", "INT", "MAN", "NAV", "PROG", "VAC"
 ];
 
+// Cargar desde LocalStorage si existen o usar los por defecto
 let configData = {
   tareas: JSON.parse(localStorage.getItem('cfg_tareas')) || TAREAS_DEFAULT,
   proyectos: JSON.parse(localStorage.getItem('cfg_proyectos')) || PROYECTOS_DEFAULT
@@ -54,17 +55,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 window.addEventListener('click', (e) => {
-  if (!e.target.matches('#btn-graficos')) {
-    const dropdown = document.getElementById('dropdown-graficos-container');
+  if (!e.target.matches('#btn-informes')) {
+    const dropdown = document.getElementById('dropdown-informes-container');
     if (dropdown && dropdown.classList.contains('show')) {
       dropdown.classList.remove('show');
     }
   }
 });
 
-function toggleDropdownGraficos(e) {
+function toggleDropdownInformes(e) {
   e.stopPropagation();
-  document.getElementById('dropdown-graficos-container').classList.toggle('show');
+  document.getElementById('dropdown-informes-container').classList.toggle('show');
 }
 
 /**
@@ -200,11 +201,6 @@ async function copiarHoraFinAnterior() {
   }
 }
 
-function filtrarGrafico(criterio) {
-  alert(`Criterio de visualización seleccionado: ${criterio}`);
-  document.getElementById('dropdown-graficos-container').classList.remove('show');
-}
-
 function obtenerJornadaTeoricaMinutos(fechaStr) {
   if (!fechaStr) return 0;
   const partes = fechaStr.split('-');
@@ -220,9 +216,6 @@ function obtenerJornadaTeoricaMinutos(fechaStr) {
   return 510;                             // Lunes a Jueves: 8h 30m
 }
 
-/**
- * Carga las tareas garantizando tolerancia a espacios extra en columnas de tipo TEXT
- */
 async function cargarTareas() {
   const tablaBody = document.getElementById('tabla-body');
   tablaBody.innerHTML = '<tr><td colspan="10">Cargando datos desde Supabase...</td></tr>';
@@ -309,7 +302,7 @@ function cargarParaEditar(id) {
   document.getElementById('notas').value = registro.notas || '';
 
   const btnGuardar = document.getElementById('btn-guardar');
-  btnGuardar.textContent = (idiomaActual === 'gl') ? 'Actualizar' : 'Actualizar';
+  btnGuardar.textContent = 'Actualizar';
   btnGuardar.style.backgroundColor = '#ffc107';
   btnGuardar.style.color = '#000';
   document.getElementById('btn-cancelar').style.display = 'inline-block';
@@ -426,8 +419,8 @@ function actualizarResumenHoras(listaTareas, fechaStr) {
 function cambiarIdioma(lang) {
   idiomaActual = lang;
   const t = {
-    es: { titulo: 'REGHOR', fecha: 'Fecha', tarea: 'Tarea', proyecto: 'Proyecto', listado: 'Listado de Tareas', graficos: '📊 Gráficos ▾', guardar: 'Guardar', actualizar: 'Actualizar', teorica: 'Jornada Teórica del Día:', total: 'Total Horas Trabajadas:', balance: 'Balance / Horas Extra:' },
-    gl: { titulo: 'REGHOR', fecha: 'Data', tarea: 'Tarefa', proyecto: 'Proxecto', listado: 'Listaxe de Tarefas', graficos: '📊 Gráficos ▾', guardar: 'Gardar', actualizar: 'Actualizar', teorica: 'Xornada Teórica do Día:', total: 'Total Horas Traballadas:', balance: 'Balance / Horas Extra:' }
+    es: { titulo: 'REGHOR', fecha: 'Fecha', tarea: 'Tarea', proyecto: 'Proyecto', listado: 'Listado de Tareas', informes: '📊 Informes ▾', guardar: 'Guardar', actualizar: 'Actualizar', teorica: 'Jornada Teórica del Día:', total: 'Total Horas Trabajadas:', balance: 'Balance / Horas Extra:' },
+    gl: { titulo: 'REGHOR', fecha: 'Data', tarea: 'Tarefa', proyecto: 'Proxecto', listado: 'Listaxe de Tarefas', informes: '📊 Informes ▾', guardar: 'Gardar', actualizar: 'Actualizar', teorica: 'Xornada Teórica do Día:', total: 'Total Horas Traballadas:', balance: 'Balance / Horas Extra:' }
   }[lang];
 
   document.getElementById('txt-titulo').textContent = t.titulo;
@@ -435,7 +428,7 @@ function cambiarIdioma(lang) {
   document.getElementById('lbl-tarea').textContent = t.tarea;
   document.getElementById('lbl-proyecto').textContent = t.proyecto;
   document.getElementById('txt-listado').textContent = t.listado;
-  document.getElementById('btn-graficos').textContent = t.graficos;
+  document.getElementById('btn-informes').textContent = t.informes;
   
   const idEditando = document.getElementById('tarea-id').value;
   document.getElementById('btn-guardar').textContent = idEditando ? t.actualizar : t.guardar;

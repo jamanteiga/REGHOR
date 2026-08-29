@@ -32,9 +32,9 @@
     .header-container { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
     .controls-right { display: flex; gap: 10px; align-items: center; position: relative; }
 
-    /* Dropdown Gráficos */
+    /* Dropdown Informes */
     .dropdown-chart { position: relative; display: inline-block; }
-    .dropdown-content { display: none; position: absolute; right: 0; background-color: var(--card-bg); min-width: 160px; box-shadow: 0px 8px 16px rgba(0,0,0,0.2); z-index: 100; border-radius: 4px; border: 1px solid var(--border-color); }
+    .dropdown-content { display: none; position: absolute; right: 0; background-color: var(--card-bg); min-width: 180px; box-shadow: 0px 8px 16px rgba(0,0,0,0.2); z-index: 100; border-radius: 4px; border: 1px solid var(--border-color); }
     .dropdown-content a { color: var(--text-color); padding: 10px 14px; text-decoration: none; display: block; font-size: 14px; }
     .dropdown-content a:hover { background-color: rgba(0,0,0,0.1); }
     .dropdown-chart.show .dropdown-content { display: block; }
@@ -132,14 +132,17 @@
     <h1 id="txt-titulo">REGHOR</h1>
     
     <div class="controls-right">
-      <div class="dropdown-chart" id="dropdown-graficos-container">
-        <button class="icon-btn" id="btn-graficos" onclick="toggleDropdownGraficos(event)">📊 Gráficos ▾</button>
-        <div class="dropdown-content" id="dropdown-graficos-menu">
-          <a href="#" onclick="filtrarGrafico('proyecto'); return false;">Por Proyecto</a>
-          <a href="#" onclick="filtrarGrafico('proyecto-bloque'); return false;">Por Proyecto-Bloque</a>
-          <a href="#" onclick="filtrarGrafico('semana'); return false;">Por Semana</a>
-          <a href="#" onclick="filtrarGrafico('mes'); return false;">Por Mes</a>
-          <a href="#" onclick="filtrarGrafico('dia'); return false;">Por Día</a>
+      <!-- Menú Informes (Abre siempre en pestaña nueva) -->
+      <div class="dropdown-chart" id="dropdown-informes-container">
+        <button class="icon-btn" id="btn-informes" onclick="toggleDropdownInformes(event)">📊 Informes ▾</button>
+        <div class="dropdown-content" id="dropdown-informes-menu">
+          <a href="informes.html?tipo=proyecto" target="_blank">Por Proyecto</a>
+          <a href="informes.html?tipo=proyecto-bloque" target="_blank">Por Proyecto-Bloque</a>
+          <a href="informes.html?tipo=dia" target="_blank">Por Día</a>
+          <a href="informes.html?tipo=semana" target="_blank">Por Semana</a>
+          <a href="informes.html?tipo=mes" target="_blank">Por Mes</a>
+          <a href="informes.html?tipo=trimestre" target="_blank">Por Trimestre</a>
+          <a href="informes.html?tipo=rango" target="_blank">🔍 Todos los Filtros</a>
         </div>
       </div>
 
