@@ -10,7 +10,7 @@ if (window.supabase) {
 
 const TABLA = 'obras';
 
-// Las 35 Tareas exactas de la 1ª foto
+// Las 35 Tareas exactas
 const TAREAS_DEFAULT = [
   "Análisis especificaciones cliente",
   "Anidado de ficheros 3000's",
@@ -49,7 +49,7 @@ const TAREAS_DEFAULT = [
   "Solicitada nueva tarea"
 ];
 
-// Los 12 Proyectos exactos de la 2ª foto
+// Los 12 Proyectos exactos
 const PROYECTOS_DEFAULT = [
   "ABAC",
   "BAC2",
@@ -75,7 +75,7 @@ let idiomaActual = 'es';
 let tareasCargadasCache = [];
 
 document.addEventListener('DOMContentLoaded', () => {
-  establecerFechaHoy();
+  establecerFechaAyer(); // Se establece por defecto la fecha del día anterior
   poblarSelects();
   
   if (supabaseClient) {
@@ -99,12 +99,17 @@ function toggleDropdownGraficos(e) {
   document.getElementById('dropdown-graficos-container').classList.toggle('show');
 }
 
-function establecerFechaHoy() {
+/**
+ * Ajusta el input de fecha al día anterior (ayer)
+ */
+function establecerFechaAyer() {
   const inputFecha = document.getElementById('fecha');
-  const hoy = new Date();
-  const year = hoy.getFullYear();
-  const month = String(hoy.getMonth() + 1).padStart(2, '0');
-  const day = String(hoy.getDate()).padStart(2, '0');
+  const ayer = new Date();
+  ayer.setDate(ayer.getDate() - 1); // Resta un día a la fecha actual
+  
+  const year = ayer.getFullYear();
+  const month = String(ayer.getMonth() + 1).padStart(2, '0');
+  const day = String(ayer.getDate()).padStart(2, '0');
   inputFecha.value = `${year}-${month}-${day}`;
 }
 
@@ -114,7 +119,7 @@ function toggleTheme() {
   document.getElementById('btn-theme').textContent = isDark ? '☀️ Claro' : '🌙 Oscuro';
 }
 
-// Ordenación alfabética estricta A-Z considerando acentos
+// Ordenación alfabética estricta A-Z
 function ordenarLista(array) {
   return array.sort((a, b) => a.localeCompare(b, idiomaActual, { sensitivity: 'base' }));
 }
@@ -257,34 +262,24 @@ function obtenerJornadaTeoricaMinutos(fechaStr) {
 async function cargarTareas() {
   const tablaBody = document.getElementById('tabla-body');
   tablaBody.innerHTML = '<tr><td colspan="10">Cargando datos...</td></tr>';
-  const hoyStr = document.getElementById('fecha').value;
+  const fechaFiltroStr = document.getElementById('fecha').value;
 
   try {
     let { data: tareas, error } = await supabaseClient
       .from(TABLA)
       .select('*')
-      .eq('fecha', hoyStr)
+      .eq('fecha', fechaFiltroStr)
       .order('id', { ascending: false });
-
-    if (!error && (!tareas || tareas.length === 0)) {
-      const res = await supabaseClient
-        .from(TABLA)
-        .select('*')
-        .order('id', { ascending: false })
-        .limit(15);
-      tareas = res.data;
-      error = res.error;
-    }
 
     if (error) {
       tablaBody.innerHTML = `<tr><td colspan="10" style="color:red;">Error de base de datos: ${error.message}</td></tr>`;
-      actualizarResumenHoras([], hoyStr);
+      actualizarResumenHoras([], fechaFiltroStr);
       return;
     }
 
     if (!tareas || tareas.length === 0) {
-      tablaBody.innerHTML = '<tr><td colspan="10">No existen registros guardados.</td></tr>';
-      actualizarResumenHoras([], hoyStr);
+      tablaBody.innerHTML = `<tr><td colspan="10">No existen registros guardados para la fecha ${fechaFiltroStr}.</td></tr>`;
+      actualizarResumenHoras([], fechaFiltroStr);
       return;
     }
 
@@ -308,11 +303,11 @@ async function cargarTareas() {
       </tr>
     `).join('');
 
-    actualizarResumenHoras(tareas, hoyStr);
+    actualizarResumenHoras(tareas, fechaFiltroStr);
 
   } catch(err) {
     tablaBody.innerHTML = `<tr><td colspan="10" style="color:red;">Error de conexión (TypeError: Failed to fetch). Verifica la tabla '${TABLA}' en Supabase.</td></tr>`;
-    actualizarResumenHoras([], hoyStr);
+    actualizarResumenHoras([], fechaFiltroStr);
   }
 }
 
@@ -368,7 +363,7 @@ document.getElementById('tarea-form').addEventListener('submit', async (e) => {
     return;
   }
 
-  // Validación 2: Alerta si el registro supera la jornada teórica del día
+  // Validación 2: Alerta si la tarea individual supera la jornada teórica del día
   const duracionMinutos = obtenerMinutosDuracion(horaInicio, horaFin);
   const jornadaTeoricaMin = obtenerJornadaTeoricaMinutos(fechaStr);
   
