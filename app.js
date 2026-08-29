@@ -38,11 +38,22 @@ let tipoConfigActual = '';
 let idiomaActual = 'es';
 let tareasCargadasCache = [];
 
+/**
+ * Obtiene la fecha actual del sistema local en formato YYYY-MM-DD
+ */
+function obtenerFechaHoyISO() {
+  const hoy = new Date();
+  const offset = hoy.getTimezoneOffset();
+  return new Date(hoy.getTime() - (offset * 60 * 1000)).toISOString().split('T')[0];
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   poblarSelects();
 
+  // Establecer por defecto la fecha de hoy en el input
   const inputFecha = document.getElementById('fecha');
   if (inputFecha) {
+    inputFecha.value = obtenerFechaHoyISO();
     inputFecha.addEventListener('change', () => cargarTareas());
   }
 
@@ -65,33 +76,6 @@ window.addEventListener('click', (e) => {
 function toggleDropdownGraficos(e) {
   e.stopPropagation();
   document.getElementById('dropdown-graficos-container').classList.toggle('show');
-}
-
-/**
- * Consulta la última fecha registrada en Supabase si el input está vacío
- */
-async function obtenerUltimaFechaDesdeSupabase() {
-  try {
-    const { data, error } = await supabaseClient
-      .from(TABLA)
-      .select('fecha')
-      .order('id', { ascending: false })
-      .limit(1);
-
-    if (!error && data && data.length > 0 && data[0].fecha) {
-      let raw = String(data[0].fecha).trim();
-      if (raw.includes('T')) raw = raw.split('T')[0];
-      if (raw.includes(' ')) raw = raw.split(' ')[0];
-      return raw;
-    }
-  } catch (e) {
-    console.error("Error al obtener la última fecha de Supabase:", e);
-  }
-
-  // Fallback si la consulta falla o no hay datos
-  const hoy = new Date();
-  const offset = hoy.getTimezoneOffset();
-  return new Date(hoy.getTime() - (offset * 60 * 1000)).toISOString().split('T')[0];
 }
 
 function toggleTheme() {
@@ -222,7 +206,7 @@ function obtenerJornadaTeoricaMinutos(fechaStr) {
 }
 
 /**
- * Carga las tareas garantizando tolerancia a espacios extra en columnas de tipo TEXT
+ * Carga las tareas de la fecha seleccionada (por defecto la de hoy)
  */
 async function cargarTareas() {
   const tablaBody = document.getElementById('tabla-body');
@@ -231,16 +215,13 @@ async function cargarTareas() {
   const inputFecha = document.getElementById('fecha');
   let fechaFiltroStr = inputFecha ? inputFecha.value.trim() : '';
 
-  // Si la fecha está vacía, consultar a Supabase por la última registrada
+  // Si por alguna razón el input estuviera vacío, asignar hoy
   if (!fechaFiltroStr) {
-    fechaFiltroStr = await obtenerUltimaFechaDesdeSupabase();
-    if (inputFecha) {
-      inputFecha.value = fechaFiltroStr;
-    }
+    fechaFiltroStr = obtenerFechaHoyISO();
+    if (inputFecha) inputFecha.value = fechaFiltroStr;
   }
 
   try {
-    // ilike con % para tolerar espacios extra al inicio o final en campos TEXT
     const { data: tareas, error } = await supabaseClient
       .from(TABLA)
       .select('*')
@@ -259,7 +240,6 @@ async function cargarTareas() {
       return;
     }
 
-    // Ordenar por ID ascendente para mantener orden cronológico de inserción
     tareas.sort((a, b) => (a.id || 0) - (b.id || 0));
     tareasCargadasCache = tareas;
 
