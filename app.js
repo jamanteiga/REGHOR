@@ -30,42 +30,24 @@ const PROYECTOS_DEFAULT = [
 ];
 
 let configData = {
-  tareas: TAREAS_DEFAULT,
-  proyectos: PROYECTOS_DEFAULT
+  tareas: JSON.parse(localStorage.getItem('cfg_tareas')) || TAREAS_DEFAULT,
+  proyectos: JSON.parse(localStorage.getItem('cfg_proyectos')) || PROYECTOS_DEFAULT
 };
 
 let tipoConfigActual = '';
 let idiomaActual = 'es';
 let tareasCargadasCache = [];
 
-/**
- * Obtiene la fecha actual del sistema local en formato YYYY-MM-DD
- */
-function obtenerFechaHoyISO() {
-  const hoy = new Date();
-  const offset = hoy.getTimezoneOffset();
-  return new Date(hoy.getTime() - (offset * 60 * 1000)).toISOString().split('T')[0];
-}
-
 document.addEventListener('DOMContentLoaded', async () => {
   poblarSelects();
 
-  const fechaHoy = obtenerFechaHoyISO();
-
-  // Asignar hoy al formulario principal
   const inputFecha = document.getElementById('fecha');
   if (inputFecha) {
-    inputFecha.value = fechaHoy;
-  }
-
-  // Asignar hoy al filtro de búsqueda inicial
-  const inputFiltroDesde = document.getElementById('filtro-fecha-desde');
-  if (inputFiltroDesde) {
-    inputFiltroDesde.value = fechaHoy;
+    inputFecha.addEventListener('change', () => cargarTareas());
   }
 
   if (supabaseClient) {
-    await aplicarFiltros();
+    await cargarTareas();
   } else {
     document.getElementById('tabla-body').innerHTML = '<tr><td colspan="10" style="color:red;">⚠️ Error al inicializar Supabase.</td></tr>';
   }
@@ -85,6 +67,32 @@ function toggleDropdownGraficos(e) {
   document.getElementById('dropdown-graficos-container').classList.toggle('show');
 }
 
+/**
+ * Consulta la última fecha registrada en Supabase si el input está vacío
+ */
+async function obtenerUltimaFechaDesdeSupabase() {
+  try {
+    const { data, error } = await supabaseClient
+      .from(TABLA)
+      .select('fecha')
+      .order('id', { ascending: false })
+      .limit(1);
+
+    if (!error && data && data.length > 0 && data[0].fecha) {
+      let raw = String(data[0].fecha).trim();
+      if (raw.includes('T')) raw = raw.split('T')[0];
+      if (raw.includes(' ')) raw = raw.split(' ')[0];
+      return raw;
+    }
+  } catch (e) {
+    console.error("Error al obtener la última fecha de Supabase:", e);
+  }
+
+  const hoy = new Date();
+  const offset = hoy.getTimezoneOffset();
+  return new Date(hoy.getTime() - (offset * 60 * 1000)).toISOString().split('T')[0];
+}
+
 function toggleTheme() {
   document.body.classList.toggle('dark-mode');
   const isDark = document.body.classList.contains('dark-mode');
@@ -98,7 +106,6 @@ function ordenarLista(array) {
 function poblarSelects() {
   const selTarea = document.getElementById('tarea');
   const selProyecto = document.getElementById('proyecto');
-  const selFiltroProyecto = document.getElementById('filtro-proyecto');
   
   configData.tareas = ordenarLista(configData.tareas);
   configData.proyectos = ordenarLista(configData.proyectos);
@@ -114,11 +121,6 @@ function poblarSelects() {
       selProyecto.value = 'BAC2';
     }
   }
-
-  if (selFiltroProyecto) {
-    selFiltroProyecto.innerHTML = '<option value="">-- Todos los proyectos --</option>' + 
-      configData.proyectos.map(p => `<option value="${p}">${p}</option>`).join('');
-  }
 }
 
 function sincronizarComentario() {
@@ -129,7 +131,6 @@ function sincronizarComentario() {
   }
 }
 
-/* --- GESTIÓN DE CONFIGURACIÓN Y OPCIONES --- */
 function abrirConfig(tipo) {
   tipoConfigActual = tipo;
   document.getElementById('modal-titulo').textContent = `Configurar ${tipo}`;
@@ -219,120 +220,49 @@ function obtenerJornadaTeoricaMinutos(fechaStr) {
   return 510;                             // Lunes a Jueves: 8h 30m
 }
 
-/* --- LOGICA DEL PANEL DE FILTROS AVANZADOS --- */
+/**
+ * Carga las tareas garantizando tolerancia a espacios extra en columnas de tipo TEXT
+ */
+async function cargarTareas() {
+  const tablaBody = document.getElementById('tabla-body');
+  tablaBody.innerHTML = '<tr><td colspan="10">Cargando datos desde Supabase...</td></tr>';
+  
+  const inputFecha = document.getElementById('fecha');
+  let fechaFiltroStr = inputFecha ? inputFecha.value.trim() : '';
 
-function cambiarModoFiltro() {
-  const modo = document.getElementById('tipo-filtro').value;
-  const inputDesde = document.getElementById('filtro-fecha-desde');
-  const inputHasta = document.getElementById('filtro-fecha-hasta');
-  const selProyecto = document.getElementById('filtro-proyecto');
-  const inputBloque = document.getElementById('filtro-bloque');
-
-  inputDesde.style.display = (modo === 'proyecto') ? 'none' : 'inline-block';
-  inputHasta.style.display = (modo === 'rango') ? 'inline-block' : 'none';
-  selProyecto.style.display = (modo === 'proyecto') ? 'inline-block' : 'none';
-  inputBloque.style.display = (modo === 'proyecto') ? 'inline-block' : 'none';
-}
-
-function obtenerRangosFechaCalculados() {
-  const modo = document.getElementById('tipo-filtro').value;
-  const valFecha = document.getElementById('filtro-fecha-desde').value;
-
-  if (!valFecha && modo !== 'proyecto') return { desde: null, hasta: null };
-
-  const baseDate = new Date(valFecha + 'T00:00:00');
-  const yyyy = baseDate.getFullYear();
-  const mm = baseDate.getMonth(); // 0 a 11
-
-  let desde = valFecha;
-  let hasta = valFecha;
-
-  if (modo === 'semana') {
-    const dayOfWeek = baseDate.getDay() === 0 ? 7 : baseDate.getDay(); 
-    const lunes = new Date(baseDate);
-    lunes.setDate(baseDate.getDate() - (dayOfWeek - 1));
-    const domingo = new Date(lunes);
-    domingo.setDate(lunes.getDate() + 6);
-
-    desde = lunes.toISOString().split('T')[0];
-    hasta = domingo.toISOString().split('T')[0];
-
-  } else if (modo === 'mes') {
-    const primerDia = new Date(yyyy, mm, 1);
-    const ultimoDia = new Date(yyyy, mm + 1, 0);
-    desde = primerDia.toISOString().split('T')[0];
-    hasta = ultimoDia.toISOString().split('T')[0];
-
-  } else if (modo === 'trimestre') {
-    const qTrim = Math.floor(mm / 3);
-    const primerDia = new Date(yyyy, qTrim * 3, 1);
-    const ultimoDia = new Date(yyyy, (qTrim + 1) * 3, 0);
-    desde = primerDia.toISOString().split('T')[0];
-    hasta = ultimoDia.toISOString().split('T')[0];
-
-  } else if (modo === 'semestre') {
-    const sSem = mm < 6 ? 0 : 6;
-    const primerDia = new Date(yyyy, sSem, 1);
-    const ultimoDia = new Date(yyyy, sSem + 6, 0);
-    desde = primerDia.toISOString().split('T')[0];
-    hasta = ultimoDia.toISOString().split('T')[0];
-
-  } else if (modo === 'rango') {
-    hasta = document.getElementById('filtro-fecha-hasta').value || valFecha;
+  if (!fechaFiltroStr) {
+    fechaFiltroStr = await obtenerUltimaFechaDesdeSupabase();
+    if (inputFecha) {
+      inputFecha.value = fechaFiltroStr;
+    }
   }
 
-  return { desde, hasta };
-}
-
-async function aplicarFiltros() {
-  const tablaBody = document.getElementById('tabla-body');
-  tablaBody.innerHTML = '<tr><td colspan="10">Filtrando datos desde Supabase...</td></tr>';
-
-  const modo = document.getElementById('tipo-filtro').value;
-  const { desde, hasta } = obtenerRangosFechaCalculados();
-
   try {
-    let query = supabaseClient.from(TABLA).select('*');
-
-    if (modo !== 'proyecto' && desde && hasta) {
-      if (desde === hasta) {
-        // Coincidencia con ilike por seguridad sobre campos TEXT con espacios
-        query = query.ilike('fecha', `%${desde}%`);
-      } else {
-        query = query.gte('fecha', desde).lte('fecha', hasta);
-      }
-    }
-
-    if (modo === 'proyecto') {
-      const proy = document.getElementById('filtro-proyecto').value;
-      const bloq = document.getElementById('filtro-bloque').value.trim();
-
-      if (proy) query = query.eq('proyecto', proy);
-      if (bloq) query = query.ilike('bloque', `%${bloq}%`);
-    }
-
-    const { data: tareas, error } = await query;
+    const { data: tareas, error } = await supabaseClient
+      .from(TABLA)
+      .select('*')
+      .ilike('fecha', `%${fechaFiltroStr}%`);
 
     if (error) {
-      console.error("Error al filtrar:", error);
+      console.error("Error al cargar registros:", error);
       tablaBody.innerHTML = `<tr><td colspan="10" style="color:red;">Error Supabase: ${error.message}</td></tr>`;
-      actualizarResumenHoras([], '');
+      actualizarResumenHoras([], fechaFiltroStr);
       return;
     }
 
     if (!tareas || tareas.length === 0) {
-      tablaBody.innerHTML = '<tr><td colspan="10">No se encontraron registros para el filtro seleccionado.</td></tr>';
-      actualizarResumenHoras([], desde || '');
+      tablaBody.innerHTML = `<tr><td colspan="10">No existen registros guardados para la fecha ${fechaFiltroStr}.</td></tr>`;
+      actualizarResumenHoras([], fechaFiltroStr);
       return;
     }
 
-    tareas.sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)) || ((a.id || 0) - (b.id || 0)));
+    tareas.sort((a, b) => (a.id || 0) - (b.id || 0));
     tareasCargadasCache = tareas;
 
     tablaBody.innerHTML = tareas.map(item => {
       let rawF = String(item.fecha || '').trim();
       let fDisplay = rawF.includes('T') ? rawF.split('T')[0] : rawF.split(' ')[0];
-
+      
       return `
         <tr>
           <td>${fDisplay}</td>
@@ -352,26 +282,14 @@ async function aplicarFiltros() {
       `;
     }).join('');
 
-    actualizarResumenHoras(tareas, desde || obtenerFechaHoyISO());
+    actualizarResumenHoras(tareas, fechaFiltroStr);
 
-  } catch (err) {
-    console.error("Error inesperado al aplicar filtros:", err);
-    tablaBody.innerHTML = '<tr><td colspan="10" style="color:red;">Error procesando la búsqueda.</td></tr>';
-    actualizarResumenHoras([], '');
+  } catch(err) {
+    console.error("Error inesperado en cargarTareas:", err);
+    tablaBody.innerHTML = `<tr><td colspan="10" style="color:red;">Error al procesar la solicitud.</td></tr>`;
+    actualizarResumenHoras([], fechaFiltroStr);
   }
 }
-
-function limpiarFiltros() {
-  document.getElementById('tipo-filtro').value = 'dia';
-  document.getElementById('filtro-fecha-desde').value = obtenerFechaHoyISO();
-  document.getElementById('filtro-fecha-hasta').value = '';
-  document.getElementById('filtro-proyecto').value = '';
-  document.getElementById('filtro-bloque').value = '';
-  cambiarModoFiltro();
-  aplicarFiltros();
-}
-
-/* --- EDICIÓN Y REGISTRO DE FORMULARIO --- */
 
 function cargarParaEditar(id) {
   const registro = tareasCargadasCache.find(t => t.id === id);
@@ -391,7 +309,7 @@ function cargarParaEditar(id) {
   document.getElementById('notas').value = registro.notas || '';
 
   const btnGuardar = document.getElementById('btn-guardar');
-  btnGuardar.textContent = 'Actualizar';
+  btnGuardar.textContent = (idiomaActual === 'gl') ? 'Actualizar' : 'Actualizar';
   btnGuardar.style.backgroundColor = '#ffc107';
   btnGuardar.style.color = '#000';
   document.getElementById('btn-cancelar').style.display = 'inline-block';
@@ -450,7 +368,7 @@ document.getElementById('tarea-form').addEventListener('submit', async (e) => {
       alert('Error de Supabase: ' + response.error.message);
     } else {
       resetearFormulario();
-      aplicarFiltros();
+      cargarTareas();
     }
   } catch (err) {
     alert('Error de red al conectar con Supabase.');
@@ -460,11 +378,9 @@ document.getElementById('tarea-form').addEventListener('submit', async (e) => {
 async function borrarTarea(id) {
   if (confirm('¿Eliminar este registro?')) {
     await supabaseClient.from(TABLA).delete().eq('id', id);
-    aplicarFiltros();
+    cargarTareas();
   }
 }
-
-/* --- CÁLCULOS Y RESUMEN --- */
 
 function obtenerMinutosDuracion(horaInicio, horaFin) {
   if (!horaInicio || !horaFin) return 0;
