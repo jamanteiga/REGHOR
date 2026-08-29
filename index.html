@@ -36,7 +36,7 @@
     .flag-btn { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 4px; padding: 4px 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
     .flag-icon { width: 24px; height: 16px; display: block; }
     
-    .icon-btn { padding: 6px 12px; cursor: pointer; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-color); font-weight: bold; text-decoration: none; font-size: 13.33px; }
+    .icon-btn { padding: 6px 12px; cursor: pointer; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-color); font-weight: bold; text-decoration: none; font-size: 13.33px; display: inline-flex; align-items: center; }
 
     /* Formulario: Disposición en UNA SOLA FILA */
     form, .modal-content { background: var(--card-bg); padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
@@ -125,8 +125,9 @@
     <h1 id="txt-titulo">REGHOR</h1>
     
     <div class="controls-right">
-      <!-- Botón acceso a Informes -->
+      <!-- Enlaces externos a Informes y Gráficos -->
       <a href="informes.html" target="_blank" class="icon-btn" id="btn-informes">📊 Informes</a>
+      <a href="graficos.html" target="_blank" class="icon-btn" id="btn-graficos">📈 Gráficos</a>
 
       <!-- Bandera España SVG -->
       <button class="flag-btn" onclick="cambiarIdioma('es')" title="Español">
