@@ -10,13 +10,7 @@ const TABLA = 'obras';
 let chartInstance = null;
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Establecer por defecto el mes actual en el rango de fechas
-  const hoy = new Date();
-  const primerDia = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-  
-  document.getElementById('filtro-desde').value = primerDia.toISOString().split('T')[0];
-  document.getElementById('filtro-hasta').value = hoy.toISOString().split('T')[0];
-
+  setPeriodo('mes');
   generarGrafico();
 });
 
@@ -25,19 +19,51 @@ function toggleTheme() {
   const isDark = document.body.classList.contains('dark-mode');
   document.getElementById('btn-theme').textContent = isDark ? '☀️ Claro' : '🌙 Oscuro';
   
-  // Volver a renderizar el gráfico para actualizar los colores del texto si cambia de tema
   if (chartInstance) {
     generarGrafico();
+  }
+}
+
+// Configuración rápida de fechas: Día, Semana actual o Mes actual
+function setPeriodo(tipo) {
+  const hoy = new Date();
+  const desdeInput = document.getElementById('filtro-desde');
+  const hastaInput = document.getElementById('filtro-hasta');
+
+  const formatearFecha = (d) => {
+    const offset = d.getTimezoneOffset();
+    return new Date(d.getTime() - (offset * 60 * 1000)).toISOString().split('T')[0];
+  };
+
+  if (tipo === 'dia') {
+    desdeInput.value = formatearFecha(hoy);
+    hastaInput.value = formatearFecha(hoy);
+  } else if (tipo === 'semana') {
+    const diaSemana = hoy.getDay();
+    const diffLunes = hoy.getDate() - diaSemana + (diaSemana === 0 ? -6 : 1);
+    const lunes = new Date(hoy.setDate(diffLunes));
+    const domingo = new Date(lunes);
+    domingo.setDate(lunes.getDate() + 6);
+
+    desdeInput.value = formatearFecha(lunes);
+    hastaInput.value = formatearFecha(domingo);
+  } else if (tipo === 'mes') {
+    const primerDia = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    const ultimoDia = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+
+    desdeInput.value = formatearFecha(primerDia);
+    hastaInput.value = formatearFecha(ultimoDia);
   }
 }
 
 async function generarGrafico() {
   if (!supabaseClient) return;
 
-  const agruparPor = document.getElementById('filtro-agrupar').value; // 'proyecto' o 'tarea'
+  const agruparPor = document.getElementById('filtro-agrupar').value;
   const tipoGrafico = document.getElementById('filtro-tipo-grafico').value;
   const desde = document.getElementById('filtro-desde').value;
   const hasta = document.getElementById('filtro-hasta').value;
+  const filtroTareaTexto = document.getElementById('filtro-tarea-texto').value.trim();
 
   let query = supabaseClient.from(TABLA).select('*');
 
@@ -47,31 +73,58 @@ async function generarGrafico() {
   const { data, error } = await query;
 
   if (error || !data) {
-    console.error("Error al obtener datos para el gráfico:", error);
+    console.error("Error al obtener datos:", error);
     return;
   }
 
-  // Agrupar y sumar minutos
+  // Preparar Regex para el comodín de Tarea (*)
+  let regexTarea = null;
+  if (filtroTareaTexto) {
+    const patronEspecial = filtroTareaTexto.replace(/[-\/\\^$+?.()|[\]{}]/g, '\\$&');
+    const patronRegex = '^' + patronEspecial.replace(/\*/g, '.*') + '$';
+    regexTarea = new RegExp(patronRegex, 'i');
+  }
+
   const acumulado = {};
 
   data.forEach(item => {
-    const clave = item[agruparPor] || 'Sin especificar';
+    const nombreTarea = item.tarea || '';
+
+    // Filtrar por tarea si hay búsqueda con comodín
+    if (regexTarea && !regexTarea.test(nombreTarea)) {
+      return;
+    }
+
+    // Determinar la clave de agrupación
+    let clave = '';
+    const proy = item.proyecto || 'Sin Proyecto';
+    const bloq = item.bloque || 'Sin Bloque';
+
+    if (agruparPor === 'proyecto') {
+      clave = proy;
+    } else if (agruparPor === 'proyecto_bloque') {
+      clave = `${proy} / ${bloq}`;
+    } else if (agruparPor === 'proyecto_tarea') {
+      clave = `${proy} / ${nombreTarea}`;
+    } else if (agruparPor === 'tarea') {
+      clave = nombreTarea || 'Sin Tarea';
+    }
+
     const minutos = obtenerMinutosDuracion(item.horainicio, item.horafin);
-    
+
     if (!acumulado[clave]) {
       acumulado[clave] = 0;
     }
     acumulado[clave] += minutos;
   });
 
-  // Convertir minutos a horas decimales para representación en el gráfico
   const etiquetas = Object.keys(acumulado);
-  const horasValores = etiquetas.map(clave => (acumulado[clave] / 60).toFixed(2));
+  const horasValores = etiquetas.map(k => (acumulado[k] / 60).toFixed(2));
 
   renderizarChart(etiquetas, horasValores, tipoGrafico, agruparPor);
 }
 
-function renderizarChart(labels, dataValues, tipo, campoAgrupado) {
+function renderizarChart(labels, dataValues, tipo, modoAgrupacion) {
   const ctx = document.getElementById('miGrafico').getContext('2d');
 
   if (chartInstance) {
@@ -80,7 +133,8 @@ function renderizarChart(labels, dataValues, tipo, campoAgrupado) {
 
   const coloresBase = [
     '#007bff', '#28a745', '#ffc107', '#dc3545', '#17a2b8',
-    '#6610f2', '#e83e8c', '#fd7e14', '#20c997', '#6c757d'
+    '#6610f2', '#e83e8c', '#fd7e14', '#20c997', '#6c757d',
+    '#343a40', '#00d2d3', '#ff9f43', '#ee5253', '#10ac84'
   ];
 
   const esOscuro = document.body.classList.contains('dark-mode');
@@ -91,9 +145,9 @@ function renderizarChart(labels, dataValues, tipo, campoAgrupado) {
     data: {
       labels: labels,
       datasets: [{
-        label: `Horas por ${campoAgrupado.toUpperCase()}`,
+        label: `Horas (${modoAgrupacion})`,
         data: dataValues,
-        backgroundColor: coloresBase.slice(0, labels.length),
+        backgroundColor: coloresBase.slice(0, Math.max(labels.length, 15)),
         borderWidth: 1
       }]
     },
@@ -106,7 +160,7 @@ function renderizarChart(labels, dataValues, tipo, campoAgrupado) {
         tooltip: {
           callbacks: {
             label: function(context) {
-              return ` ${context.label}: ${context.raw} horas`;
+              return ` ${context.label}: ${context.raw} hrs`;
             }
           }
         }
@@ -114,7 +168,7 @@ function renderizarChart(labels, dataValues, tipo, campoAgrupado) {
       scales: (tipo === 'bar') ? {
         y: {
           ticks: { color: colorTexto },
-          title: { display: true, text: 'Horas Trabadas', color: colorTexto }
+          title: { display: true, text: 'Horas Trabajadas', color: colorTexto }
         },
         x: {
           ticks: { color: colorTexto }

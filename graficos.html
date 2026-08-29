@@ -46,6 +46,10 @@
     .grupo-filtro label { font-weight: bold; font-size: 12px; margin-bottom: 4px; }
     input, select { padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--card-bg); color: var(--text-color); font-size: 12px; }
 
+    .btn-row { display: flex; gap: 5px; }
+    .btn-mini-preset { padding: 4px 8px; font-size: 11px; cursor: pointer; border-radius: 4px; border: 1px solid var(--border-color); background: #e9ecef; color: #000; font-weight: bold; }
+    body.dark-mode .btn-mini-preset { background: #333; color: #fff; }
+
     .btn-filtrar {
       background-color: #28a745;
       color: white;
@@ -64,14 +68,12 @@
       padding: 20px;
       border-radius: 8px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      max-width: 800px;
+      max-width: 900px;
       margin: 0 auto;
       position: relative;
     }
   </style>
-  <!-- Supabase JS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -85,9 +87,16 @@
     <div class="grupo-filtro">
       <label>Agrupar Por</label>
       <select id="filtro-agrupar">
-        <option value="proyecto">Horas por Proyecto</option>
-        <option value="tarea">Horas por Tarea</option>
+        <option value="proyecto">Proyecto</option>
+        <option value="proyecto_bloque">Proyecto - Bloque</option>
+        <option value="proyecto_tarea">Proyecto - Tarea</option>
+        <option value="tarea">Tarea</option>
       </select>
+    </div>
+
+    <div class="grupo-filtro">
+      <label>Filtro Tarea (usa * como comodín)</label>
+      <input type="text" id="filtro-tarea-texto" placeholder="Ej: Maquillaje* o *2000's">
     </div>
 
     <div class="grupo-filtro">
@@ -97,6 +106,15 @@
         <option value="pie">Tarta</option>
         <option value="doughnut">Rosco</option>
       </select>
+    </div>
+
+    <div class="grupo-filtro">
+      <label>Periodo Rápido</label>
+      <div class="btn-row">
+        <button type="button" class="btn-mini-preset" onclick="setPeriodo('dia')">Hoy</button>
+        <button type="button" class="btn-mini-preset" onclick="setPeriodo('semana')">Semana</button>
+        <button type="button" class="btn-mini-preset" onclick="setPeriodo('mes')">Mes</button>
+      </div>
     </div>
 
     <div class="grupo-filtro">
