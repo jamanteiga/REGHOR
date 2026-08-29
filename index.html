@@ -30,20 +30,13 @@
     }
     
     .header-container { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-    .controls-right { display: flex; gap: 10px; align-items: center; position: relative; }
-
-    /* Dropdown Informes */
-    .dropdown-chart { position: relative; display: inline-block; }
-    .dropdown-content { display: none; position: absolute; right: 0; background-color: var(--card-bg); min-width: 180px; box-shadow: 0px 8px 16px rgba(0,0,0,0.2); z-index: 100; border-radius: 4px; border: 1px solid var(--border-color); }
-    .dropdown-content a { color: var(--text-color); padding: 10px 14px; text-decoration: none; display: block; font-size: 14px; }
-    .dropdown-content a:hover { background-color: rgba(0,0,0,0.1); }
-    .dropdown-chart.show .dropdown-content { display: block; }
+    .controls-right { display: flex; gap: 10px; align-items: center; }
 
     /* Banderas SVG */
     .flag-btn { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 4px; padding: 4px 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
     .flag-icon { width: 24px; height: 16px; display: block; }
     
-    .icon-btn { padding: 6px 12px; cursor: pointer; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-color); font-weight: bold; }
+    .icon-btn { padding: 6px 12px; cursor: pointer; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-color); font-weight: bold; text-decoration: none; font-size: 13.33px; }
 
     /* Formulario: Disposición en UNA SOLA FILA */
     form, .modal-content { background: var(--card-bg); padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
@@ -132,19 +125,8 @@
     <h1 id="txt-titulo">REGHOR</h1>
     
     <div class="controls-right">
-      <!-- Menú Informes (Abre siempre en pestaña nueva) -->
-      <div class="dropdown-chart" id="dropdown-informes-container">
-        <button class="icon-btn" id="btn-informes" onclick="toggleDropdownInformes(event)">📊 Informes ▾</button>
-        <div class="dropdown-content" id="dropdown-informes-menu">
-          <a href="informes.html?tipo=proyecto" target="_blank">Por Proyecto</a>
-          <a href="informes.html?tipo=proyecto-bloque" target="_blank">Por Proyecto-Bloque</a>
-          <a href="informes.html?tipo=dia" target="_blank">Por Día</a>
-          <a href="informes.html?tipo=semana" target="_blank">Por Semana</a>
-          <a href="informes.html?tipo=mes" target="_blank">Por Mes</a>
-          <a href="informes.html?tipo=trimestre" target="_blank">Por Trimestre</a>
-          <a href="informes.html?tipo=rango" target="_blank">🔍 Todos los Filtros</a>
-        </div>
-      </div>
+      <!-- Botón acceso a Informes -->
+      <a href="informes.html" target="_blank" class="icon-btn" id="btn-informes">📊 Informes</a>
 
       <!-- Bandera España SVG -->
       <button class="flag-btn" onclick="cambiarIdioma('es')" title="Español">

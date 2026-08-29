@@ -10,7 +10,7 @@ if (window.supabase) {
 
 const TABLA = 'obras';
 
-// Las 35 Tareas exactas
+// Las 35 Tareas predefinidas
 const TAREAS_DEFAULT = [
   "Análisis especificaciones cliente", "Anidado de ficheros 3000's", "AOYV", "Comida",
   "Descanso 20'", "Descanso 30'", "Espera de nueva tarea", "Generación .e2", "Generación .e3",
@@ -24,7 +24,7 @@ const TAREAS_DEFAULT = [
   "Revisión maquillaje 6000's", "Solicitada nueva tarea"
 ];
 
-// Los 12 Proyectos exactos
+// Los 12 Proyectos predefinidos
 const PROYECTOS_DEFAULT = [
   "ABAC", "BAC2", "BLOR", "COM", "DES", "FOR", "INFO", "INT", "MAN", "NAV", "PROG", "VAC"
 ];
@@ -53,20 +53,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('tabla-body').innerHTML = '<tr><td colspan="10" style="color:red;">⚠️ Error al inicializar Supabase.</td></tr>';
   }
 });
-
-window.addEventListener('click', (e) => {
-  if (!e.target.matches('#btn-informes')) {
-    const dropdown = document.getElementById('dropdown-informes-container');
-    if (dropdown && dropdown.classList.contains('show')) {
-      dropdown.classList.remove('show');
-    }
-  }
-});
-
-function toggleDropdownInformes(e) {
-  e.stopPropagation();
-  document.getElementById('dropdown-informes-container').classList.toggle('show');
-}
 
 /**
  * Consulta la última fecha registrada en Supabase si el input está vacío
@@ -419,8 +405,8 @@ function actualizarResumenHoras(listaTareas, fechaStr) {
 function cambiarIdioma(lang) {
   idiomaActual = lang;
   const t = {
-    es: { titulo: 'REGHOR', fecha: 'Fecha', tarea: 'Tarea', proyecto: 'Proyecto', listado: 'Listado de Tareas', informes: '📊 Informes ▾', guardar: 'Guardar', actualizar: 'Actualizar', teorica: 'Jornada Teórica del Día:', total: 'Total Horas Trabajadas:', balance: 'Balance / Horas Extra:' },
-    gl: { titulo: 'REGHOR', fecha: 'Data', tarea: 'Tarefa', proyecto: 'Proxecto', listado: 'Listaxe de Tarefas', informes: '📊 Informes ▾', guardar: 'Gardar', actualizar: 'Actualizar', teorica: 'Xornada Teórica do Día:', total: 'Total Horas Traballadas:', balance: 'Balance / Horas Extra:' }
+    es: { titulo: 'REGHOR', fecha: 'Fecha', tarea: 'Tarea', proyecto: 'Proyecto', listado: 'Listado de Tareas', informes: '📊 Informes', guardar: 'Guardar', actualizar: 'Actualizar', teorica: 'Jornada Teórica del Día:', total: 'Total Horas Trabajadas:', balance: 'Balance / Horas Extra:' },
+    gl: { titulo: 'REGHOR', fecha: 'Data', tarea: 'Tarefa', proyecto: 'Proxecto', listado: 'Listaxe de Tarefas', informes: '📊 Informes', guardar: 'Gardar', actualizar: 'Actualizar', teorica: 'Xornada Teórica do Día:', total: 'Total Horas Traballadas:', balance: 'Balance / Horas Extra:' }
   }[lang];
 
   document.getElementById('txt-titulo').textContent = t.titulo;
