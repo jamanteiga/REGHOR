@@ -116,8 +116,14 @@
     table { width: 100%; border-collapse: collapse; background: var(--card-bg); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
     th, td { padding: 10px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 13px; }
     th { background-color: var(--header-bg); color: white; }
-    tfoot tr { background-color: rgba(0, 123, 255, 0.1); font-weight: bold; }
-    tfoot td { border-top: 2px solid var(--header-bg); }
+    
+    tfoot tr { background-color: rgba(0, 123, 255, 0.08); font-weight: bold; }
+    tfoot tr.row-extra { background-color: rgba(40, 167, 69, 0.12); }
+    tfoot td { border-top: 1px solid var(--border-color); }
+    
+    .saldo-positivo { color: #28a745; font-weight: bold; }
+    .saldo-negativo { color: #dc3545; font-weight: bold; }
+    .saldo-neutro { color: #6c757d; font-weight: bold; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -164,7 +170,7 @@
     <div class="form-grid">
       <div class="form-group">
         <label for="fecha" id="lbl-fecha">Fecha</label>
-        <input type="date" id="fecha" required>
+        <input type="date" id="fecha" onchange="cargarTareas()" required>
       </div>
 
       <div class="form-group">
@@ -243,8 +249,18 @@
     <tbody id="tabla-body"></tbody>
     <tfoot>
       <tr>
-        <td colspan="6" style="text-align: right;" id="txt-total-label">Total Horas Registradas:</td>
+        <td colspan="6" style="text-align: right;" id="txt-teorica-label">Jornada Teórica del Día:</td>
+        <td id="total-teorica">00:00</td>
+        <td colspan="3"></td>
+      </tr>
+      <tr>
+        <td colspan="6" style="text-align: right;" id="txt-total-label">Total Horas Trabajadas:</td>
         <td id="total-duracion">00:00</td>
+        <td colspan="3"></td>
+      </tr>
+      <tr class="row-extra">
+        <td colspan="6" style="text-align: right;" id="txt-balance-label">Balance / Horas Extra:</td>
+        <td id="total-balance">00:00</td>
         <td colspan="3"></td>
       </tr>
     </tfoot>

@@ -10,6 +10,7 @@ if (window.supabase) {
 
 const TABLA = 'obras';
 
+// Las 35 Tareas exactas de la 1ª foto
 const TAREAS_DEFAULT = [
   "Análisis especificaciones cliente",
   "Anidado de ficheros 3000's",
@@ -48,6 +49,7 @@ const TAREAS_DEFAULT = [
   "Solicitada nueva tarea"
 ];
 
+// Los 12 Proyectos exactos de la 2ª foto
 const PROYECTOS_DEFAULT = [
   "ABAC",
   "BAC2",
@@ -112,12 +114,17 @@ function toggleTheme() {
   document.getElementById('btn-theme').textContent = isDark ? '☀️ Claro' : '🌙 Oscuro';
 }
 
+// Ordenación alfabética estricta A-Z considerando acentos
+function ordenarLista(array) {
+  return array.sort((a, b) => a.localeCompare(b, idiomaActual, { sensitivity: 'base' }));
+}
+
 function poblarSelects() {
   const selTarea = document.getElementById('tarea');
   const selProyecto = document.getElementById('proyecto');
   
-  configData.tareas.sort((a, b) => a.localeCompare(b, idiomaActual, { sensitivity: 'base' }));
-  configData.proyectos.sort((a, b) => a.localeCompare(b, idiomaActual, { sensitivity: 'base' }));
+  configData.tareas = ordenarLista(configData.tareas);
+  configData.proyectos = ordenarLista(configData.proyectos);
 
   if (selTarea) {
     selTarea.innerHTML = configData.tareas.length > 0 
@@ -153,6 +160,8 @@ function cerrarConfig() {
 
 function renderListaConfig() {
   const ul = document.getElementById('lista-config');
+  configData[tipoConfigActual] = ordenarLista(configData[tipoConfigActual]);
+  
   ul.innerHTML = configData[tipoConfigActual].map((item, idx) => `
     <li style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
       <span>${item}</span>
@@ -164,8 +173,9 @@ function renderListaConfig() {
 function agregarOpcionConfig() {
   const input = document.getElementById('nuevo-valor-config');
   const val = input.value.trim();
-  if (val) {
+  if (val && !configData[tipoConfigActual].includes(val)) {
     configData[tipoConfigActual].push(val);
+    configData[tipoConfigActual] = ordenarLista(configData[tipoConfigActual]);
     localStorage.setItem(`cfg_${tipoConfigActual}`, JSON.stringify(configData[tipoConfigActual]));
     input.value = '';
     renderListaConfig();
@@ -211,6 +221,39 @@ function filtrarGrafico(criterio) {
   document.getElementById('dropdown-graficos-container').classList.remove('show');
 }
 
+/**
+ * Calcula la jornada teórica en minutos según la fecha:
+ * - Verano (1 de Julio a 31 de Agosto): 7h 15m (435 min)
+ * - Invierno (Lunes a Jueves): 8h 30m (510 min)
+ * - Invierno (Viernes): 7h 00m (420 min)
+ * - Fin de semana: 0 min
+ */
+function obtenerJornadaTeoricaMinutos(fechaStr) {
+  if (!fechaStr) return 0;
+  
+  const partes = fechaStr.split('-');
+  if (partes.length !== 3) return 0;
+  
+  const fecha = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
+  const mes = fecha.getMonth() + 1; // 1 a 12
+  const diaSemana = fecha.getDay(); // 0 = Dom, 1 = Lun, ..., 5 = Vie, 6 = Sáb
+
+  // Fines de semana
+  if (diaSemana === 0 || diaSemana === 6) return 0;
+
+  // Verano: 1 Julio - 31 Agosto -> 7h 15m
+  if (mes === 7 || mes === 8) {
+    return 435;
+  }
+
+  // Invierno
+  if (diaSemana === 5) {
+    return 420; // Viernes 7h 00m
+  } else {
+    return 510; // L-J 8h 30m
+  }
+}
+
 async function cargarTareas() {
   const tablaBody = document.getElementById('tabla-body');
   tablaBody.innerHTML = '<tr><td colspan="10">Cargando datos...</td></tr>';
@@ -235,13 +278,13 @@ async function cargarTareas() {
 
     if (error) {
       tablaBody.innerHTML = `<tr><td colspan="10" style="color:red;">Error de base de datos: ${error.message}</td></tr>`;
-      actualizarTotalHoras([]);
+      actualizarResumenHoras([], hoyStr);
       return;
     }
 
     if (!tareas || tareas.length === 0) {
       tablaBody.innerHTML = '<tr><td colspan="10">No existen registros guardados.</td></tr>';
-      actualizarTotalHoras([]);
+      actualizarResumenHoras([], hoyStr);
       return;
     }
 
@@ -265,15 +308,14 @@ async function cargarTareas() {
       </tr>
     `).join('');
 
-    actualizarTotalHoras(tareas);
+    actualizarResumenHoras(tareas, hoyStr);
 
   } catch(err) {
-    tablaBody.innerHTML = `<tr><td colspan="10" style="color:red;">Error de conexión (TypeError: Failed to fetch). Verifica que la tabla '${TABLA}' existe en Supabase y permite lectura pública.</td></tr>`;
-    actualizarTotalHoras([]);
+    tablaBody.innerHTML = `<tr><td colspan="10" style="color:red;">Error de conexión (TypeError: Failed to fetch). Verifica la tabla '${TABLA}' en Supabase.</td></tr>`;
+    actualizarResumenHoras([], hoyStr);
   }
 }
 
-// Cargar un registro existente en el formulario para modificarlo
 function cargarParaEditar(id) {
   const registro = tareasCargadasCache.find(t => t.id === id);
   if (!registro) return;
@@ -289,7 +331,7 @@ function cargarParaEditar(id) {
   document.getElementById('notas').value = registro.notas || '';
 
   const btnGuardar = document.getElementById('btn-guardar');
-  btnGuardar.textContent = (idiomaActual === 'gl') ? 'Actualizar' : 'Actualizar';
+  btnGuardar.textContent = 'Actualizar';
   btnGuardar.style.backgroundColor = '#ffc107';
   btnGuardar.style.color = '#000';
   document.getElementById('btn-cancelar').style.display = 'inline-block';
@@ -316,24 +358,29 @@ document.getElementById('tarea-form').addEventListener('submit', async (e) => {
   e.preventDefault();
 
   const id = document.getElementById('tarea-id').value;
+  const fechaStr = document.getElementById('fecha').value;
   const horaInicio = document.getElementById('horainicio').value;
   const horaFin = document.getElementById('horafin').value;
 
-  // Validación 1: Hora fin previa a hora inicio
+  // Validación 1: Hora Fin anterior a Hora Inicio
   if (horaInicio && horaFin && horaFin < horaInicio) {
     alert('❌ Error: La Hora Fin no puede ser anterior a la Hora Inicio.');
     return;
   }
 
-  // Validación 2: Duración superior a 8:30 horas (510 minutos)
+  // Validación 2: Alerta si el registro supera la jornada teórica del día
   const duracionMinutos = obtenerMinutosDuracion(horaInicio, horaFin);
-  if (duracionMinutos > 510) {
-    const confirmar = confirm(`⚠️ Atención: La duración registrada es de ${calcularDuracion(horaInicio, horaFin)} (más de 8h 30m). ¿Confirmas que los datos son correctos?`);
+  const jornadaTeoricaMin = obtenerJornadaTeoricaMinutos(fechaStr);
+  
+  if (jornadaTeoricaMin > 0 && duracionMinutos > jornadaTeoricaMin) {
+    const horasTeoricaFormatted = formatearMinutosAHoras(jornadaTeoricaMin);
+    const duracionFormatted = calcularDuracion(horaInicio, horaFin);
+    const confirmar = confirm(`⚠️ Atención: La duración registrada (${duracionFormatted}) supera la jornada teórica de este día (${horasTeoricaFormatted}). ¿Confirmas que los datos son correctos?`);
     if (!confirmar) return;
   }
 
   const registro = {
-    fecha: document.getElementById('fecha').value,
+    fecha: fechaStr,
     tarea: document.getElementById('tarea').value,
     proyecto: document.getElementById('proyecto').value,
     bloque: document.getElementById('bloque').value,
@@ -346,10 +393,8 @@ document.getElementById('tarea-form').addEventListener('submit', async (e) => {
   try {
     let response;
     if (id) {
-      // Acción UPDATE si se está editando
       response = await supabaseClient.from(TABLA).update(registro).eq('id', id);
     } else {
-      // Acción INSERT si es un registro nuevo
       response = await supabaseClient.from(TABLA).insert([registro]);
     }
 
@@ -381,27 +426,42 @@ function obtenerMinutosDuracion(horaInicio, horaFin) {
 
 function calcularDuracion(horaInicio, horaFin) {
   const dif = obtenerMinutosDuracion(horaInicio, horaFin);
-  return `${String(Math.floor(dif / 60)).padStart(2, '0')}:${String(dif % 60).padStart(2, '0')}`;
+  return formatearMinutosAHoras(dif);
 }
 
-function actualizarTotalHoras(listaTareas) {
-  let totalMinutos = 0;
+function formatearMinutosAHoras(totalMinutos) {
+  const absMin = Math.abs(totalMinutos);
+  const hh = String(Math.floor(absMin / 60)).padStart(2, '0');
+  const mm = String(absMin % 60).padStart(2, '0');
+  const signo = totalMinutos < 0 ? '-' : '';
+  return `${signo}${hh}:${mm}`;
+}
+
+function actualizarResumenHoras(listaTareas, fechaStr) {
+  let totalMinutosReales = 0;
 
   listaTareas.forEach(item => {
-    totalMinutos += obtenerMinutosDuracion(item.horainicio, item.horafin);
+    totalMinutosReales += obtenerMinutosDuracion(item.horainicio, item.horafin);
   });
 
-  const hh = String(Math.floor(totalMinutos / 60)).padStart(2, '0');
-  const mm = String(totalMinutos % 60).padStart(2, '0');
+  const minutosTeoricos = obtenerJornadaTeoricaMinutos(fechaStr);
+  const balanceMinutos = totalMinutosReales - minutosTeoricos;
+
+  document.getElementById('total-teorica').textContent = formatearMinutosAHoras(minutosTeoricos);
+  document.getElementById('total-duracion').textContent = formatearMinutosAHoras(totalMinutosReales);
   
-  document.getElementById('total-duracion').textContent = `${hh}:${mm}`;
+  const elBalance = document.getElementById('total-balance');
+  const signoStr = balanceMinutos > 0 ? '+' : '';
+  elBalance.textContent = `${signoStr}${formatearMinutosAHoras(balanceMinutos)}`;
+
+  elBalance.className = balanceMinutos > 0 ? 'saldo-positivo' : (balanceMinutos < 0 ? 'saldo-negativo' : 'saldo-neutro');
 }
 
 function cambiarIdioma(lang) {
   idiomaActual = lang;
   const t = {
-    es: { titulo: 'REGHOR', fecha: 'Fecha', tarea: 'Tarea', proyecto: 'Proyecto', listado: 'Listado de Tareas', graficos: '📊 Gráficos ▾', guardar: 'Guardar', actualizar: 'Actualizar', total: 'Total Horas Registradas:' },
-    gl: { titulo: 'REGHOR', fecha: 'Data', tarea: 'Tarefa', proyecto: 'Proxecto', listado: 'Listaxe de Tarefas', graficos: '📊 Gráficos ▾', guardar: 'Gardar', actualizar: 'Actualizar', total: 'Total Horas Rexistradas:' }
+    es: { titulo: 'REGHOR', fecha: 'Fecha', tarea: 'Tarea', proyecto: 'Proyecto', listado: 'Listado de Tareas', graficos: '📊 Gráficos ▾', guardar: 'Guardar', actualizar: 'Actualizar', teorica: 'Jornada Teórica del Día:', total: 'Total Horas Trabajadas:', balance: 'Balance / Horas Extra:' },
+    gl: { titulo: 'REGHOR', fecha: 'Data', tarea: 'Tarefa', proyecto: 'Proxecto', listado: 'Listaxe de Tarefas', graficos: '📊 Gráficos ▾', guardar: 'Gardar', actualizar: 'Actualizar', teorica: 'Xornada Teórica do Día:', total: 'Total Horas Traballadas:', balance: 'Balance / Horas Extra:' }
   }[lang];
 
   document.getElementById('txt-titulo').textContent = t.titulo;
@@ -413,7 +473,10 @@ function cambiarIdioma(lang) {
   
   const idEditando = document.getElementById('tarea-id').value;
   document.getElementById('btn-guardar').textContent = idEditando ? t.actualizar : t.guardar;
+  
+  document.getElementById('txt-teorica-label').textContent = t.teorica;
   document.getElementById('txt-total-label').textContent = t.total;
+  document.getElementById('txt-balance-label').textContent = t.balance;
 
   document.getElementById('th-fecha').textContent = t.fecha;
   document.getElementById('th-tarea').textContent = t.tarea;
