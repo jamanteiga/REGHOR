@@ -10,59 +10,23 @@ if (window.supabase) {
 
 const TABLA = 'obras';
 
-// Las 35 Tareas exactas de la Foto 1
+// Las 35 Tareas
 const TAREAS_DEFAULT = [
-  "Análisis especificaciones cliente",
-  "Anidado de ficheros 3000's",
-  "AOYV",
-  "Comida",
-  "Descanso 20'",
-  "Descanso 30'",
-  "Espera de nueva tarea",
-  "Generación .e2",
-  "Generación .e3",
-  "Generación de lotes de planchas",
-  "Generación de previas",
-  "Generación de secuencias de corte",
-  "Maquillaje .e2 1000's",
-  "Maquillaje .e2 2000's",
-  "Maquillaje .e2 3000's",
-  "Maquillaje .e2 4000's",
-  "Maquillaje .e2 6000's",
-  "Maquillaje de UA",
-  "Maquillaje de UL",
-  "Modificación planos GR",
-  "Modificaciones en planos",
-  "Plano previas",
-  "Problemas red en servidores cliente",
-  "Productos intermedios",
-  "Reinstalación software",
-  "Revisión de comentarios",
-  "Revisión de paneles",
-  "Revisión de unidades abiertas UA",
-  "Revisión de unidades lineales UL",
-  "Revisión maquillaje 1000's",
-  "Revisión maquillaje 2000's",
-  "Revisión maquillaje 3000's",
-  "Revisión maquillaje 4000's",
-  "Revisión maquillaje 6000's",
-  "Solicitada nueva tarea"
+  "Análisis especificaciones cliente", "Anidado de ficheros 3000's", "AOYV", "Comida",
+  "Descanso 20'", "Descanso 30'", "Espera de nueva tarea", "Generación .e2", "Generación .e3",
+  "Generación de lotes de planchas", "Generación de previas", "Generación de secuencias de corte",
+  "Maquillaje .e2 1000's", "Maquillaje .e2 2000's", "Maquillaje .e2 3000's", "Maquillaje .e2 4000's",
+  "Maquillaje .e2 6000's", "Maquillaje de UA", "Maquillaje de UL", "Modificación planos GR",
+  "Modificaciones en planos", "Plano previas", "Problemas red en servidores cliente",
+  "Productos intermedios", "Reinstalación software", "Revisión de comentarios", "Revisión de paneles",
+  "Revisión de unidades abiertas UA", "Revisión de unidades lineales UL", "Revisión maquillaje 1000's",
+  "Revisión maquillaje 2000's", "Revisión maquillaje 3000's", "Revisión maquillaje 4000's",
+  "Revisión maquillaje 6000's", "Solicitada nueva tarea"
 ];
 
-// Los 12 Proyectos exactos de la Foto 2
+// Los 12 Proyectos
 const PROYECTOS_DEFAULT = [
-  "ABAC",
-  "BAC2",
-  "BLOR",
-  "COM",
-  "DES",
-  "FOR",
-  "INFO",
-  "INT",
-  "MAN",
-  "NAV",
-  "PROG",
-  "VAC"
+  "ABAC", "BAC2", "BLOR", "COM", "DES", "FOR", "INFO", "INT", "MAN", "NAV", "PROG", "VAC"
 ];
 
 let configData = {
@@ -75,19 +39,18 @@ let idiomaActual = 'es';
 let tareasCargadasCache = [];
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // 1. Establecer fecha de hoy inmediatamente para evitar "dd/mm/aaaa"
-  const hoyStr = new Date().toISOString().split('T')[0];
-  document.getElementById('fecha').value = hoyStr;
-
-  // 2. Poblar los desplegables de Tareas y Proyectos
   poblarSelects();
 
-  // 3. Buscar la última fecha registrada en Supabase para mostrar las tareas de ese día
   if (supabaseClient) {
-    await cargarUltimaFechaODefecto();
+    await determinarYCargarUltimaFecha();
   } else {
     document.getElementById('tabla-body').innerHTML = '<tr><td colspan="10" style="color:red;">⚠️ Error al inicializar Supabase.</td></tr>';
   }
+});
+
+// Listener para cambiar de fecha manualmente desde el input
+document.getElementById('fecha').addEventListener('change', () => {
+  cargarTareas();
 });
 
 window.addEventListener('click', (e) => {
@@ -105,10 +68,11 @@ function toggleDropdownGraficos(e) {
 }
 
 /**
- * Consulta Supabase para obtener la última fecha con registros guardados.
- * Si existen registros en Supabase, ajusta el input de fecha a ese día y carga sus tareas.
+ * Consulta Supabase para obtener el último registro existente por fecha.
  */
-async function cargarUltimaFechaODefecto() {
+async function determinarYCargarUltimaFecha() {
+  const inputFecha = document.getElementById('fecha');
+
   try {
     const { data, error } = await supabaseClient
       .from(TABLA)
@@ -117,14 +81,21 @@ async function cargarUltimaFechaODefecto() {
       .limit(1);
 
     if (!error && data && data.length > 0 && data[0].fecha) {
-      document.getElementById('fecha').value = data[0].fecha;
+      let rawFecha = data[0].fecha;
+      // Extraer YYYY-MM-DD en caso de venir con hora
+      inputFecha.value = rawFecha.split('T')[0];
+    } else {
+      // Si la tabla está totalmente vacía, asignar la fecha de hoy en formato local YYYY-MM-DD
+      const hoy = new Date();
+      const offset = hoy.getTimezoneOffset();
+      const hoyLocal = new Date(hoy.getTime() - (offset * 60 * 1000));
+      inputFecha.value = hoyLocal.toISOString().split('T')[0];
     }
   } catch (e) {
-    console.error("Error consultando la última fecha registrada:", e);
-  } finally {
-    // Carga las tareas del día finalmente seleccionado
-    cargarTareas();
+    console.error("Error obteniendo última fecha:", e);
   }
+
+  await cargarTareas();
 }
 
 function toggleTheme() {
@@ -151,7 +122,6 @@ function poblarSelects() {
 
   if (selProyecto) {
     selProyecto.innerHTML = configData.proyectos.map(p => `<option value="${p}">${p}</option>`).join('');
-    // Seleccionar por defecto "BAC2"
     if (configData.proyectos.includes('BAC2')) {
       selProyecto.value = 'BAC2';
     }
@@ -242,7 +212,6 @@ function filtrarGrafico(criterio) {
 
 function obtenerJornadaTeoricaMinutos(fechaStr) {
   if (!fechaStr) return 0;
-  
   const partes = fechaStr.split('-');
   if (partes.length !== 3) return 0;
   
@@ -251,32 +220,35 @@ function obtenerJornadaTeoricaMinutos(fechaStr) {
   const diaSemana = fecha.getDay();
 
   if (diaSemana === 0 || diaSemana === 6) return 0;
-
-  if (mes === 7 || mes === 8) {
-    return 435; // Verano: 7h 15m
-  }
-
-  if (diaSemana === 5) {
-    return 420; // Viernes: 7h 00m
-  } else {
-    return 510; // Lunes a Jueves: 8h 30m
-  }
+  if (mes === 7 || mes === 8) return 435; // Verano: 7h 15m
+  if (diaSemana === 5) return 420;        // Viernes: 7h 00m
+  return 510;                             // Lunes a Jueves: 8h 30m
 }
 
+/**
+ * Carga las tareas filtrando exactamente por la fecha seleccionada en el input
+ */
 async function cargarTareas() {
   const tablaBody = document.getElementById('tabla-body');
-  tablaBody.innerHTML = '<tr><td colspan="10">Cargando datos...</td></tr>';
+  tablaBody.innerHTML = '<tr><td colspan="10">Cargando datos desde Supabase...</td></tr>';
   const fechaFiltroStr = document.getElementById('fecha').value;
 
+  if (!fechaFiltroStr) {
+    tablaBody.innerHTML = '<tr><td colspan="10">Seleccione una fecha válida.</td></tr>';
+    actualizarResumenHoras([], '');
+    return;
+  }
+
   try {
+    // Consulta directa por coincidencia de fecha exacta o inicio de cadena
     let { data: tareas, error } = await supabaseClient
       .from(TABLA)
       .select('*')
-      .eq('fecha', fechaFiltroStr)
-      .order('id', { ascending: false });
+      .ilike('fecha', `${fechaFiltroStr}%`);
 
     if (error) {
-      tablaBody.innerHTML = `<tr><td colspan="10" style="color:red;">Error de base de datos: ${error.message}</td></tr>`;
+      console.error("Error al cargar registros:", error);
+      tablaBody.innerHTML = `<tr><td colspan="10" style="color:red;">Error Supabase: ${error.message}</td></tr>`;
       actualizarResumenHoras([], fechaFiltroStr);
       return;
     }
@@ -287,30 +259,36 @@ async function cargarTareas() {
       return;
     }
 
+    // Ordenar tareas por hora de inicio / ID
+    tareas.sort((a, b) => (a.id || 0) - (b.id || 0));
     tareasCargadasCache = tareas;
 
-    tablaBody.innerHTML = tareas.map(item => `
-      <tr>
-        <td>${item.fecha || ''}</td>
-        <td>${item.tarea || ''}</td>
-        <td>${item.proyecto || ''}</td>
-        <td>${item.bloque || ''}</td>
-        <td>${item.horainicio || ''}</td>
-        <td>${item.horafin || ''}</td>
-        <td><strong>${calcularDuracion(item.horainicio, item.horafin)}</strong></td>
-        <td>${item.comentario || ''}</td>
-        <td>${item.notas || ''}</td>
-        <td>
-          <button class="btn-mini" onclick="cargarParaEditar(${item.id})">Editar</button>
-          <button class="btn-mini" onclick="borrarTarea(${item.id})">Eliminar</button>
-        </td>
-      </tr>
-    `).join('');
+    tablaBody.innerHTML = tareas.map(item => {
+      let fDisplay = item.fecha ? item.fecha.split('T')[0] : '';
+      return `
+        <tr>
+          <td>${fDisplay}</td>
+          <td>${item.tarea || ''}</td>
+          <td>${item.proyecto || ''}</td>
+          <td>${item.bloque || ''}</td>
+          <td>${item.horainicio || ''}</td>
+          <td>${item.horafin || ''}</td>
+          <td><strong>${calcularDuracion(item.horainicio, item.horafin)}</strong></td>
+          <td>${item.comentario || ''}</td>
+          <td>${item.notas || ''}</td>
+          <td>
+            <button class="btn-mini" onclick="cargarParaEditar(${item.id})">Editar</button>
+            <button class="btn-mini" onclick="borrarTarea(${item.id})">Eliminar</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
 
     actualizarResumenHoras(tareas, fechaFiltroStr);
 
   } catch(err) {
-    tablaBody.innerHTML = `<tr><td colspan="10" style="color:red;">Error de conexión con Supabase.</td></tr>`;
+    console.error("Error inesperado:", err);
+    tablaBody.innerHTML = `<tr><td colspan="10" style="color:red;">Error al procesar la solicitud.</td></tr>`;
     actualizarResumenHoras([], fechaFiltroStr);
   }
 }
@@ -319,8 +297,10 @@ function cargarParaEditar(id) {
   const registro = tareasCargadasCache.find(t => t.id === id);
   if (!registro) return;
 
+  let fDisplay = registro.fecha ? registro.fecha.split('T')[0] : '';
+
   document.getElementById('tarea-id').value = registro.id;
-  document.getElementById('fecha').value = registro.fecha || '';
+  document.getElementById('fecha').value = fDisplay;
   document.getElementById('tarea').value = registro.tarea || '';
   document.getElementById('proyecto').value = registro.proyecto || '';
   document.getElementById('bloque').value = registro.bloque || '';
@@ -470,4 +450,4 @@ function cambiarIdioma(lang) {
   document.getElementById('th-proyecto').textContent = t.proyecto;
 
   poblarSelects();
-}g
+}
