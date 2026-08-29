@@ -68,7 +68,7 @@ function toggleDropdownGraficos(e) {
 }
 
 /**
- * Consulta la última fecha registrada en Supabase
+ * Consulta la última fecha registrada en Supabase si el input está vacío
  */
 async function obtenerUltimaFechaDesdeSupabase() {
   try {
@@ -79,15 +79,19 @@ async function obtenerUltimaFechaDesdeSupabase() {
       .limit(1);
 
     if (!error && data && data.length > 0 && data[0].fecha) {
-      let raw = String(data[0].fecha);
-      return raw.includes('T') ? raw.split('T')[0] : raw.split(' ')[0];
+      let raw = String(data[0].fecha).trim();
+      if (raw.includes('T')) raw = raw.split('T')[0];
+      if (raw.includes(' ')) raw = raw.split(' ')[0];
+      return raw;
     }
   } catch (e) {
-    console.error("Error al obtener la última fecha:", e);
+    console.error("Error al obtener la última fecha de Supabase:", e);
   }
 
-  // Fallback si no hay registros: 2026-08-27
-  return '2026-08-27';
+  // Fallback si la consulta falla o no hay datos
+  const hoy = new Date();
+  const offset = hoy.getTimezoneOffset();
+  return new Date(hoy.getTime() - (offset * 60 * 1000)).toISOString().split('T')[0];
 }
 
 function toggleTheme() {
@@ -218,15 +222,16 @@ function obtenerJornadaTeoricaMinutos(fechaStr) {
 }
 
 /**
- * Carga las tareas realizando múltiples comprobaciones estables para la fecha
+ * Carga las tareas garantizando tolerancia a espacios extra en columnas de tipo TEXT
  */
 async function cargarTareas() {
   const tablaBody = document.getElementById('tabla-body');
   tablaBody.innerHTML = '<tr><td colspan="10">Cargando datos desde Supabase...</td></tr>';
   
   const inputFecha = document.getElementById('fecha');
-  let fechaFiltroStr = inputFecha ? inputFecha.value : '';
+  let fechaFiltroStr = inputFecha ? inputFecha.value.trim() : '';
 
+  // Si la fecha está vacía, consultar a Supabase por la última registrada
   if (!fechaFiltroStr) {
     fechaFiltroStr = await obtenerUltimaFechaDesdeSupabase();
     if (inputFecha) {
@@ -235,27 +240,15 @@ async function cargarTareas() {
   }
 
   try {
-    // 1. Primer intento: Coincidencia por rango de día completo (Soporta Timestamp / Timestamptz)
-    let { data: tareas, error } = await supabaseClient
+    // ilike con % para tolerar espacios extra al inicio o final en campos TEXT
+    const { data: tareas, error } = await supabaseClient
       .from(TABLA)
       .select('*')
-      .gte('fecha', `${fechaFiltroStr} 00:00:00`)
-      .lte('fecha', `${fechaFiltroStr} 23:59:59`);
-
-    // 2. Segundo intento: Coincidencia directa por cadena 'YYYY-MM-DD' (Si el tipo de columna es DATE o TEXT)
-    if ((!tareas || tareas.length === 0) && !error) {
-      const fallback = await supabaseClient
-        .from(TABLA)
-        .select('*')
-        .eq('fecha', fechaFiltroStr);
-      
-      tareas = fallback.data;
-      error = fallback.error;
-    }
+      .ilike('fecha', `%${fechaFiltroStr}%`);
 
     if (error) {
-      console.error("Error al consultar Supabase:", error);
-      tablaBody.innerHTML = `<tr><td colspan="10" style="color:red;">Error Supabase (${error.code}): ${error.message}</td></tr>`;
+      console.error("Error al cargar registros:", error);
+      tablaBody.innerHTML = `<tr><td colspan="10" style="color:red;">Error Supabase: ${error.message}</td></tr>`;
       actualizarResumenHoras([], fechaFiltroStr);
       return;
     }
@@ -266,12 +259,12 @@ async function cargarTareas() {
       return;
     }
 
-    // Ordenar tareas por ID
+    // Ordenar por ID ascendente para mantener orden cronológico de inserción
     tareas.sort((a, b) => (a.id || 0) - (b.id || 0));
     tareasCargadasCache = tareas;
 
     tablaBody.innerHTML = tareas.map(item => {
-      let rawF = String(item.fecha || '');
+      let rawF = String(item.fecha || '').trim();
       let fDisplay = rawF.includes('T') ? rawF.split('T')[0] : rawF.split(' ')[0];
       
       return `
@@ -297,7 +290,7 @@ async function cargarTareas() {
 
   } catch(err) {
     console.error("Error inesperado en cargarTareas:", err);
-    tablaBody.innerHTML = `<tr><td colspan="10" style="color:red;">Error al procesar la solicitud. Revisa la consola (F12).</td></tr>`;
+    tablaBody.innerHTML = `<tr><td colspan="10" style="color:red;">Error al procesar la solicitud.</td></tr>`;
     actualizarResumenHoras([], fechaFiltroStr);
   }
 }
@@ -306,7 +299,7 @@ function cargarParaEditar(id) {
   const registro = tareasCargadasCache.find(t => t.id === id);
   if (!registro) return;
 
-  let rawF = String(registro.fecha || '');
+  let rawF = String(registro.fecha || '').trim();
   let fDisplay = rawF.includes('T') ? rawF.split('T')[0] : rawF.split(' ')[0];
 
   document.getElementById('tarea-id').value = registro.id;
@@ -347,7 +340,7 @@ document.getElementById('tarea-form').addEventListener('submit', async (e) => {
   e.preventDefault();
 
   const id = document.getElementById('tarea-id').value;
-  const fechaStr = document.getElementById('fecha').value;
+  const fechaStr = document.getElementById('fecha').value.trim();
   const horaInicio = document.getElementById('horainicio').value;
   const horaFin = document.getElementById('horafin').value;
 
