@@ -41,16 +41,16 @@ let tareasCargadasCache = [];
 document.addEventListener('DOMContentLoaded', async () => {
   poblarSelects();
 
+  const inputFecha = document.getElementById('fecha');
+  if (inputFecha) {
+    inputFecha.addEventListener('change', () => cargarTareas());
+  }
+
   if (supabaseClient) {
-    await determinarYCargarUltimaFecha();
+    await cargarTareas();
   } else {
     document.getElementById('tabla-body').innerHTML = '<tr><td colspan="10" style="color:red;">⚠️ Error al inicializar Supabase.</td></tr>';
   }
-});
-
-// Listener para cambiar de fecha manualmente desde el input
-document.getElementById('fecha').addEventListener('change', () => {
-  cargarTareas();
 });
 
 window.addEventListener('click', (e) => {
@@ -68,34 +68,27 @@ function toggleDropdownGraficos(e) {
 }
 
 /**
- * Consulta Supabase para obtener el último registro existente por fecha.
+ * Consulta en la tabla 'obras' cuál es la última fecha registrada
  */
-async function determinarYCargarUltimaFecha() {
-  const inputFecha = document.getElementById('fecha');
-
+async function obtenerUltimaFechaDesdeSupabase() {
   try {
     const { data, error } = await supabaseClient
       .from(TABLA)
       .select('fecha')
-      .order('fecha', { ascending: false })
+      .order('id', { ascending: false })
       .limit(1);
 
     if (!error && data && data.length > 0 && data[0].fecha) {
-      let rawFecha = data[0].fecha;
-      // Extraer YYYY-MM-DD en caso de venir con hora
-      inputFecha.value = rawFecha.split('T')[0];
-    } else {
-      // Si la tabla está totalmente vacía, asignar la fecha de hoy en formato local YYYY-MM-DD
-      const hoy = new Date();
-      const offset = hoy.getTimezoneOffset();
-      const hoyLocal = new Date(hoy.getTime() - (offset * 60 * 1000));
-      inputFecha.value = hoyLocal.toISOString().split('T')[0];
+      return data[0].fecha.split('T')[0];
     }
   } catch (e) {
-    console.error("Error obteniendo última fecha:", e);
+    console.error("Error consultando la última fecha:", e);
   }
 
-  await cargarTareas();
+  // Fallback a la fecha local de hoy si la tabla estuviera vacía
+  const hoy = new Date();
+  const offset = hoy.getTimezoneOffset();
+  return new Date(hoy.getTime() - (offset * 60 * 1000)).toISOString().split('T')[0];
 }
 
 function toggleTheme() {
@@ -226,21 +219,25 @@ function obtenerJornadaTeoricaMinutos(fechaStr) {
 }
 
 /**
- * Carga las tareas filtrando exactamente por la fecha seleccionada en el input
+ * Carga las tareas asegurando que siempre exista una fecha válida recuperada de Supabase
  */
 async function cargarTareas() {
   const tablaBody = document.getElementById('tabla-body');
   tablaBody.innerHTML = '<tr><td colspan="10">Cargando datos desde Supabase...</td></tr>';
-  const fechaFiltroStr = document.getElementById('fecha').value;
+  
+  const inputFecha = document.getElementById('fecha');
+  let fechaFiltroStr = inputFecha ? inputFecha.value : '';
 
+  // SI LA FECHA ESTÁ VACÍA, CONSULTAR A SUPABASE LA ÚLTIMA EXISTENTE
   if (!fechaFiltroStr) {
-    tablaBody.innerHTML = '<tr><td colspan="10">Seleccione una fecha válida.</td></tr>';
-    actualizarResumenHoras([], '');
-    return;
+    fechaFiltroStr = await obtenerUltimaFechaDesdeSupabase();
+    if (inputFecha) {
+      inputFecha.value = fechaFiltroStr;
+    }
   }
 
   try {
-    // Consulta directa por coincidencia de fecha exacta o inicio de cadena
+    // Consulta filtrando por la fecha resuelta
     let { data: tareas, error } = await supabaseClient
       .from(TABLA)
       .select('*')
@@ -259,7 +256,7 @@ async function cargarTareas() {
       return;
     }
 
-    // Ordenar tareas por hora de inicio / ID
+    // Ordenar tareas por ID para mantener orden de registro
     tareas.sort((a, b) => (a.id || 0) - (b.id || 0));
     tareasCargadasCache = tareas;
 
