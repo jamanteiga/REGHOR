@@ -68,7 +68,7 @@ function toggleDropdownGraficos(e) {
 }
 
 /**
- * Consulta en la tabla 'obras' cuál es la última fecha registrada
+ * Consulta la última fecha registrada en Supabase
  */
 async function obtenerUltimaFechaDesdeSupabase() {
   try {
@@ -79,16 +79,15 @@ async function obtenerUltimaFechaDesdeSupabase() {
       .limit(1);
 
     if (!error && data && data.length > 0 && data[0].fecha) {
-      return data[0].fecha.split('T')[0];
+      let raw = String(data[0].fecha);
+      return raw.includes('T') ? raw.split('T')[0] : raw.split(' ')[0];
     }
   } catch (e) {
-    console.error("Error consultando la última fecha:", e);
+    console.error("Error al obtener la última fecha:", e);
   }
 
-  // Fallback a la fecha local de hoy si la tabla estuviera vacía
-  const hoy = new Date();
-  const offset = hoy.getTimezoneOffset();
-  return new Date(hoy.getTime() - (offset * 60 * 1000)).toISOString().split('T')[0];
+  // Fallback si no hay registros: 2026-08-27
+  return '2026-08-27';
 }
 
 function toggleTheme() {
@@ -219,7 +218,7 @@ function obtenerJornadaTeoricaMinutos(fechaStr) {
 }
 
 /**
- * Carga las tareas asegurando que siempre exista una fecha válida recuperada de Supabase
+ * Carga las tareas realizando múltiples comprobaciones estables para la fecha
  */
 async function cargarTareas() {
   const tablaBody = document.getElementById('tabla-body');
@@ -228,7 +227,6 @@ async function cargarTareas() {
   const inputFecha = document.getElementById('fecha');
   let fechaFiltroStr = inputFecha ? inputFecha.value : '';
 
-  // SI LA FECHA ESTÁ VACÍA, CONSULTAR A SUPABASE LA ÚLTIMA EXISTENTE
   if (!fechaFiltroStr) {
     fechaFiltroStr = await obtenerUltimaFechaDesdeSupabase();
     if (inputFecha) {
@@ -237,15 +235,27 @@ async function cargarTareas() {
   }
 
   try {
-    // Consulta filtrando por la fecha resuelta
+    // 1. Primer intento: Coincidencia por rango de día completo (Soporta Timestamp / Timestamptz)
     let { data: tareas, error } = await supabaseClient
       .from(TABLA)
       .select('*')
-      .ilike('fecha', `${fechaFiltroStr}%`);
+      .gte('fecha', `${fechaFiltroStr} 00:00:00`)
+      .lte('fecha', `${fechaFiltroStr} 23:59:59`);
+
+    // 2. Segundo intento: Coincidencia directa por cadena 'YYYY-MM-DD' (Si el tipo de columna es DATE o TEXT)
+    if ((!tareas || tareas.length === 0) && !error) {
+      const fallback = await supabaseClient
+        .from(TABLA)
+        .select('*')
+        .eq('fecha', fechaFiltroStr);
+      
+      tareas = fallback.data;
+      error = fallback.error;
+    }
 
     if (error) {
-      console.error("Error al cargar registros:", error);
-      tablaBody.innerHTML = `<tr><td colspan="10" style="color:red;">Error Supabase: ${error.message}</td></tr>`;
+      console.error("Error al consultar Supabase:", error);
+      tablaBody.innerHTML = `<tr><td colspan="10" style="color:red;">Error Supabase (${error.code}): ${error.message}</td></tr>`;
       actualizarResumenHoras([], fechaFiltroStr);
       return;
     }
@@ -256,12 +266,14 @@ async function cargarTareas() {
       return;
     }
 
-    // Ordenar tareas por ID para mantener orden de registro
+    // Ordenar tareas por ID
     tareas.sort((a, b) => (a.id || 0) - (b.id || 0));
     tareasCargadasCache = tareas;
 
     tablaBody.innerHTML = tareas.map(item => {
-      let fDisplay = item.fecha ? item.fecha.split('T')[0] : '';
+      let rawF = String(item.fecha || '');
+      let fDisplay = rawF.includes('T') ? rawF.split('T')[0] : rawF.split(' ')[0];
+      
       return `
         <tr>
           <td>${fDisplay}</td>
@@ -284,8 +296,8 @@ async function cargarTareas() {
     actualizarResumenHoras(tareas, fechaFiltroStr);
 
   } catch(err) {
-    console.error("Error inesperado:", err);
-    tablaBody.innerHTML = `<tr><td colspan="10" style="color:red;">Error al procesar la solicitud.</td></tr>`;
+    console.error("Error inesperado en cargarTareas:", err);
+    tablaBody.innerHTML = `<tr><td colspan="10" style="color:red;">Error al procesar la solicitud. Revisa la consola (F12).</td></tr>`;
     actualizarResumenHoras([], fechaFiltroStr);
   }
 }
@@ -294,7 +306,8 @@ function cargarParaEditar(id) {
   const registro = tareasCargadasCache.find(t => t.id === id);
   if (!registro) return;
 
-  let fDisplay = registro.fecha ? registro.fecha.split('T')[0] : '';
+  let rawF = String(registro.fecha || '');
+  let fDisplay = rawF.includes('T') ? rawF.split('T')[0] : rawF.split(' ')[0];
 
   document.getElementById('tarea-id').value = registro.id;
   document.getElementById('fecha').value = fDisplay;
