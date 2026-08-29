@@ -1,4 +1,4 @@
-// Configuración de conexión directa a Supabase
+// Configuración de conexión a Supabase
 const SUPABASE_URL = 'https://oppieocootkgddhazikw.supabase.co'; 
 const SUPABASE_KEY = 'sb_publishable_6_pEKDfVrdKKuewB_qn_cw_fzNXPjT-';
 
@@ -10,7 +10,7 @@ if (window.supabase) {
 
 const TABLA = 'obras';
 
-// Las 35 Tareas exactas
+// Las 35 Tareas exactas de la Foto 1
 const TAREAS_DEFAULT = [
   "Análisis especificaciones cliente",
   "Anidado de ficheros 3000's",
@@ -49,7 +49,7 @@ const TAREAS_DEFAULT = [
   "Solicitada nueva tarea"
 ];
 
-// Los 12 Proyectos exactos
+// Los 12 Proyectos exactos de la Foto 2
 const PROYECTOS_DEFAULT = [
   "ABAC",
   "BAC2",
@@ -66,8 +66,8 @@ const PROYECTOS_DEFAULT = [
 ];
 
 let configData = {
-  tareas: JSON.parse(localStorage.getItem('cfg_tareas')) || TAREAS_DEFAULT,
-  proyectos: JSON.parse(localStorage.getItem('cfg_proyectos')) || PROYECTOS_DEFAULT
+  tareas: TAREAS_DEFAULT,
+  proyectos: PROYECTOS_DEFAULT
 };
 
 let tipoConfigActual = '';
@@ -75,13 +75,18 @@ let idiomaActual = 'es';
 let tareasCargadasCache = [];
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // 1. Establecer fecha de hoy inmediatamente para evitar "dd/mm/aaaa"
+  const hoyStr = new Date().toISOString().split('T')[0];
+  document.getElementById('fecha').value = hoyStr;
+
+  // 2. Poblar los desplegables de Tareas y Proyectos
   poblarSelects();
-  
+
+  // 3. Buscar la última fecha registrada en Supabase para mostrar las tareas de ese día
   if (supabaseClient) {
-    await establecerUltimaFechaRegistrada();
-    cargarTareas();
+    await cargarUltimaFechaODefecto();
   } else {
-    document.getElementById('tabla-body').innerHTML = '<tr><td colspan="10" style="color:red;">⚠️ Error al inicializar la librería de Supabase.</td></tr>';
+    document.getElementById('tabla-body').innerHTML = '<tr><td colspan="10" style="color:red;">⚠️ Error al inicializar Supabase.</td></tr>';
   }
 });
 
@@ -100,11 +105,10 @@ function toggleDropdownGraficos(e) {
 }
 
 /**
- * Consulta la base de datos para obtener el último día registrado
- * Si no hay registros, asigna la fecha 2026-08-27 por defecto
+ * Consulta Supabase para obtener la última fecha con registros guardados.
+ * Si existen registros en Supabase, ajusta el input de fecha a ese día y carga sus tareas.
  */
-async function establecerUltimaFechaRegistrada() {
-  const inputFecha = document.getElementById('fecha');
+async function cargarUltimaFechaODefecto() {
   try {
     const { data, error } = await supabaseClient
       .from(TABLA)
@@ -113,12 +117,13 @@ async function establecerUltimaFechaRegistrada() {
       .limit(1);
 
     if (!error && data && data.length > 0 && data[0].fecha) {
-      inputFecha.value = data[0].fecha;
-    } else {
-      inputFecha.value = '2026-08-27';
+      document.getElementById('fecha').value = data[0].fecha;
     }
   } catch (e) {
-    inputFecha.value = '2026-08-27';
+    console.error("Error consultando la última fecha registrada:", e);
+  } finally {
+    // Carga las tareas del día finalmente seleccionado
+    cargarTareas();
   }
 }
 
@@ -128,7 +133,6 @@ function toggleTheme() {
   document.getElementById('btn-theme').textContent = isDark ? '☀️ Claro' : '🌙 Oscuro';
 }
 
-// Ordenación alfabética estricta A-Z
 function ordenarLista(array) {
   return array.sort((a, b) => a.localeCompare(b, idiomaActual, { sensitivity: 'base' }));
 }
@@ -141,22 +145,23 @@ function poblarSelects() {
   configData.proyectos = ordenarLista(configData.proyectos);
 
   if (selTarea) {
-    selTarea.innerHTML = configData.tareas.length > 0 
-      ? configData.tareas.map(t => `<option value="${t}">${t}</option>`).join('')
-      : '<option value="">-- Añade tareas con +config --</option>';
+    selTarea.innerHTML = configData.tareas.map(t => `<option value="${t}">${t}</option>`).join('');
     sincronizarComentario();
   }
+
   if (selProyecto) {
-    selProyecto.innerHTML = configData.proyectos.length > 0
-      ? configData.proyectos.map(p => `<option value="${p}">${p}</option>`).join('')
-      : '<option value="">-- Añade proyectos con +config --</option>';
+    selProyecto.innerHTML = configData.proyectos.map(p => `<option value="${p}">${p}</option>`).join('');
+    // Seleccionar por defecto "BAC2"
+    if (configData.proyectos.includes('BAC2')) {
+      selProyecto.value = 'BAC2';
+    }
   }
 }
 
 function sincronizarComentario() {
   const selTarea = document.getElementById('tarea');
   const inputComentario = document.getElementById('comentario');
-  if (selTarea && inputComentario && selTarea.value && !selTarea.value.includes('--')) {
+  if (selTarea && inputComentario && selTarea.value) {
     inputComentario.value = selTarea.value;
   }
 }
@@ -177,7 +182,7 @@ function renderListaConfig() {
   configData[tipoConfigActual] = ordenarLista(configData[tipoConfigActual]);
   
   ul.innerHTML = configData[tipoConfigActual].map((item, idx) => `
-    <li style="display:flex; justify-space-between; align-items:center; margin-bottom:5px;">
+    <li style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
       <span>${item}</span>
       <button type="button" class="btn-mini" onclick="eliminarOpcionConfig(${idx})">🗑️</button>
     </li>
@@ -235,13 +240,6 @@ function filtrarGrafico(criterio) {
   document.getElementById('dropdown-graficos-container').classList.remove('show');
 }
 
-/**
- * Calcula la jornada teórica en minutos según la fecha:
- * - Verano (1 de Julio a 31 de Agosto): 7h 15m (435 min)
- * - Invierno (Lunes a Jueves): 8h 30m (510 min)
- * - Invierno (Viernes): 7h 00m (420 min)
- * - Fin de semana: 0 min
- */
 function obtenerJornadaTeoricaMinutos(fechaStr) {
   if (!fechaStr) return 0;
   
@@ -255,13 +253,13 @@ function obtenerJornadaTeoricaMinutos(fechaStr) {
   if (diaSemana === 0 || diaSemana === 6) return 0;
 
   if (mes === 7 || mes === 8) {
-    return 435;
+    return 435; // Verano: 7h 15m
   }
 
   if (diaSemana === 5) {
-    return 420;
+    return 420; // Viernes: 7h 00m
   } else {
-    return 510;
+    return 510; // Lunes a Jueves: 8h 30m
   }
 }
 
@@ -312,7 +310,7 @@ async function cargarTareas() {
     actualizarResumenHoras(tareas, fechaFiltroStr);
 
   } catch(err) {
-    tablaBody.innerHTML = `<tr><td colspan="10" style="color:red;">Error de conexión (TypeError: Failed to fetch). Verifica la tabla '${TABLA}' en Supabase.</td></tr>`;
+    tablaBody.innerHTML = `<tr><td colspan="10" style="color:red;">Error de conexión con Supabase.</td></tr>`;
     actualizarResumenHoras([], fechaFiltroStr);
   }
 }
@@ -368,16 +366,6 @@ document.getElementById('tarea-form').addEventListener('submit', async (e) => {
     return;
   }
 
-  const duracionMinutos = obtenerMinutosDuracion(horaInicio, horaFin);
-  const jornadaTeoricaMin = obtenerJornadaTeoricaMinutos(fechaStr);
-  
-  if (jornadaTeoricaMin > 0 && duracionMinutos > jornadaTeoricaMin) {
-    const horasTeoricaFormatted = formatearMinutosAHoras(jornadaTeoricaMin);
-    const duracionFormatted = calcularDuracion(horaInicio, horaFin);
-    const confirmar = confirm(`⚠️ Atención: La duración registrada (${duracionFormatted}) supera la jornada teórica de este día (${horasTeoricaFormatted}). ¿Confirmas que los datos son correctos?`);
-    if (!confirmar) return;
-  }
-
   const registro = {
     fecha: fechaStr,
     tarea: document.getElementById('tarea').value,
@@ -404,7 +392,7 @@ document.getElementById('tarea-form').addEventListener('submit', async (e) => {
       cargarTareas();
     }
   } catch (err) {
-    alert('Error de red al conectar con Supabase. Asegúrate de tener conexión a Internet.');
+    alert('Error de red al conectar con Supabase.');
   }
 });
 
@@ -482,4 +470,4 @@ function cambiarIdioma(lang) {
   document.getElementById('th-proyecto').textContent = t.proyecto;
 
   poblarSelects();
-}
+}g
