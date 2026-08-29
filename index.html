@@ -45,54 +45,52 @@
     
     .icon-btn { padding: 6px 12px; cursor: pointer; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-color); font-weight: bold; }
 
-    /* Formulario: Disposición en una sola fila */
+    /* Formulario: Forzado estricto a UNA SOLA FILA */
     form, .modal-content { background: var(--card-bg); padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
     
     .form-grid { 
       display: flex; 
       flex-direction: row; 
       flex-wrap: nowrap; 
-      gap: 10px; 
+      gap: 8px; 
       align-items: flex-end; 
-      overflow-x: auto; 
-      padding-bottom: 5px;
+      width: 100%;
+      box-sizing: border-box;
     }
     
     .form-group { 
       display: flex; 
       flex-direction: column; 
-      flex: 1; 
-      min-width: 100px; 
+      flex: 1 1 0px; 
+      min-width: 0; 
     }
 
     .form-group-btn {
       flex: 0 0 auto;
-      min-width: auto;
       display: flex;
       gap: 5px;
     }
     
     .label-wrapper { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-    .label-wrapper label, .form-group > label { font-weight: bold; font-size: 13px; white-space: nowrap; }
+    .label-wrapper label, .form-group > label { font-weight: bold; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     
-    input, select { padding: 6px 8px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--card-bg); color: var(--text-color); font-size: 13px; width: 100%; box-sizing: border-box; }
+    input, select { padding: 6px 6px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--card-bg); color: var(--text-color); font-size: 12px; width: 100%; box-sizing: border-box; }
     
-    .btn-mini { padding: 2px 5px; font-size: 10px; cursor: pointer; border-radius: 3px; border: 1px solid var(--border-color); background: #e9ecef; color: #000; font-weight: bold; }
+    .btn-mini { padding: 2px 4px; font-size: 10px; cursor: pointer; border-radius: 3px; border: 1px solid var(--border-color); background: #e9ecef; color: #000; font-weight: bold; white-space: nowrap; }
     body.dark-mode .btn-mini { background: #333; color: #fff; }
 
     /* Botones de acción */
     .btn-submit { 
       background-color: #28a745; 
       color: white; 
-      padding: 6px 14px; 
+      padding: 6px 12px; 
       border: none; 
       border-radius: 4px; 
       cursor: pointer; 
       font-weight: bold; 
-      font-size: 13px;
-      width: max-content !important; 
+      font-size: 12px;
       white-space: nowrap;
-      height: 32px; 
+      height: 31px; 
     }
     .btn-cancel { 
       background-color: #6c757d; 
@@ -102,8 +100,9 @@
       border-radius: 4px; 
       cursor: pointer; 
       font-weight: bold; 
-      width: max-content; 
-      height: 32px; 
+      font-size: 12px;
+      white-space: nowrap;
+      height: 31px; 
       display: none; 
     }
     
@@ -191,15 +190,15 @@
 
       <div class="form-group">
         <label for="bloque" id="lbl-bloque">Bloque</label>
-        <input type="text" id="bloque">
+        <input type="text" id="bloque" placeholder="Ej: B242-PI-SB4">
       </div>
 
       <div class="form-group">
         <div class="label-wrapper">
-          <label for="horainicio" id="lbl-horainicio">Hora Inicio</label>
+          <label for="horainicio" id="lbl-horainicio">Inicio</label>
           <div>
-            <button type="button" class="btn-mini" onclick="setHoraActual('horainicio')">Ahora</button>
-            <button type="button" class="btn-mini" onclick="copiarHoraFinAnterior()">Copia</button>
+            <button type="button" class="btn-mini" onclick="setHoraActual('horainicio')">⏱️</button>
+            <button type="button" class="btn-mini" onclick="copiarHoraFinAnterior()">📋</button>
           </div>
         </div>
         <input type="time" id="horainicio" required>
@@ -207,8 +206,8 @@
 
       <div class="form-group">
         <div class="label-wrapper">
-          <label for="horafin" id="lbl-horafin">Hora Fin</label>
-          <button type="button" class="btn-mini" onclick="setHoraActual('horafin')">Ahora</button>
+          <label for="horafin" id="lbl-horafin">Fin</label>
+          <button type="button" class="btn-mini" onclick="setHoraActual('horafin')">⏱️</button>
         </div>
         <input type="time" id="horafin" required>
       </div>
@@ -223,7 +222,7 @@
         <input type="text" id="notas">
       </div>
 
-      <div class="form-group form-group-btn">
+      <div class="form-group-btn">
         <button type="submit" id="btn-guardar" class="btn-submit">Guardar</button>
         <button type="button" id="btn-cancelar" class="btn-cancel" onclick="resetearFormulario()">Cancelar</button>
       </div>

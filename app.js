@@ -74,11 +74,11 @@ let tipoConfigActual = '';
 let idiomaActual = 'es';
 let tareasCargadasCache = [];
 
-document.addEventListener('DOMContentLoaded', () => {
-  establecerFechaAyer(); // Se establece por defecto la fecha del día anterior
+document.addEventListener('DOMContentLoaded', async () => {
   poblarSelects();
   
   if (supabaseClient) {
+    await establecerUltimaFechaRegistrada();
     cargarTareas();
   } else {
     document.getElementById('tabla-body').innerHTML = '<tr><td colspan="10" style="color:red;">⚠️ Error al inicializar la librería de Supabase.</td></tr>';
@@ -100,17 +100,26 @@ function toggleDropdownGraficos(e) {
 }
 
 /**
- * Ajusta el input de fecha al día anterior (ayer)
+ * Consulta la base de datos para obtener el último día registrado
+ * Si no hay registros, asigna la fecha 2026-08-27 por defecto
  */
-function establecerFechaAyer() {
+async function establecerUltimaFechaRegistrada() {
   const inputFecha = document.getElementById('fecha');
-  const ayer = new Date();
-  ayer.setDate(ayer.getDate() - 1); // Resta un día a la fecha actual
-  
-  const year = ayer.getFullYear();
-  const month = String(ayer.getMonth() + 1).padStart(2, '0');
-  const day = String(ayer.getDate()).padStart(2, '0');
-  inputFecha.value = `${year}-${month}-${day}`;
+  try {
+    const { data, error } = await supabaseClient
+      .from(TABLA)
+      .select('fecha')
+      .order('fecha', { ascending: false })
+      .limit(1);
+
+    if (!error && data && data.length > 0 && data[0].fecha) {
+      inputFecha.value = data[0].fecha;
+    } else {
+      inputFecha.value = '2026-08-27';
+    }
+  } catch (e) {
+    inputFecha.value = '2026-08-27';
+  }
 }
 
 function toggleTheme() {
@@ -168,7 +177,7 @@ function renderListaConfig() {
   configData[tipoConfigActual] = ordenarLista(configData[tipoConfigActual]);
   
   ul.innerHTML = configData[tipoConfigActual].map((item, idx) => `
-    <li style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+    <li style="display:flex; justify-space-between; align-items:center; margin-bottom:5px;">
       <span>${item}</span>
       <button type="button" class="btn-mini" onclick="eliminarOpcionConfig(${idx})">🗑️</button>
     </li>
@@ -240,22 +249,19 @@ function obtenerJornadaTeoricaMinutos(fechaStr) {
   if (partes.length !== 3) return 0;
   
   const fecha = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
-  const mes = fecha.getMonth() + 1; // 1 a 12
-  const diaSemana = fecha.getDay(); // 0 = Dom, 1 = Lun, ..., 5 = Vie, 6 = Sáb
+  const mes = fecha.getMonth() + 1;
+  const diaSemana = fecha.getDay();
 
-  // Fines de semana
   if (diaSemana === 0 || diaSemana === 6) return 0;
 
-  // Verano: 1 Julio - 31 Agosto -> 7h 15m
   if (mes === 7 || mes === 8) {
     return 435;
   }
 
-  // Invierno
   if (diaSemana === 5) {
-    return 420; // Viernes 7h 00m
+    return 420;
   } else {
-    return 510; // L-J 8h 30m
+    return 510;
   }
 }
 
@@ -357,13 +363,11 @@ document.getElementById('tarea-form').addEventListener('submit', async (e) => {
   const horaInicio = document.getElementById('horainicio').value;
   const horaFin = document.getElementById('horafin').value;
 
-  // Validación 1: Hora Fin anterior a Hora Inicio
   if (horaInicio && horaFin && horaFin < horaInicio) {
     alert('❌ Error: La Hora Fin no puede ser anterior a la Hora Inicio.');
     return;
   }
 
-  // Validación 2: Alerta si la tarea individual supera la jornada teórica del día
   const duracionMinutos = obtenerMinutosDuracion(horaInicio, horaFin);
   const jornadaTeoricaMin = obtenerJornadaTeoricaMinutos(fechaStr);
   
