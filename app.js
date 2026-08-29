@@ -10,7 +10,7 @@ if (window.supabase) {
 
 const TABLA = 'obras';
 
-// Las 35 Tareas exactas por defecto
+// Las 35 Tareas exactas
 const TAREAS_DEFAULT = [
   "Análisis especificaciones cliente",
   "Anidado de ficheros 3000's",
@@ -49,7 +49,7 @@ const TAREAS_DEFAULT = [
   "Solicitada nueva tarea"
 ];
 
-// Los 12 Proyectos exactos por defecto
+// Los 12 Proyectos exactos
 const PROYECTOS_DEFAULT = [
   "ABAC",
   "BAC2",
@@ -65,43 +65,21 @@ const PROYECTOS_DEFAULT = [
   "VAC"
 ];
 
-/**
- * Función robusta para cargar listas desde localStorage evitando datos corruptos o incompletos
- */
-function obtenerListaInicial(key, defaultArray) {
-  try {
-    const guardado = JSON.parse(localStorage.getItem(key));
-    if (Array.isArray(guardado) && guardado.length > 1) {
-      return guardado;
-    }
-  } catch (e) {
-    console.warn(`Error al leer ${key} de localStorage, restaurando lista por defecto.`);
-  }
-  return [...defaultArray];
-}
-
 let configData = {
-  tareas: obtenerListaInicial('cfg_tareas', TAREAS_DEFAULT),
-  proyectos: obtenerListaInicial('cfg_proyectos', PROYECTOS_DEFAULT)
+  tareas: JSON.parse(localStorage.getItem('cfg_tareas')) || TAREAS_DEFAULT,
+  proyectos: JSON.parse(localStorage.getItem('cfg_proyectos')) || PROYECTOS_DEFAULT
 };
 
 let tipoConfigActual = '';
 let idiomaActual = 'es';
 let tareasCargadasCache = [];
 
-document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener('DOMContentLoaded', () => {
+  establecerFechaAyer(); // Se establece por defecto la fecha del día anterior
   poblarSelects();
   
-  // Escuchar cambios manuales en el selector de fecha para refrescar la vista
-  const inputFecha = document.getElementById('fecha');
-  if (inputFecha) {
-    inputFecha.addEventListener('change', () => {
-      cargarTareas();
-    });
-  }
-
   if (supabaseClient) {
-    await cargarUltimoDiaRegistrado();
+    cargarTareas();
   } else {
     document.getElementById('tabla-body').innerHTML = '<tr><td colspan="10" style="color:red;">⚠️ Error al inicializar la librería de Supabase.</td></tr>';
   }
@@ -122,31 +100,17 @@ function toggleDropdownGraficos(e) {
 }
 
 /**
- * Consulta en Supabase la última fecha que contiene registros guardados
+ * Ajusta el input de fecha al día anterior (ayer)
  */
-async function cargarUltimoDiaRegistrado() {
-  try {
-    const { data, error } = await supabaseClient
-      .from(TABLA)
-      .select('fecha')
-      .order('fecha', { ascending: false })
-      .limit(1);
-
-    if (error) throw error;
-
-    if (data && data.length > 0 && data[0].fecha) {
-      document.getElementById('fecha').value = data[0].fecha;
-    } else {
-      const hoy = new Date().toISOString().split('T')[0];
-      document.getElementById('fecha').value = hoy;
-    }
-
-    await cargarTareas();
-
-  } catch (err) {
-    console.error('Error al obtener la última fecha:', err);
-    await cargarTareas();
-  }
+function establecerFechaAyer() {
+  const inputFecha = document.getElementById('fecha');
+  const ayer = new Date();
+  ayer.setDate(ayer.getDate() - 1); // Resta un día a la fecha actual
+  
+  const year = ayer.getFullYear();
+  const month = String(ayer.getMonth() + 1).padStart(2, '0');
+  const day = String(ayer.getDate()).padStart(2, '0');
+  inputFecha.value = `${year}-${month}-${day}`;
 }
 
 function toggleTheme() {
@@ -155,32 +119,28 @@ function toggleTheme() {
   document.getElementById('btn-theme').textContent = isDark ? '☀️ Claro' : '🌙 Oscuro';
 }
 
+// Ordenación alfabética estricta A-Z
 function ordenarLista(array) {
   return array.sort((a, b) => a.localeCompare(b, idiomaActual, { sensitivity: 'base' }));
 }
 
-/**
- * Puebla los select de Tareas y Proyectos garantizando el despliegue completo de opciones
- */
 function poblarSelects() {
   const selTarea = document.getElementById('tarea');
   const selProyecto = document.getElementById('proyecto');
-
-  const listaTareas = Array.isArray(configData.tareas) && configData.tareas.length > 0
-    ? ordenarLista([...configData.tareas])
-    : TAREAS_DEFAULT;
-
-  const listaProyectos = Array.isArray(configData.proyectos) && configData.proyectos.length > 0
-    ? ordenarLista([...configData.proyectos])
-    : PROYECTOS_DEFAULT;
+  
+  configData.tareas = ordenarLista(configData.tareas);
+  configData.proyectos = ordenarLista(configData.proyectos);
 
   if (selTarea) {
-    selTarea.innerHTML = listaTareas.map(t => `<option value="${t}">${t}</option>`).join('');
+    selTarea.innerHTML = configData.tareas.length > 0 
+      ? configData.tareas.map(t => `<option value="${t}">${t}</option>`).join('')
+      : '<option value="">-- Añade tareas con +config --</option>';
     sincronizarComentario();
   }
-
   if (selProyecto) {
-    selProyecto.innerHTML = listaProyectos.map(p => `<option value="${p}">${p}</option>`).join('');
+    selProyecto.innerHTML = configData.proyectos.length > 0
+      ? configData.proyectos.map(p => `<option value="${p}">${p}</option>`).join('')
+      : '<option value="">-- Añade proyectos con +config --</option>';
   }
 }
 
@@ -267,7 +227,7 @@ function filtrarGrafico(criterio) {
 }
 
 /**
- * Calcula la jornada teórica en minutos según la fecha especificada:
+ * Calcula la jornada teórica en minutos según la fecha:
  * - Verano (1 de Julio a 31 de Agosto): 7h 15m (435 min)
  * - Invierno (Lunes a Jueves): 8h 30m (510 min)
  * - Invierno (Viernes): 7h 00m (420 min)
@@ -280,43 +240,36 @@ function obtenerJornadaTeoricaMinutos(fechaStr) {
   if (partes.length !== 3) return 0;
   
   const fecha = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
-  const mes = fecha.getMonth() + 1;
+  const mes = fecha.getMonth() + 1; // 1 a 12
   const diaSemana = fecha.getDay(); // 0 = Dom, 1 = Lun, ..., 5 = Vie, 6 = Sáb
 
+  // Fines de semana
   if (diaSemana === 0 || diaSemana === 6) return 0;
 
+  // Verano: 1 Julio - 31 Agosto -> 7h 15m
   if (mes === 7 || mes === 8) {
-    return 435; // 7h 15m
+    return 435;
   }
 
+  // Invierno
   if (diaSemana === 5) {
-    return 420; // 7h 00m (Viernes de invierno)
+    return 420; // Viernes 7h 00m
   } else {
-    return 510; // 8h 30m (L-J de invierno)
+    return 510; // L-J 8h 30m
   }
 }
 
-/**
- * Obtiene las tareas filtrando estrictamente por la fecha seleccionada
- */
 async function cargarTareas() {
   const tablaBody = document.getElementById('tabla-body');
   tablaBody.innerHTML = '<tr><td colspan="10">Cargando datos...</td></tr>';
-  
   const fechaFiltroStr = document.getElementById('fecha').value;
 
-  if (!fechaFiltroStr) {
-    tablaBody.innerHTML = '<tr><td colspan="10">Seleccione una fecha válida.</td></tr>';
-    actualizarResumenHoras([], '');
-    return;
-  }
-
   try {
-    const { data: tareas, error } = await supabaseClient
+    let { data: tareas, error } = await supabaseClient
       .from(TABLA)
       .select('*')
       .eq('fecha', fechaFiltroStr)
-      .order('horainicio', { ascending: false });
+      .order('id', { ascending: false });
 
     if (error) {
       tablaBody.innerHTML = `<tr><td colspan="10" style="color:red;">Error de base de datos: ${error.message}</td></tr>`;
@@ -353,7 +306,7 @@ async function cargarTareas() {
     actualizarResumenHoras(tareas, fechaFiltroStr);
 
   } catch(err) {
-    tablaBody.innerHTML = `<tr><td colspan="10" style="color:red;">Error de conexión con Supabase.</td></tr>`;
+    tablaBody.innerHTML = `<tr><td colspan="10" style="color:red;">Error de conexión (TypeError: Failed to fetch). Verifica la tabla '${TABLA}' en Supabase.</td></tr>`;
     actualizarResumenHoras([], fechaFiltroStr);
   }
 }
@@ -404,11 +357,13 @@ document.getElementById('tarea-form').addEventListener('submit', async (e) => {
   const horaInicio = document.getElementById('horainicio').value;
   const horaFin = document.getElementById('horafin').value;
 
+  // Validación 1: Hora Fin anterior a Hora Inicio
   if (horaInicio && horaFin && horaFin < horaInicio) {
     alert('❌ Error: La Hora Fin no puede ser anterior a la Hora Inicio.');
     return;
   }
 
+  // Validación 2: Alerta si la tarea individual supera la jornada teórica del día
   const duracionMinutos = obtenerMinutosDuracion(horaInicio, horaFin);
   const jornadaTeoricaMin = obtenerJornadaTeoricaMinutos(fechaStr);
   
@@ -442,17 +397,17 @@ document.getElementById('tarea-form').addEventListener('submit', async (e) => {
       alert('Error de Supabase: ' + response.error.message);
     } else {
       resetearFormulario();
-      await cargarTareas();
+      cargarTareas();
     }
   } catch (err) {
-    alert('Error de red al conectar con Supabase.');
+    alert('Error de red al conectar con Supabase. Asegúrate de tener conexión a Internet.');
   }
 });
 
 async function borrarTarea(id) {
   if (confirm('¿Eliminar este registro?')) {
     await supabaseClient.from(TABLA).delete().eq('id', id);
-    await cargarTareas();
+    cargarTareas();
   }
 }
 
@@ -477,9 +432,6 @@ function formatearMinutosAHoras(totalMinutos) {
   return `${signo}${hh}:${mm}`;
 }
 
-/**
- * Calcula el resumen de horas basándose estrictamente en la fecha filtrada
- */
 function actualizarResumenHoras(listaTareas, fechaStr) {
   let totalMinutosReales = 0;
 
@@ -487,22 +439,16 @@ function actualizarResumenHoras(listaTareas, fechaStr) {
     totalMinutosReales += obtenerMinutosDuracion(item.horainicio, item.horafin);
   });
 
-  const minutosTeoricos = (listaTareas.length > 0 && fechaStr) ? obtenerJornadaTeoricaMinutos(fechaStr) : 0;
+  const minutosTeoricos = obtenerJornadaTeoricaMinutos(fechaStr);
   const balanceMinutos = totalMinutosReales - minutosTeoricos;
 
   document.getElementById('total-teorica').textContent = formatearMinutosAHoras(minutosTeoricos);
   document.getElementById('total-duracion').textContent = formatearMinutosAHoras(totalMinutosReales);
   
   const elBalance = document.getElementById('total-balance');
-  
-  if (listaTareas.length === 0) {
-    elBalance.textContent = "00:00";
-    elBalance.className = "saldo-neutro";
-    return;
-  }
-
   const signoStr = balanceMinutos > 0 ? '+' : '';
   elBalance.textContent = `${signoStr}${formatearMinutosAHoras(balanceMinutos)}`;
+
   elBalance.className = balanceMinutos > 0 ? 'saldo-positivo' : (balanceMinutos < 0 ? 'saldo-negativo' : 'saldo-neutro');
 }
 
