@@ -34,9 +34,16 @@ const DIAS_SEMANA = {
   gl: ['domingo', 'luns', 'martes', 'mércores', 'xoves', 'venres', 'sábado']
 };
 
+const MESES = {
+  es: ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'],
+  gl: ['xaneiro', 'febreiro', 'marzo', 'abril', 'maio', 'xuño', 'xullo', 'agosto', 'setembro', 'outubro', 'novembro', 'decembro']
+};
+
 function actualizarTituloConDia(titulo) {
-  const nombreDia = DIAS_SEMANA[idiomaActual][new Date().getDay()];
-  document.getElementById('txt-titulo').textContent = `${titulo}, ${nombreDia}`;
+  const hoy = new Date();
+  const nombreDia = DIAS_SEMANA[idiomaActual][hoy.getDay()];
+  const nombreMes = MESES[idiomaActual][hoy.getMonth()];
+  document.getElementById('txt-titulo').textContent = `${titulo}, ${nombreDia} ${hoy.getDate()} de ${nombreMes} de ${hoy.getFullYear()}`;
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
