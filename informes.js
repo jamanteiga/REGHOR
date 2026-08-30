@@ -47,6 +47,8 @@ async function cargarInforme() {
   const tbody = document.getElementById('tabla-informe-body');
   tbody.innerHTML = '';
 
+  let totalMinutos = 0;
+
   data.forEach(item => {
     const tarea = item.tarea || '';
     const proyecto = item.proyecto || '';
@@ -58,6 +60,8 @@ async function cargarInforme() {
     if (regexProyecto && !regexProyecto.test(proyecto)) return;
     if (regexBloque && !regexBloque.test(bloque)) return;
     if (regexComentario && !regexComentario.test(comentario)) return;
+
+    totalMinutos += obtenerMinutosDuracion(item.horainicio, item.horafin);
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -73,6 +77,8 @@ async function cargarInforme() {
     `;
     tbody.appendChild(tr);
   });
+
+  document.getElementById('total-informe-horas').textContent = formatearMinutosAHoras(totalMinutos);
 }
 
 // Exportación a Excel nativo (.xlsx)

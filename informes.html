@@ -109,6 +109,9 @@
     table { width: 100%; border-collapse: collapse; background: var(--card-bg); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
     th, td { padding: 10px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 13px; }
     th { background-color: var(--header-bg); color: white; }
+
+    tfoot tr { background-color: rgba(0, 123, 255, 0.08); font-weight: bold; }
+    tfoot td { border-top: 1px solid var(--border-color); }
   </style>
   <!-- Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -173,6 +176,13 @@
       </tr>
     </thead>
     <tbody id="tabla-informe-body"></tbody>
+    <tfoot>
+      <tr>
+        <td colspan="6" style="text-align: right;">Total Horas:</td>
+        <td id="total-informe-horas">00:00</td>
+        <td colspan="2"></td>
+      </tr>
+    </tfoot>
   </table>
 
   <script src="config.js"></script>
