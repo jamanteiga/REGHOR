@@ -58,6 +58,26 @@
     .grupo-filtro label { font-weight: bold; font-size: 12px; margin-bottom: 4px; }
     input, select { padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--card-bg); color: var(--text-color); font-size: 12px; width: 100%; box-sizing: border-box; }
 
+    .grupo-rapido {
+      display: flex;
+      gap: 4px;
+    }
+
+    .btn-rapido {
+      background-color: #6c757d;
+      color: white;
+      border: none;
+      padding: 6px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: bold;
+      white-space: nowrap;
+    }
+    .btn-rapido:hover {
+      background-color: #5a6268;
+    }
+
     .grupo-botones {
       display: flex;
       gap: 8px;
@@ -149,6 +169,15 @@
   </div>
 
   <div class="panel-filtros">
+    <div class="grupo-filtro">
+      <label>Rango Rápido</label>
+      <div class="grupo-rapido">
+        <button class="btn-rapido" onclick="establecerRango('hoy')">Hoy</button>
+        <button class="btn-rapido" onclick="establecerRango('semana')">Semana actual</button>
+        <button class="btn-rapido" onclick="establecerRango('semana_anterior')">Semana anterior</button>
+        <button class="btn-rapido" onclick="establecerRango('mes')">Mes</button>
+      </div>
+    </div>
     <div class="grupo-filtro">
       <label>Desde Fecha</label>
       <input type="date" id="filtro-desde">

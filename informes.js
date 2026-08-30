@@ -20,6 +20,41 @@ function establecerValoresPorDefecto() {
   document.getElementById('filtro-comentario').value = '*';
 }
 
+function formatearFechaISO(fecha) {
+  const yyyy = fecha.getFullYear();
+  const mm = String(fecha.getMonth() + 1).padStart(2, '0');
+  const dd = String(fecha.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function establecerRango(tipo) {
+  const hoy = new Date();
+  let desde = new Date();
+  let hasta = new Date();
+
+  if (tipo === 'hoy') {
+    desde = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+    hasta = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+  } else if (tipo === 'semana') {
+    const diaSemana = hoy.getDay() === 0 ? 7 : hoy.getDay();
+    desde = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - (diaSemana - 1));
+    hasta = new Date(desde.getFullYear(), desde.getMonth(), desde.getDate() + 6);
+  } else if (tipo === 'semana_anterior') {
+    const diaSemana = hoy.getDay() === 0 ? 7 : hoy.getDay();
+    const inicioSemanaActual = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - (diaSemana - 1));
+    desde = new Date(inicioSemanaActual.getFullYear(), inicioSemanaActual.getMonth(), inicioSemanaActual.getDate() - 7);
+    hasta = new Date(desde.getFullYear(), desde.getMonth(), desde.getDate() + 6);
+  } else if (tipo === 'mes') {
+    desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    hasta = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+  }
+
+  document.getElementById('filtro-desde').value = formatearFechaISO(desde);
+  document.getElementById('filtro-hasta').value = formatearFechaISO(hasta);
+
+  cargarInforme();
+}
+
 async function cargarInforme() {
   if (!supabaseClient) return;
 
@@ -31,17 +66,33 @@ async function cargarInforme() {
   const regexBloque = crearRegexFiltro(document.getElementById('filtro-bloque').value);
   const regexComentario = crearRegexFiltro(document.getElementById('filtro-comentario').value);
 
-  // Ordenación ascendente por fecha (lo más antiguo primero)
-  let query = supabaseClient.from(TABLA).select('*').order('fecha', { ascending: true });
+  // Supabase limita cada consulta a 1000 filas por defecto: paginamos con
+  // .range() hasta traer todos los registros que cumplan el filtro de fechas.
+  const TAMANO_PAGINA = 1000;
+  let data = [];
+  let desdeIndice = 0;
 
-  if (desde) query = query.gte('fecha', desde);
-  if (hasta) query = query.lte('fecha', hasta);
+  while (true) {
+    let query = supabaseClient
+      .from(TABLA)
+      .select('*')
+      .order('fecha', { ascending: true })
+      .range(desdeIndice, desdeIndice + TAMANO_PAGINA - 1);
 
-  const { data, error } = await query;
+    if (desde) query = query.gte('fecha', desde);
+    if (hasta) query = query.lte('fecha', hasta);
 
-  if (error) {
-    console.error("Error al cargar datos:", error);
-    return;
+    const { data: pagina, error } = await query;
+
+    if (error) {
+      console.error("Error al cargar datos:", error);
+      return;
+    }
+
+    data = data.concat(pagina);
+
+    if (!pagina || pagina.length < TAMANO_PAGINA) break;
+    desdeIndice += TAMANO_PAGINA;
   }
 
   const tbody = document.getElementById('tabla-informe-body');
