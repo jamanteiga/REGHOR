@@ -29,6 +29,7 @@
     }
 
     .header-container { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .controls-right { display: flex; gap: 10px; align-items: center; }
     
     .panel-filtros {
       background: var(--card-bg);
@@ -63,6 +64,15 @@
 
     .icon-btn { padding: 6px 12px; cursor: pointer; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-color); font-weight: bold; }
 
+    .btn-cerrar {
+      background-color: #dc3545;
+      color: white;
+      border: none;
+    }
+    .btn-cerrar:hover {
+      background-color: #bd2130;
+    }
+
     .chart-container {
       background: var(--card-bg);
       padding: 20px;
@@ -80,7 +90,10 @@
 
   <div class="header-container">
     <h1>📈 Visualización de Gráficos</h1>
-    <button class="icon-btn" onclick="toggleTheme()" id="btn-theme">🌙 Oscuro</button>
+    <div class="controls-right">
+      <button class="icon-btn" onclick="toggleTheme()" id="btn-theme">🌙 Oscuro</button>
+      <button class="icon-btn btn-cerrar" onclick="cerrarPestana()">❌ Cerrar</button>
+    </div>
   </div>
 
   <div class="panel-filtros">

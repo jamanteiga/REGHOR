@@ -24,6 +24,10 @@ function toggleTheme() {
   }
 }
 
+function cerrarPestana() {
+  window.close();
+}
+
 function setPeriodo(tipo) {
   const hoy = new Date();
   const desdeInput = document.getElementById('filtro-desde');

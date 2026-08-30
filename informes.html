@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>REGHOR - Informes y Filtros</title>
+  <title>REGHOR - Generación de Informes</title>
   <style>
     :root {
       --bg-color: #f4f7f6;
@@ -29,7 +29,19 @@
     }
 
     .header-container { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .controls-right { display: flex; gap: 10px; align-items: center; }
+
+    .icon-btn { padding: 6px 12px; cursor: pointer; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-color); font-weight: bold; }
     
+    .btn-cerrar {
+      background-color: #dc3545;
+      color: white;
+      border: none;
+    }
+    .btn-cerrar:hover {
+      background-color: #bd2130;
+    }
+
     .panel-filtros {
       background: var(--card-bg);
       padding: 15px;
@@ -47,7 +59,7 @@
     input, select { padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--card-bg); color: var(--text-color); font-size: 12px; }
 
     .btn-filtrar {
-      background-color: #007bff;
+      background-color: #28a745;
       color: white;
       border: none;
       padding: 8px 16px;
@@ -57,61 +69,34 @@
       height: 31px;
     }
 
-    .icon-btn { padding: 6px 12px; cursor: pointer; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-color); font-weight: bold; }
-
     table { width: 100%; border-collapse: collapse; background: var(--card-bg); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
     th, td { padding: 10px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 13px; }
     th { background-color: var(--header-bg); color: white; }
-    
-    tfoot tr { background-color: rgba(0, 123, 255, 0.08); font-weight: bold; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
   <div class="header-container">
-    <h1>📊 Centro de Filtros e Informes</h1>
-    <button class="icon-btn" onclick="toggleTheme()" id="btn-theme">🌙 Oscuro</button>
+    <h1>📊 Informes y Registros</h1>
+    <div class="controls-right">
+      <button class="icon-btn" onclick="toggleTheme()" id="btn-theme">🌙 Oscuro</button>
+      <button class="icon-btn btn-cerrar" onclick="cerrarPestana()">❌ Cerrar</button>
+    </div>
   </div>
 
   <div class="panel-filtros">
     <div class="grupo-filtro">
-      <label>Proyecto</label>
-      <select id="filtro-proyecto">
-        <option value="">-- Todos --</option>
-      </select>
-    </div>
-
-    <div class="grupo-filtro">
-      <label>Bloque</label>
-      <input type="text" id="filtro-bloque" placeholder="Buscar bloque...">
-    </div>
-
-    <div class="grupo-filtro">
       <label>Desde Fecha</label>
       <input type="date" id="filtro-desde">
     </div>
-
     <div class="grupo-filtro">
       <label>Hasta Fecha</label>
       <input type="date" id="filtro-hasta">
     </div>
-
-    <div class="grupo-filtro">
-      <label>Periodo Rápido</label>
-      <select id="filtro-periodo" onchange="aplicarPeriodoRapido(this.value)">
-        <option value="">Manual / Libre</option>
-        <option value="dia">Hoy</option>
-        <option value="semana">Esta Semana</option>
-        <option value="mes">Este Mes</option>
-        <option value="trimestre">Este Trimestre</option>
-      </select>
-    </div>
-
-    <button class="btn-filtrar" onclick="ejecutarFiltro()">Aplicar Filtro</button>
+    <button class="btn-filtrar" onclick="cargarInforme()">Generar Informe</button>
   </div>
 
-  <h2>Resultados</h2>
   <table>
     <thead>
       <tr>
@@ -126,14 +111,7 @@
         <th>Notas</th>
       </tr>
     </thead>
-    <tbody id="tabla-body-filtros"></tbody>
-    <tfoot>
-      <tr>
-        <td colspan="6" style="text-align: right;">Total Horas Trabajadas:</td>
-        <td id="total-duracion-filtro">00:00</td>
-        <td colspan="2"></td>
-      </tr>
-    </tfoot>
+    <tbody id="tabla-informe-body"></tbody>
   </table>
 
   <script src="informes.js"></script>
