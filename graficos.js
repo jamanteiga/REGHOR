@@ -7,199 +7,193 @@ if (window.supabase) {
 }
 
 const TABLA = 'obras';
-let chartInstance = null;
+let miChart = null;
 
 document.addEventListener('DOMContentLoaded', () => {
-  setPeriodo('mes');
-  generarGrafico();
+  establecerRango('mes');
 });
 
 function toggleTheme() {
   document.body.classList.toggle('dark-mode');
   const isDark = document.body.classList.contains('dark-mode');
   document.getElementById('btn-theme').textContent = isDark ? '☀️ Claro' : '🌙 Oscuro';
-  
-  if (chartInstance) {
-    generarGrafico();
-  }
+  if (miChart) generarGrafico();
 }
 
 function cerrarPestana() {
   window.close();
 }
 
-function setPeriodo(tipo) {
+function formatearFechaISO(fecha) {
+  const yyyy = fecha.getFullYear();
+  const mm = String(fecha.getMonth() + 1).padStart(2, '0');
+  const dd = String(fecha.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function establecerRango(tipo) {
   const hoy = new Date();
-  const desdeInput = document.getElementById('filtro-desde');
-  const hastaInput = document.getElementById('filtro-hasta');
+  let desde = new Date();
+  let hasta = new Date();
 
-  const formatearFecha = (d) => {
-    const offset = d.getTimezoneOffset();
-    return new Date(d.getTime() - (offset * 60 * 1000)).toISOString().split('T')[0];
-  };
-
-  if (tipo === 'dia') {
-    desdeInput.value = formatearFecha(hoy);
-    hastaInput.value = formatearFecha(hoy);
+  if (tipo === 'hoy') {
+    desde = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+    hasta = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
   } else if (tipo === 'semana') {
-    const diaSemana = hoy.getDay();
-    const diffLunes = hoy.getDate() - diaSemana + (diaSemana === 0 ? -6 : 1);
-    const lunes = new Date(hoy.setDate(diffLunes));
-    const domingo = new Date(lunes);
-    domingo.setDate(lunes.getDate() + 6);
-
-    desdeInput.value = formatearFecha(lunes);
-    hastaInput.value = formatearFecha(domingo);
+    const diaSemana = hoy.getDay() === 0 ? 7 : hoy.getDay();
+    desde = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - (diaSemana - 1));
+    hasta = new Date(desde.getFullYear(), desde.getMonth(), desde.getDate() + 6);
   } else if (tipo === 'mes') {
-    const primerDia = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-    const ultimoDia = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
-
-    desdeInput.value = formatearFecha(primerDia);
-    hastaInput.value = formatearFecha(ultimoDia);
+    desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    hasta = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
   }
+
+  document.getElementById('filtro-desde').value = formatearFechaISO(desde);
+  document.getElementById('filtro-hasta').value = formatearFechaISO(hasta);
+
+  generarGrafico();
+}
+
+function crearRegexFiltro(patron) {
+  if (!patron || !patron.trim()) return null;
+  const textoLimpio = patron.trim();
+  const patronEspecial = textoLimpio.replace(/[-\/\\^$+?.()|[\]{}]/g, '\\$&');
+  const patronRegex = '^' + patronEspecial.replace(/\*/g, '.*') + '$';
+  return new RegExp(patronRegex, 'i');
+}
+
+function calcularHoras(inicio, fin) {
+  if (!inicio || !fin) return 0;
+  const [hIni, mIni] = inicio.split(':').map(Number);
+  const [hFin, mFin] = fin.split(':').map(Number);
+  let dif = (hFin * 60 + mFin) - (hIni * 60 + mIni);
+  if (dif < 0) dif += 1440;
+  return dif / 60;
 }
 
 async function generarGrafico() {
   if (!supabaseClient) return;
 
-  const agruparPor = document.getElementById('filtro-agrupar').value;
-  const tipoGrafico = document.getElementById('filtro-tipo-grafico').value;
   const desde = document.getElementById('filtro-desde').value;
   const hasta = document.getElementById('filtro-hasta').value;
-  const filtroTareaTexto = document.getElementById('filtro-tarea-texto').value.trim();
+  const campoProyecto = document.getElementById('filtro-proyecto').value;
+  const campoTarea = document.getElementById('filtro-tarea').value;
+  const campoBloque = document.getElementById('filtro-bloque').value;
+  const campoComentarios = document.getElementById('filtro-comentarios').value;
+  const agruparPor = document.getElementById('agrupar-por').value;
+  const tipoGrafico = document.getElementById('tipo-grafico').value;
 
-  let query = supabaseClient.from(TABLA).select('*');
+  const regexProyecto = crearRegexFiltro(campoProyecto);
+  const regexTarea = crearRegexFiltro(campoTarea);
+  const regexBloque = crearRegexFiltro(campoBloque);
+  const regexComentarios = crearRegexFiltro(campoComentarios);
+
+  let query = supabaseClient.from(TABLA).select('*').order('fecha', { ascending: true });
 
   if (desde) query = query.gte('fecha', desde);
   if (hasta) query = query.lte('fecha', hasta);
 
   const { data, error } = await query;
 
-  if (error || !data) {
-    console.error("Error al obtener datos:", error);
+  if (error) {
+    console.error("Error al recuperar datos:", error);
     return;
-  }
-
-  // Comodín asterisco (*) para tareas
-  let regexTarea = null;
-  if (filtroTareaTexto) {
-    const patronEspecial = filtroTareaTexto.replace(/[-\/\\^$+?.()|[\]{}]/g, '\\$&');
-    const patronRegex = '^' + patronEspecial.replace(/\*/g, '.*') + '$';
-    regexTarea = new RegExp(patronRegex, 'i');
   }
 
   const acumulado = {};
 
-  data.forEach(item => {
-    const nombreTarea = item.tarea || 'Sin Tarea';
-    const proy = item.proyecto || 'Sin Proyecto';
-    const bloq = item.bloque || 'Sin Bloque';
+  if (data) {
+    data.forEach(item => {
+      const proyecto = item.proyecto || '';
+      const tarea = item.tarea || '';
+      const bloque = item.bloque || '';
+      const comentarios = item.comentarios || '';
 
-    // Filtrar por tarea si aplica
-    if (regexTarea && !regexTarea.test(nombreTarea)) {
-      return;
-    }
+      if (regexProyecto && !regexProyecto.test(proyecto)) return;
+      if (regexTarea && !regexTarea.test(tarea)) return;
+      if (regexBloque && !regexBloque.test(bloque)) return;
+      if (regexComentarios && !regexComentarios.test(comentarios)) return;
 
-    // Todas las combinaciones de agrupación
-    let clave = '';
-    switch (agruparPor) {
-      case 'proyecto':
-        clave = proy;
-        break;
-      case 'tarea':
-        clave = nombreTarea;
-        break;
-      case 'bloque':
-        clave = bloq;
-        break;
-      case 'proyecto_tarea':
-        clave = `${proy} / ${nombreTarea}`;
-        break;
-      case 'proyecto_bloque':
-        clave = `${proy} / ${bloq}`;
-        break;
-      case 'tarea_bloque':
-        clave = `${nombreTarea} / ${bloq}`;
-        break;
-      case 'proyecto_tarea_bloque':
-        clave = `${proy} / ${nombreTarea} / ${bloq}`;
-        break;
-      default:
-        clave = proy;
-    }
+      let clave = item[agruparPor] || 'Sin Clasificar';
+      const duracion = calcularHoras(item.horainicio, item.horafin);
 
-    const minutos = obtenerMinutosDuracion(item.horainicio, item.horafin);
-
-    if (!acumulado[clave]) {
-      acumulado[clave] = 0;
-    }
-    acumulado[clave] += minutos;
-  });
+      if (!acumulado[clave]) acumulado[clave] = 0;
+      acumulado[clave] += duracion;
+    });
+  }
 
   const etiquetas = Object.keys(acumulado);
-  const horasValores = etiquetas.map(k => (acumulado[k] / 60).toFixed(2));
+  const valores = Object.values(acumulado).map(v => parseFloat(v.toFixed(2)));
 
-  renderizarChart(etiquetas, horasValores, tipoGrafico, agruparPor);
+  renderizarChart(etiquetas, valores, tipoGrafico, agruparPor);
 }
 
-function renderizarChart(labels, dataValues, tipo, modoAgrupacion) {
-  const ctx = document.getElementById('miGrafico').getContext('2d');
+function renderizarChart(labels, data, tipo, criterio) {
+  const canvas = document.getElementById('miGrafico');
+  const ctx = canvas.getContext('2d');
 
-  if (chartInstance) {
-    chartInstance.destroy();
+  if (miChart) {
+    miChart.destroy();
   }
 
   const coloresBase = [
     '#007bff', '#28a745', '#ffc107', '#dc3545', '#17a2b8',
-    '#6610f2', '#e83e8c', '#fd7e14', '#20c997', '#6c757d',
-    '#343a40', '#00d2d3', '#ff9f43', '#ee5253', '#10ac84'
+    '#6f42c1', '#fd7e14', '#20c997', '#e83e8c', '#6c757d'
   ];
 
-  const esOscuro = document.body.classList.contains('dark-mode');
-  const colorTexto = esOscuro ? '#e0e0e0' : '#333333';
+  let chartType = tipo;
+  let datasetConfig = {
+    label: `Horas por ${criterio.toUpperCase()}`,
+    data: data,
+    backgroundColor: coloresBase,
+    borderColor: coloresBase,
+    borderWidth: 1
+  };
 
-  chartInstance = new Chart(ctx, {
-    type: tipo,
+  if (tipo === 'area') {
+    chartType = 'line';
+    datasetConfig.fill = true;
+    datasetConfig.backgroundColor = 'rgba(0, 123, 255, 0.3)';
+    datasetConfig.borderColor = '#007bff';
+  } else if (tipo === 'line') {
+    datasetConfig.fill = false;
+    datasetConfig.borderColor = '#007bff';
+    datasetConfig.backgroundColor = '#007bff';
+    datasetConfig.borderWidth = 2;
+    datasetConfig.tension = 0.2;
+  }
+
+  miChart = new Chart(ctx, {
+    type: chartType,
     data: {
       labels: labels,
-      datasets: [{
-        label: `Horas (${modoAgrupacion})`,
-        data: dataValues,
-        backgroundColor: coloresBase.slice(0, Math.max(labels.length, 15)),
-        borderWidth: 1
-      }]
+      datasets: [datasetConfig]
     },
     options: {
       responsive: true,
+      maintainAspectRatio: false,
       plugins: {
         legend: {
-          labels: { color: colorTexto }
+          display: ['pie', 'doughnut'].includes(tipo),
+          position: 'bottom'
         },
         tooltip: {
           callbacks: {
             label: function(context) {
-              return ` ${context.label}: ${context.raw} hrs`;
+              return ` ${context.label || ''}: ${context.raw} horas`;
             }
           }
         }
       },
-      scales: (tipo === 'bar') ? {
+      scales: ['pie', 'doughnut'].includes(tipo) ? {} : {
         y: {
-          ticks: { color: colorTexto },
-          title: { display: true, text: 'Horas Trabajadas', color: colorTexto }
+          beginAtZero: true,
+          title: { display: true, text: 'Horas Totales' }
         },
         x: {
-          ticks: { color: colorTexto }
+          title: { display: true, text: criterio.toUpperCase() }
         }
-      } : {}
+      }
     }
   });
-}
-
-function obtenerMinutosDuracion(horaInicio, horaFin) {
-  if (!horaInicio || !horaFin) return 0;
-  const [hIni, mIni] = horaInicio.split(':').map(Number);
-  const [hFin, mFin] = horaFin.split(':').map(Number);
-  let dif = (hFin * 60 + mFin) - (hIni * 60 + mIni);
-  return dif < 0 ? dif + 1440 : dif;
 }

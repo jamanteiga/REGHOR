@@ -38,7 +38,7 @@
     
     .icon-btn { padding: 6px 12px; cursor: pointer; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-color); font-weight: bold; text-decoration: none; font-size: 13.33px; display: inline-flex; align-items: center; }
 
-    /* Formulario: Disposición en UNA SOLA FILA */
+    /* Formulario: Disposición ajustada con pesos */
     form, .modal-content { background: var(--card-bg); padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
     
     .form-grid { 
@@ -54,9 +54,14 @@
     .form-group { 
       display: flex; 
       flex-direction: column; 
-      flex: 1 1 0px; 
       min-width: 0; 
+      flex: 1; /* Peso por defecto */
     }
+
+    /* Proporciones específicas para optimizar el espacio */
+    .fg-fecha { flex: 0 0 130px; }
+    .fg-hora { flex: 0 0 100px; }
+    .fg-expand { flex: 2; } /* Comentario y Notas se expanden el doble */
 
     .form-group-btn {
       flex: 0 0 auto;
@@ -153,7 +158,7 @@
     <input type="hidden" id="tarea-id">
     
     <div class="form-grid">
-      <div class="form-group">
+      <div class="form-group fg-fecha">
         <label for="fecha" id="lbl-fecha">Fecha</label>
         <input type="date" id="fecha" onchange="cargarTareas()" required>
       </div>
@@ -163,7 +168,14 @@
           <label for="tarea" id="lbl-tarea">Tarea</label>
           <button type="button" class="btn-mini" onclick="abrirConfig('tareas')">+config</button>
         </div>
-        <select id="tarea" onchange="sincronizarComentario()" required></select>
+        <select id="tarea" onchange="sincronizarComentario()" required>
+          <option value="PREVIAS">PREVIAS</option>
+          <option value="AOYV">AOYV</option>
+          <option value="Revisión de unidades abiertas UA">Revisión de unidades abiertas UA</option>
+          <option value="Comentarios con Ghita para coordinación">Comentarios con Ghita para coordinación</option>
+          <option value="Actualización de contraseñas sistema">Actualización de contraseñas sistema</option>
+          <option value="Píldora ciberseguridad #27">Píldora ciberseguridad #27</option>
+        </select>
       </div>
 
       <div class="form-group">
@@ -171,7 +183,10 @@
           <label for="proyecto" id="lbl-proyecto">Proyecto</label>
           <button type="button" class="btn-mini" onclick="abrirConfig('proyectos')">+config</button>
         </div>
-        <select id="proyecto" required></select>
+        <select id="proyecto" required>
+          <option value="BAC2">BAC2</option>
+          <option value="DES">DES</option>
+        </select>
       </div>
 
       <div class="form-group">
@@ -179,9 +194,9 @@
         <input type="text" id="bloque" placeholder="Ej: B242-PI-SB4">
       </div>
 
-      <div class="form-group">
+      <div class="form-group fg-hora">
         <div class="label-wrapper">
-          <label for="horainicio" id="lbl-horainicio">Inicio</label>
+          <label for="horainicio" id="lbl-horainicio">Hora inicio</label>
           <div>
             <button type="button" class="btn-mini" onclick="setHoraActual('horainicio')">⏱️</button>
             <button type="button" class="btn-mini" onclick="copiarHoraFinAnterior()">📋</button>
@@ -190,20 +205,20 @@
         <input type="time" id="horainicio" required>
       </div>
 
-      <div class="form-group">
+      <div class="form-group fg-hora">
         <div class="label-wrapper">
-          <label for="horafin" id="lbl-horafin">Fin</label>
+          <label for="horafin" id="lbl-horafin">Hora fin</label>
           <button type="button" class="btn-mini" onclick="setHoraActual('horafin')">⏱️</button>
         </div>
         <input type="time" id="horafin" required>
       </div>
 
-      <div class="form-group">
+      <div class="form-group fg-expand">
         <label for="comentario" id="lbl-comentario">Comentario</label>
         <input type="text" id="comentario">
       </div>
 
-      <div class="form-group">
+      <div class="form-group fg-expand">
         <label for="notas" id="lbl-notas">Notas</label>
         <input type="text" id="notas">
       </div>
@@ -223,8 +238,8 @@
         <th id="th-tarea">Tarea</th>
         <th id="th-proyecto">Proyecto</th>
         <th id="th-bloque">Bloque</th>
-        <th id="th-inicio">Inicio</th>
-        <th id="th-fin">Fin</th>
+        <th id="th-inicio">Hora inicio</th>
+        <th id="th-fin">Hora fin</th>
         <th id="th-duracion">Duración</th>
         <th id="th-comentario">Comentario</th>
         <th id="th-notas">Notas</th>

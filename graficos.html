@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>REGHOR - Gráficos y Estadísticas</title>
+  <title>REGHOR - Análisis Gráfico</title>
   <style>
     :root {
       --bg-color: #f4f7f6;
@@ -30,40 +30,9 @@
 
     .header-container { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
     .controls-right { display: flex; gap: 10px; align-items: center; }
-    
-    .panel-filtros {
-      background: var(--card-bg);
-      padding: 15px;
-      border-radius: 8px;
-      margin-bottom: 20px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      display: flex;
-      flex-wrap: wrap;
-      gap: 15px;
-      align-items: flex-end;
-    }
-
-    .grupo-filtro { display: flex; flex-direction: column; flex: 1; min-width: 140px; }
-    .grupo-filtro label { font-weight: bold; font-size: 12px; margin-bottom: 4px; }
-    input, select { padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--card-bg); color: var(--text-color); font-size: 12px; }
-
-    .btn-row { display: flex; gap: 5px; }
-    .btn-mini-preset { padding: 4px 8px; font-size: 11px; cursor: pointer; border-radius: 4px; border: 1px solid var(--border-color); background: #e9ecef; color: #000; font-weight: bold; }
-    body.dark-mode .btn-mini-preset { background: #333; color: #fff; }
-
-    .btn-filtrar {
-      background-color: #28a745;
-      color: white;
-      border: none;
-      padding: 8px 16px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-weight: bold;
-      height: 31px;
-    }
 
     .icon-btn { padding: 6px 12px; cursor: pointer; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-color); font-weight: bold; }
-
+    
     .btn-cerrar {
       background-color: #dc3545;
       color: white;
@@ -73,23 +42,76 @@
       background-color: #bd2130;
     }
 
-    .chart-container {
+    .panel-filtros {
+      background: var(--card-bg);
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: flex-end;
+    }
+
+    .grupo-filtro { display: flex; flex-direction: column; flex: 1 1 120px; min-width: 110px; }
+    .grupo-filtro label { font-weight: bold; font-size: 12px; margin-bottom: 4px; }
+    input, select { padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--card-bg); color: var(--text-color); font-size: 12px; width: 100%; box-sizing: border-box; }
+
+    .grupo-rapido {
+      display: flex;
+      gap: 4px;
+    }
+
+    .btn-rapido {
+      background-color: #6c757d;
+      color: white;
+      border: none;
+      padding: 6px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: bold;
+    }
+    .btn-rapido:hover {
+      background-color: #5a6268;
+    }
+
+    .btn-generar {
+      background-color: #28a745;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      height: 31px;
+      white-space: nowrap;
+    }
+    .btn-generar:hover {
+      background-color: #218838;
+    }
+
+    .contenedor-grafico {
       background: var(--card-bg);
       padding: 20px;
       border-radius: 8px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      max-width: 900px;
-      margin: 0 auto;
       position: relative;
+      height: 60vh;
+      width: 100%;
+      box-sizing: border-box;
     }
   </style>
+  <!-- Supabase JS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Chart.js Engine -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
   <div class="header-container">
-    <h1>📈 Visualización de Gráficos</h1>
+    <h1>📈 Análisis Gráfico de Tiempos</h1>
     <div class="controls-right">
       <button class="icon-btn" onclick="toggleTheme()" id="btn-theme">🌙 Oscuro</button>
       <button class="icon-btn btn-cerrar" onclick="cerrarPestana()">❌ Cerrar</button>
@@ -98,55 +120,60 @@
 
   <div class="panel-filtros">
     <div class="grupo-filtro">
-      <label>Agrupar Por</label>
-      <select id="filtro-agrupar">
-        <option value="proyecto">Proyecto</option>
-        <option value="tarea">Tarea</option>
-        <option value="bloque">Bloque</option>
-        <option value="proyecto_tarea">Proyecto - Tarea</option>
-        <option value="proyecto_bloque">Proyecto - Bloque</option>
-        <option value="tarea_bloque">Tarea - Bloque</option>
-        <option value="proyecto_tarea_bloque">Proyecto - Tarea - Bloque</option>
-      </select>
-    </div>
-
-    <div class="grupo-filtro">
-      <label>Filtro Tarea (usa * como comodín)</label>
-      <input type="text" id="filtro-tarea-texto" placeholder="Ej: Maquillaje* o *2000's">
-    </div>
-
-    <div class="grupo-filtro">
-      <label>Tipo de Gráfico</label>
-      <select id="filtro-tipo-grafico">
-        <option value="bar">Barras</option>
-        <option value="pie">Tarta</option>
-        <option value="doughnut">Rosco</option>
-      </select>
-    </div>
-
-    <div class="grupo-filtro">
-      <label>Periodo Rápido</label>
-      <div class="btn-row">
-        <button type="button" class="btn-mini-preset" onclick="setPeriodo('dia')">Hoy</button>
-        <button type="button" class="btn-mini-preset" onclick="setPeriodo('semana')">Semana</button>
-        <button type="button" class="btn-mini-preset" onclick="setPeriodo('mes')">Mes</button>
+      <label>Rango Rápido</label>
+      <div class="grupo-rapido">
+        <button class="btn-rapido" onclick="establecerRango('hoy')">Hoy</button>
+        <button class="btn-rapido" onclick="establecerRango('semana')">Semana</button>
+        <button class="btn-rapido" onclick="establecerRango('mes')">Mes</button>
       </div>
     </div>
-
     <div class="grupo-filtro">
       <label>Desde Fecha</label>
       <input type="date" id="filtro-desde">
     </div>
-
     <div class="grupo-filtro">
       <label>Hasta Fecha</label>
       <input type="date" id="filtro-hasta">
     </div>
-
-    <button class="btn-filtrar" onclick="generarGrafico()">Generar Gráfico</button>
+    <div class="grupo-filtro">
+      <label>Proyecto (*)</label>
+      <input type="text" id="filtro-proyecto" value="*">
+    </div>
+    <div class="grupo-filtro">
+      <label>Tarea (*)</label>
+      <input type="text" id="filtro-tarea" value="*">
+    </div>
+    <div class="grupo-filtro">
+      <label>Bloque (*)</label>
+      <input type="text" id="filtro-bloque" value="*">
+    </div>
+    <div class="grupo-filtro">
+      <label>Comentarios (*)</label>
+      <input type="text" id="filtro-comentarios" value="*">
+    </div>
+    <div class="grupo-filtro">
+      <label>Agrupar por</label>
+      <select id="agrupar-por">
+        <option value="proyecto">Proyecto</option>
+        <option value="tarea">Tarea</option>
+        <option value="bloque">Bloque</option>
+        <option value="fecha">Fecha</option>
+      </select>
+    </div>
+    <div class="grupo-filtro">
+      <label>Tipo de Gráfico</label>
+      <select id="tipo-grafico">
+        <option value="bar">Barras</option>
+        <option value="line">Línea</option>
+        <option value="area">Área</option>
+        <option value="pie">Tarta</option>
+        <option value="doughnut">Rosco</option>
+      </select>
+    </div>
+    <button class="btn-generar" onclick="generarGrafico()">Actualizar Gráfico</button>
   </div>
 
-  <div class="chart-container">
+  <div class="contenedor-grafico">
     <canvas id="miGrafico"></canvas>
   </div>
 
