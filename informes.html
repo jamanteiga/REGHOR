@@ -106,12 +106,32 @@
       background-color: #0b5ed7;
     }
 
-    table { width: 100%; border-collapse: collapse; background: var(--card-bg); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .tabla-contenedor {
+      max-height: 65vh;
+      overflow-y: auto;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    table { width: 100%; border-collapse: collapse; background: var(--card-bg); }
     th, td { padding: 10px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 13px; }
-    th { background-color: var(--header-bg); color: white; }
+
+    thead th {
+      background-color: var(--header-bg);
+      color: white;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
 
     tfoot tr { background-color: rgba(0, 123, 255, 0.08); font-weight: bold; }
-    tfoot td { border-top: 1px solid var(--border-color); }
+    tfoot td {
+      border-top: 1px solid var(--border-color);
+      position: sticky;
+      bottom: 0;
+      background-color: var(--card-bg);
+      background-image: linear-gradient(rgba(0, 123, 255, 0.08), rgba(0, 123, 255, 0.08));
+    }
   </style>
   <!-- Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -161,29 +181,31 @@
     </div>
   </div>
 
-  <table>
-    <thead>
-      <tr>
-        <th>Fecha</th>
-        <th>Tarea</th>
-        <th>Proyecto</th>
-        <th>Bloque</th>
-        <th>Hora inicio</th>
-        <th>Hora fin</th>
-        <th>Duración</th>
-        <th>Comentario</th>
-        <th>Notas</th>
-      </tr>
-    </thead>
-    <tbody id="tabla-informe-body"></tbody>
-    <tfoot>
-      <tr>
-        <td colspan="6" style="text-align: right;">Total Horas:</td>
-        <td id="total-informe-horas">00:00</td>
-        <td colspan="2"></td>
-      </tr>
-    </tfoot>
-  </table>
+  <div class="tabla-contenedor">
+    <table>
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Tarea</th>
+          <th>Proyecto</th>
+          <th>Bloque</th>
+          <th>Hora inicio</th>
+          <th>Hora fin</th>
+          <th>Duración</th>
+          <th>Comentario</th>
+          <th>Notas</th>
+        </tr>
+      </thead>
+      <tbody id="tabla-informe-body"></tbody>
+      <tfoot>
+        <tr>
+          <td colspan="6" style="text-align: right;">Total Horas:</td>
+          <td id="total-informe-horas">00:00</td>
+          <td colspan="2"></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
 
   <script src="config.js"></script>
   <script src="informes.js"></script>
