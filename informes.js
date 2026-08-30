@@ -77,6 +77,7 @@ async function cargarInforme() {
       .from(TABLA)
       .select('*')
       .order('fecha', { ascending: true })
+      .order('horainicio', { ascending: true })
       .range(desdeIndice, desdeIndice + TAMANO_PAGINA - 1);
 
     if (desde) query = query.gte('fecha', desde);
