@@ -32,6 +32,9 @@
     .controls-right { display: flex; gap: 10px; align-items: center; }
 
     .icon-btn { padding: 6px 12px; cursor: pointer; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-color); font-weight: bold; }
+
+    .flag-btn { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 4px; padding: 4px 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .flag-icon { width: 24px; height: 16px; display: block; }
     
     .btn-cerrar {
       background-color: #dc3545;
@@ -165,52 +168,76 @@
 <body>
 
   <div class="header-container">
-    <h1>📊 Informes y Registros</h1>
+    <h1 id="txt-titulo">📊 Informes y Registros</h1>
     <div class="controls-right">
+      <button class="flag-btn" onclick="cambiarIdioma('es')" title="Español">
+        <svg class="flag-icon" viewBox="0 0 750 500">
+          <rect width="750" height="500" fill="#c60b1e"/>
+          <rect y="125" width="750" height="250" fill="#ffc400"/>
+        </svg>
+      </button>
+
+      <button class="flag-btn" onclick="cambiarIdioma('gl')" title="Galego">
+        <svg class="flag-icon" viewBox="0 0 3 2">
+          <rect width="3" height="2" fill="#fff"/>
+          <path d="M0 0 L3 2" stroke="#009ac6" stroke-width="0.4"/>
+        </svg>
+      </button>
+
+      <button class="flag-btn" onclick="cambiarIdioma('en')" title="English">
+        <svg class="flag-icon" viewBox="0 0 60 30">
+          <rect width="60" height="30" fill="#00247d"/>
+          <path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/>
+          <path d="M0,0 L60,30 M60,0 L0,30" stroke="#cf142b" stroke-width="2"/>
+          <path d="M30,0 V30 M0,15 H60" stroke="#fff" stroke-width="10"/>
+          <path d="M30,0 V30 M0,15 H60" stroke="#cf142b" stroke-width="6"/>
+        </svg>
+      </button>
+
       <button class="icon-btn" onclick="toggleTheme()" id="btn-theme">🌙 Oscuro</button>
-      <button class="icon-btn btn-cerrar" onclick="cerrarPestana()">❌ Cerrar</button>
+      <button class="icon-btn btn-cerrar" onclick="cerrarPestana()" id="btn-cerrar">❌ Cerrar</button>
     </div>
   </div>
 
   <div class="panel-filtros">
     <div class="grupo-filtro">
-      <label>Rango Rápido</label>
+      <label id="lbl-rango-rapido">Rango Rápido</label>
       <div class="grupo-rapido">
-        <button class="btn-rapido" onclick="establecerRango('hoy')">Hoy</button>
-        <button class="btn-rapido" onclick="establecerRango('semana')">Semana actual</button>
-        <button class="btn-rapido" onclick="establecerRango('semana_anterior')">Semana anterior</button>
-        <button class="btn-rapido" onclick="establecerRango('mes')">Mes</button>
+        <button class="btn-rapido" id="btn-hoy" onclick="establecerRango('hoy')">Hoy</button>
+        <button class="btn-rapido" id="btn-semana-actual" onclick="establecerRango('semana')">Semana actual</button>
+        <button class="btn-rapido" id="btn-semana-anterior" onclick="establecerRango('semana_anterior')">Semana anterior</button>
+        <button class="btn-rapido" id="btn-mes" onclick="establecerRango('mes')">Mes</button>
       </div>
     </div>
     <div class="grupo-filtro">
-      <label>Desde Fecha</label>
+      <label id="lbl-desde">Desde Fecha</label>
       <input type="date" id="filtro-desde">
     </div>
     <div class="grupo-filtro">
-      <label>Hasta Fecha</label>
+      <label id="lbl-hasta">Hasta Fecha</label>
       <input type="date" id="filtro-hasta">
     </div>
     <div class="grupo-filtro">
-      <label>Tarea (*)</label>
+      <label id="lbl-tarea">Tarea (*)</label>
       <input type="text" id="filtro-tarea" value="*">
     </div>
     <div class="grupo-filtro">
-      <label>Proyecto (*)</label>
+      <label id="lbl-proyecto">Proyecto (*)</label>
       <input type="text" id="filtro-proyecto" value="*">
     </div>
     <div class="grupo-filtro">
-      <label>Bloque (*)</label>
+      <label id="lbl-bloque">Bloque (*)</label>
       <input type="text" id="filtro-bloque" value="*">
     </div>
     <div class="grupo-filtro">
-      <label>Comentario (*)</label>
+      <label id="lbl-comentario">Comentario (*)</label>
       <input type="text" id="filtro-comentario" value="*">
     </div>
     
     <div class="grupo-botones">
-      <button class="btn-filtrar" onclick="cargarInforme()">Generar Informe</button>
-      <button class="btn-xlsx" onclick="exportarXLSX()">📊 Exportar XLSX</button>
-      <button class="btn-csv" onclick="exportarCSV()">📄 Exportar CSV</button>
+      <button class="btn-filtrar" id="btn-generar" onclick="cargarInforme()">Generar Informe</button>
+      <button class="btn-xlsx" id="btn-xlsx" onclick="exportarXLSX()">📊 Exportar XLSX</button>
+      <button class="btn-csv" id="btn-csv" onclick="exportarCSV()">📄 Exportar CSV</button>
     </div>
   </div>
 
@@ -218,21 +245,21 @@
     <table>
       <thead>
         <tr>
-          <th>Fecha</th>
-          <th>Tarea</th>
-          <th>Proyecto</th>
-          <th>Bloque</th>
-          <th>Hora inicio</th>
-          <th>Hora fin</th>
-          <th>Duración</th>
-          <th>Comentario</th>
-          <th>Notas</th>
+          <th id="th-fecha">Fecha</th>
+          <th id="th-tarea">Tarea</th>
+          <th id="th-proyecto">Proyecto</th>
+          <th id="th-bloque">Bloque</th>
+          <th id="th-inicio">Hora inicio</th>
+          <th id="th-fin">Hora fin</th>
+          <th id="th-duracion">Duración</th>
+          <th id="th-comentario">Comentario</th>
+          <th id="th-notas">Notas</th>
         </tr>
       </thead>
       <tbody id="tabla-informe-body"></tbody>
       <tfoot>
         <tr>
-          <td colspan="6" style="text-align: right;">Total Horas:</td>
+          <td colspan="6" style="text-align: right;" id="txt-total-label">Total Horas:</td>
           <td id="total-informe-horas">00:00</td>
           <td colspan="2"></td>
         </tr>

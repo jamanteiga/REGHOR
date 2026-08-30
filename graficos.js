@@ -2,6 +2,64 @@
 // toggleTheme y cerrarPestana ahora viven en config.js
 
 let miChart = null;
+let idiomaActual = 'es';
+
+const TEXTOS_GRAFICOS = {
+  es: {
+    titulo: '📈 Análisis Gráfico de Tiempos', cerrar: '❌ Cerrar', rangoRapido: 'Rango Rápido',
+    hoy: 'Hoy', semana: 'Semana', mes: 'Mes', desde: 'Desde Fecha', hasta: 'Hasta Fecha',
+    proyecto: 'Proyecto (*)', tarea: 'Tarea (*)', bloque: 'Bloque (*)', comentarios: 'Comentarios (*)',
+    agruparPor: 'Agrupar por', optProyecto: 'Proyecto', optTarea: 'Tarea', optBloque: 'Bloque', optFecha: 'Fecha',
+    tipoGrafico: 'Tipo de Gráfico', optBar: 'Barras', optLine: 'Línea', optArea: 'Área', optPie: 'Tarta', optDoughnut: 'Rosco',
+    actualizar: 'Actualizar Gráfico'
+  },
+  gl: {
+    titulo: '📈 Análise Gráfica de Tempos', cerrar: '❌ Pechar', rangoRapido: 'Intervalo Rápido',
+    hoy: 'Hoxe', semana: 'Semana', mes: 'Mes', desde: 'Desde Data', hasta: 'Ata Data',
+    proyecto: 'Proxecto (*)', tarea: 'Tarefa (*)', bloque: 'Bloque (*)', comentarios: 'Comentarios (*)',
+    agruparPor: 'Agrupar por', optProyecto: 'Proxecto', optTarea: 'Tarefa', optBloque: 'Bloque', optFecha: 'Data',
+    tipoGrafico: 'Tipo de Gráfico', optBar: 'Barras', optLine: 'Liña', optArea: 'Área', optPie: 'Torta', optDoughnut: 'Rosca',
+    actualizar: 'Actualizar Gráfico'
+  },
+  en: {
+    titulo: '📈 Time Chart Analysis', cerrar: '❌ Close', rangoRapido: 'Quick Range',
+    hoy: 'Today', semana: 'Week', mes: 'Month', desde: 'From Date', hasta: 'To Date',
+    proyecto: 'Project (*)', tarea: 'Task (*)', bloque: 'Block (*)', comentarios: 'Comments (*)',
+    agruparPor: 'Group by', optProyecto: 'Project', optTarea: 'Task', optBloque: 'Block', optFecha: 'Date',
+    tipoGrafico: 'Chart Type', optBar: 'Bar', optLine: 'Line', optArea: 'Area', optPie: 'Pie', optDoughnut: 'Doughnut',
+    actualizar: 'Update Chart'
+  }
+};
+
+function cambiarIdioma(lang) {
+  idiomaActual = lang;
+  const t = TEXTOS_GRAFICOS[lang];
+
+  document.getElementById('txt-titulo').textContent = t.titulo;
+  document.getElementById('btn-cerrar').textContent = t.cerrar;
+  document.getElementById('lbl-rango-rapido').textContent = t.rangoRapido;
+  document.getElementById('btn-hoy').textContent = t.hoy;
+  document.getElementById('btn-semana').textContent = t.semana;
+  document.getElementById('btn-mes').textContent = t.mes;
+  document.getElementById('lbl-desde').textContent = t.desde;
+  document.getElementById('lbl-hasta').textContent = t.hasta;
+  document.getElementById('lbl-proyecto').textContent = t.proyecto;
+  document.getElementById('lbl-tarea').textContent = t.tarea;
+  document.getElementById('lbl-bloque').textContent = t.bloque;
+  document.getElementById('lbl-comentarios').textContent = t.comentarios;
+  document.getElementById('lbl-agrupar-por').textContent = t.agruparPor;
+  document.getElementById('opt-agrupar-proyecto').textContent = t.optProyecto;
+  document.getElementById('opt-agrupar-tarea').textContent = t.optTarea;
+  document.getElementById('opt-agrupar-bloque').textContent = t.optBloque;
+  document.getElementById('opt-agrupar-fecha').textContent = t.optFecha;
+  document.getElementById('lbl-tipo-grafico').textContent = t.tipoGrafico;
+  document.getElementById('opt-tipo-bar').textContent = t.optBar;
+  document.getElementById('opt-tipo-line').textContent = t.optLine;
+  document.getElementById('opt-tipo-area').textContent = t.optArea;
+  document.getElementById('opt-tipo-pie').textContent = t.optPie;
+  document.getElementById('opt-tipo-doughnut').textContent = t.optDoughnut;
+  document.getElementById('btn-actualizar').textContent = t.actualizar;
+}
 
 document.addEventListener('DOMContentLoaded', () => {
   establecerRango('mes');

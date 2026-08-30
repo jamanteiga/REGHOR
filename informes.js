@@ -1,6 +1,70 @@
 // SUPABASE_URL, SUPABASE_KEY, supabaseClient, TABLA, crearRegexFiltro,
 // calcularDuracion, toggleTheme y cerrarPestana ahora viven en config.js
 
+let idiomaActual = 'es';
+
+const TEXTOS_INFORME = {
+  es: {
+    titulo: '📊 Informes y Registros', cerrar: '❌ Cerrar', rangoRapido: 'Rango Rápido',
+    hoy: 'Hoy', semanaActual: 'Semana actual', semanaAnterior: 'Semana anterior', mes: 'Mes',
+    desde: 'Desde Fecha', hasta: 'Hasta Fecha', tarea: 'Tarea (*)', proyecto: 'Proyecto (*)',
+    bloque: 'Bloque (*)', comentario: 'Comentario (*)', generar: 'Generar Informe',
+    xlsx: '📊 Exportar XLSX', csv: '📄 Exportar CSV', thFecha: 'Fecha', thTarea: 'Tarea',
+    thProyecto: 'Proyecto', thBloque: 'Bloque', thInicio: 'Hora inicio', thFin: 'Hora fin',
+    thDuracion: 'Duración', thComentario: 'Comentario', thNotas: 'Notas', totalHoras: 'Total Horas:'
+  },
+  gl: {
+    titulo: '📊 Informes e Rexistros', cerrar: '❌ Pechar', rangoRapido: 'Intervalo Rápido',
+    hoy: 'Hoxe', semanaActual: 'Semana actual', semanaAnterior: 'Semana anterior', mes: 'Mes',
+    desde: 'Desde Data', hasta: 'Ata Data', tarea: 'Tarefa (*)', proyecto: 'Proxecto (*)',
+    bloque: 'Bloque (*)', comentario: 'Comentario (*)', generar: 'Xerar Informe',
+    xlsx: '📊 Exportar XLSX', csv: '📄 Exportar CSV', thFecha: 'Data', thTarea: 'Tarefa',
+    thProyecto: 'Proxecto', thBloque: 'Bloque', thInicio: 'Hora inicio', thFin: 'Hora fin',
+    thDuracion: 'Duración', thComentario: 'Comentario', thNotas: 'Notas', totalHoras: 'Total de Horas:'
+  },
+  en: {
+    titulo: '📊 Reports and Records', cerrar: '❌ Close', rangoRapido: 'Quick Range',
+    hoy: 'Today', semanaActual: 'This Week', semanaAnterior: 'Last Week', mes: 'Month',
+    desde: 'From Date', hasta: 'To Date', tarea: 'Task (*)', proyecto: 'Project (*)',
+    bloque: 'Block (*)', comentario: 'Comment (*)', generar: 'Generate Report',
+    xlsx: '📊 Export XLSX', csv: '📄 Export CSV', thFecha: 'Date', thTarea: 'Task',
+    thProyecto: 'Project', thBloque: 'Block', thInicio: 'Start Time', thFin: 'End Time',
+    thDuracion: 'Duration', thComentario: 'Comment', thNotas: 'Notes', totalHoras: 'Total Hours:'
+  }
+};
+
+function cambiarIdioma(lang) {
+  idiomaActual = lang;
+  const t = TEXTOS_INFORME[lang];
+
+  document.getElementById('txt-titulo').textContent = t.titulo;
+  document.getElementById('btn-cerrar').textContent = t.cerrar;
+  document.getElementById('lbl-rango-rapido').textContent = t.rangoRapido;
+  document.getElementById('btn-hoy').textContent = t.hoy;
+  document.getElementById('btn-semana-actual').textContent = t.semanaActual;
+  document.getElementById('btn-semana-anterior').textContent = t.semanaAnterior;
+  document.getElementById('btn-mes').textContent = t.mes;
+  document.getElementById('lbl-desde').textContent = t.desde;
+  document.getElementById('lbl-hasta').textContent = t.hasta;
+  document.getElementById('lbl-tarea').textContent = t.tarea;
+  document.getElementById('lbl-proyecto').textContent = t.proyecto;
+  document.getElementById('lbl-bloque').textContent = t.bloque;
+  document.getElementById('lbl-comentario').textContent = t.comentario;
+  document.getElementById('btn-generar').textContent = t.generar;
+  document.getElementById('btn-xlsx').textContent = t.xlsx;
+  document.getElementById('btn-csv').textContent = t.csv;
+  document.getElementById('th-fecha').textContent = t.thFecha;
+  document.getElementById('th-tarea').textContent = t.thTarea;
+  document.getElementById('th-proyecto').textContent = t.thProyecto;
+  document.getElementById('th-bloque').textContent = t.thBloque;
+  document.getElementById('th-inicio').textContent = t.thInicio;
+  document.getElementById('th-fin').textContent = t.thFin;
+  document.getElementById('th-duracion').textContent = t.thDuracion;
+  document.getElementById('th-comentario').textContent = t.thComentario;
+  document.getElementById('th-notas').textContent = t.thNotas;
+  document.getElementById('txt-total-label').textContent = t.totalHoras;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   establecerValoresPorDefecto();
   cargarInforme();
