@@ -1,28 +1,11 @@
-const SUPABASE_URL = 'https://oppieocootkgddhazikw.supabase.co'; 
-const SUPABASE_KEY = 'sb_publishable_6_pEKDfVrdKKuewB_qn_cw_fzNXPjT-';
+// SUPABASE_URL, SUPABASE_KEY, supabaseClient, TABLA, crearRegexFiltro,
+// toggleTheme y cerrarPestana ahora viven en config.js
 
-let supabaseClient = null;
-if (window.supabase) {
-  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-}
-
-const TABLA = 'obras';
 let miChart = null;
 
 document.addEventListener('DOMContentLoaded', () => {
   establecerRango('mes');
 });
-
-function toggleTheme() {
-  document.body.classList.toggle('dark-mode');
-  const isDark = document.body.classList.contains('dark-mode');
-  document.getElementById('btn-theme').textContent = isDark ? '☀️ Claro' : '🌙 Oscuro';
-  if (miChart) generarGrafico();
-}
-
-function cerrarPestana() {
-  window.close();
-}
 
 function formatearFechaISO(fecha) {
   const yyyy = fecha.getFullYear();
@@ -52,23 +35,6 @@ function establecerRango(tipo) {
   document.getElementById('filtro-hasta').value = formatearFechaISO(hasta);
 
   generarGrafico();
-}
-
-function crearRegexFiltro(patron) {
-  if (!patron || !patron.trim()) return null;
-  const textoLimpio = patron.trim();
-  const patronEspecial = textoLimpio.replace(/[-\/\\^$+?.()|[\]{}]/g, '\\$&');
-  const patronRegex = '^' + patronEspecial.replace(/\*/g, '.*') + '$';
-  return new RegExp(patronRegex, 'i');
-}
-
-function calcularHoras(inicio, fin) {
-  if (!inicio || !fin) return 0;
-  const [hIni, mIni] = inicio.split(':').map(Number);
-  const [hFin, mFin] = fin.split(':').map(Number);
-  let dif = (hFin * 60 + mFin) - (hIni * 60 + mIni);
-  if (dif < 0) dif += 1440;
-  return dif / 60;
 }
 
 async function generarGrafico() {
@@ -115,7 +81,7 @@ async function generarGrafico() {
       if (regexComentarios && !regexComentarios.test(comentarios)) return;
 
       let clave = item[agruparPor] || 'Sin Clasificar';
-      const duracion = calcularHoras(item.horainicio, item.horafin);
+      const duracion = obtenerMinutosDuracion(item.horainicio, item.horafin) / 60;
 
       if (!acumulado[clave]) acumulado[clave] = 0;
       acumulado[clave] += duracion;

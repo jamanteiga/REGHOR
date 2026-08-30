@@ -1,14 +1,4 @@
-// Configuración de conexión a Supabase
-const SUPABASE_URL = 'https://oppieocootkgddhazikw.supabase.co'; 
-const SUPABASE_KEY = 'sb_publishable_6_pEKDfVrdKKuewB_qn_cw_fzNXPjT-';
-
-let supabaseClient = null;
-
-if (window.supabase) {
-  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-}
-
-const TABLA = 'obras';
+// SUPABASE_URL, SUPABASE_KEY, supabaseClient y TABLA ahora viven en config.js
 
 // Las 35 Tareas predefinidas
 const TAREAS_DEFAULT = [
@@ -80,12 +70,6 @@ async function obtenerUltimaFechaDesdeSupabase() {
   return new Date(hoy.getTime() - (offset * 60 * 1000)).toISOString().split('T')[0];
 }
 
-function toggleTheme() {
-  document.body.classList.toggle('dark-mode');
-  const isDark = document.body.classList.contains('dark-mode');
-  document.getElementById('btn-theme').textContent = isDark ? '☀️ Claro' : '🌙 Oscuro';
-}
-
 function ordenarLista(array) {
   return array.sort((a, b) => a.localeCompare(b, idiomaActual, { sensitivity: 'base' }));
 }
@@ -93,7 +77,7 @@ function ordenarLista(array) {
 function poblarSelects() {
   const selTarea = document.getElementById('tarea');
   const selProyecto = document.getElementById('proyecto');
-  
+
   configData.tareas = ordenarLista(configData.tareas);
   configData.proyectos = ordenarLista(configData.proyectos);
 
@@ -132,7 +116,7 @@ function cerrarConfig() {
 function renderListaConfig() {
   const ul = document.getElementById('lista-config');
   configData[tipoConfigActual] = ordenarLista(configData[tipoConfigActual]);
-  
+
   ul.innerHTML = configData[tipoConfigActual].map((item, idx) => `
     <li style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
       <span>${item}</span>
@@ -191,7 +175,7 @@ function obtenerJornadaTeoricaMinutos(fechaStr) {
   if (!fechaStr) return 0;
   const partes = fechaStr.split('-');
   if (partes.length !== 3) return 0;
-  
+
   const fecha = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
   const mes = fecha.getMonth() + 1;
   const diaSemana = fecha.getDay();
@@ -205,7 +189,7 @@ function obtenerJornadaTeoricaMinutos(fechaStr) {
 async function cargarTareas() {
   const tablaBody = document.getElementById('tabla-body');
   tablaBody.innerHTML = '<tr><td colspan="10">Cargando datos desde Supabase...</td></tr>';
-  
+
   const inputFecha = document.getElementById('fecha');
   let fechaFiltroStr = inputFecha ? inputFecha.value.trim() : '';
 
@@ -241,7 +225,7 @@ async function cargarTareas() {
     tablaBody.innerHTML = tareas.map(item => {
       let rawF = String(item.fecha || '').trim();
       let fDisplay = rawF.includes('T') ? rawF.split('T')[0] : rawF.split(' ')[0];
-      
+
       return `
         <tr>
           <td>${fDisplay}</td>
@@ -361,27 +345,6 @@ async function borrarTarea(id) {
   }
 }
 
-function obtenerMinutosDuracion(horaInicio, horaFin) {
-  if (!horaInicio || !horaFin) return 0;
-  const [hIni, mIni] = horaInicio.split(':').map(Number);
-  const [hFin, mFin] = horaFin.split(':').map(Number);
-  let dif = (hFin * 60 + mFin) - (hIni * 60 + mIni);
-  return dif < 0 ? dif + 1440 : dif;
-}
-
-function calcularDuracion(horaInicio, horaFin) {
-  const dif = obtenerMinutosDuracion(horaInicio, horaFin);
-  return formatearMinutosAHoras(dif);
-}
-
-function formatearMinutosAHoras(totalMinutos) {
-  const absMin = Math.abs(totalMinutos);
-  const hh = String(Math.floor(absMin / 60)).padStart(2, '0');
-  const mm = String(absMin % 60).padStart(2, '0');
-  const signo = totalMinutos < 0 ? '-' : '';
-  return `${signo}${hh}:${mm}`;
-}
-
 function actualizarResumenHoras(listaTareas, fechaStr) {
   let totalMinutosReales = 0;
 
@@ -394,7 +357,7 @@ function actualizarResumenHoras(listaTareas, fechaStr) {
 
   document.getElementById('total-teorica').textContent = formatearMinutosAHoras(minutosTeoricos);
   document.getElementById('total-duracion').textContent = formatearMinutosAHoras(totalMinutosReales);
-  
+
   const elBalance = document.getElementById('total-balance');
   const signoStr = balanceMinutos > 0 ? '+' : '';
   elBalance.textContent = `${signoStr}${formatearMinutosAHoras(balanceMinutos)}`;
@@ -415,10 +378,10 @@ function cambiarIdioma(lang) {
   document.getElementById('lbl-proyecto').textContent = t.proyecto;
   document.getElementById('txt-listado').textContent = t.listado;
   document.getElementById('btn-informes').textContent = t.informes;
-  
+
   const idEditando = document.getElementById('tarea-id').value;
   document.getElementById('btn-guardar').textContent = idEditando ? t.actualizar : t.guardar;
-  
+
   document.getElementById('txt-teorica-label').textContent = t.teorica;
   document.getElementById('txt-total-label').textContent = t.total;
   document.getElementById('txt-balance-label').textContent = t.balance;

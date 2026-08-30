@@ -1,12 +1,5 @@
-const SUPABASE_URL = 'https://oppieocootkgddhazikw.supabase.co'; 
-const SUPABASE_KEY = 'sb_publishable_6_pEKDfVrdKKuewB_qn_cw_fzNXPjT-';
-
-let supabaseClient = null;
-if (window.supabase) {
-  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-}
-
-const TABLA = 'obras';
+// SUPABASE_URL, SUPABASE_KEY, supabaseClient, TABLA, crearRegexFiltro,
+// calcularDuracion, toggleTheme y cerrarPestana ahora viven en config.js
 
 document.addEventListener('DOMContentLoaded', () => {
   establecerValoresPorDefecto();
@@ -25,25 +18,6 @@ function establecerValoresPorDefecto() {
   document.getElementById('filtro-proyecto').value = '*';
   document.getElementById('filtro-bloque').value = '*';
   document.getElementById('filtro-comentario').value = '*';
-}
-
-function toggleTheme() {
-  document.body.classList.toggle('dark-mode');
-  const isDark = document.body.classList.contains('dark-mode');
-  document.getElementById('btn-theme').textContent = isDark ? '☀️ Claro' : '🌙 Oscuro';
-}
-
-function cerrarPestana() {
-  window.close();
-}
-
-// Convierte un patrón con '*' a una expresión regular
-function crearRegexFiltro(patron) {
-  if (!patron || !patron.trim()) return null;
-  const textoLimpio = patron.trim();
-  const patronEspecial = textoLimpio.replace(/[-\/\\^$+?.()|[\]{}]/g, '\\$&');
-  const patronRegex = '^' + patronEspecial.replace(/\*/g, '.*') + '$';
-  return new RegExp(patronRegex, 'i');
 }
 
 async function cargarInforme() {
@@ -101,17 +75,6 @@ async function cargarInforme() {
   });
 }
 
-function calcularDuracion(inicio, fin) {
-  if (!inicio || !fin) return '00:00';
-  const [hIni, mIni] = inicio.split(':').map(Number);
-  const [hFin, mFin] = fin.split(':').map(Number);
-  let dif = (hFin * 60 + mFin) - (hIni * 60 + mIni);
-  if (dif < 0) dif += 1440;
-  const hh = String(Math.floor(dif / 60)).padStart(2, '0');
-  const mm = String(dif % 60).padStart(2, '0');
-  return `${hh}:${mm}`;
-}
-
 // Exportación a Excel nativo (.xlsx)
 function exportarXLSX() {
   const tabla = document.querySelector("table");
@@ -123,10 +86,10 @@ function exportarXLSX() {
   }
 
   const wb = XLSX.utils.table_to_book(tabla, { sheet: "Informe REGHOR" });
-  
+
   const desde = document.getElementById("filtro-desde").value || "inicio";
   const hasta = document.getElementById("filtro-hasta").value || "fin";
-  
+
   XLSX.writeFile(wb, `Informe_REGHOR_${desde}_a_${hasta}.xlsx`);
 }
 
@@ -156,15 +119,15 @@ function exportarCSV() {
 
   const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
-  
+
   const link = document.createElement("a");
   const desde = document.getElementById("filtro-desde").value || "inicio";
   const hasta = document.getElementById("filtro-hasta").value || "fin";
-  
+
   link.setAttribute("href", url);
   link.setAttribute("download", `Informe_REGHOR_${desde}_a_${hasta}.csv`);
   document.body.appendChild(link);
-  
+
   link.click();
   document.body.removeChild(link);
 }
