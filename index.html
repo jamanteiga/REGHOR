@@ -72,7 +72,8 @@
     .label-wrapper { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
     .label-wrapper label, .form-group > label { font-weight: bold; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     
-    input, select { padding: 6px 6px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--card-bg); color: var(--text-color); font-size: 12px; width: 100%; box-sizing: border-box; }
+    input, select { padding: 6px 6px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--card-bg); color: var(--text-color); font-size: 12px; width: 100%; box-sizing: border-box; transition: border-color 0.15s, box-shadow 0.15s; }
+    input:focus, select:focus { outline: none; border-color: var(--header-bg); box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25); }
     
     .btn-mini { padding: 2px 4px; font-size: 10px; cursor: pointer; border-radius: 3px; border: 1px solid var(--border-color); background: #e9ecef; color: #000; font-weight: bold; white-space: nowrap; }
     body.dark-mode .btn-mini { background: #333; color: #fff; }
@@ -117,6 +118,10 @@
     tfoot tr { background-color: rgba(0, 123, 255, 0.08); font-weight: bold; }
     tfoot tr.row-extra { background-color: rgba(40, 167, 69, 0.12); }
     tfoot td { border-top: 1px solid var(--border-color); }
+
+    #tabla-body tr:nth-child(odd) { background-color: rgba(0, 123, 255, 0.08); }
+    #tabla-body tr:nth-child(even) { background-color: var(--card-bg); }
+    #tabla-body tr:hover { background-color: rgba(0, 123, 255, 0.25); }
     
     .saldo-positivo { color: #28a745; font-weight: bold; }
     .saldo-negativo { color: #dc3545; font-weight: bold; }

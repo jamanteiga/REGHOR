@@ -29,8 +29,19 @@ let tipoConfigActual = '';
 let idiomaActual = 'es';
 let tareasCargadasCache = [];
 
+const DIAS_SEMANA = {
+  es: ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'],
+  gl: ['domingo', 'luns', 'martes', 'mércores', 'xoves', 'venres', 'sábado']
+};
+
+function actualizarTituloConDia(titulo) {
+  const nombreDia = DIAS_SEMANA[idiomaActual][new Date().getDay()];
+  document.getElementById('txt-titulo').textContent = `${titulo}, ${nombreDia}`;
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   poblarSelects();
+  actualizarTituloConDia('REGHOR');
 
   const inputFecha = document.getElementById('fecha');
   if (inputFecha) {
@@ -372,7 +383,7 @@ function cambiarIdioma(lang) {
     gl: { titulo: 'REGHOR', fecha: 'Data', tarea: 'Tarefa', proyecto: 'Proxecto', listado: 'Listaxe de Tarefas', informes: '📊 Informes', guardar: 'Gardar', actualizar: 'Actualizar', teorica: 'Xornada Teórica do Día:', total: 'Total Horas Traballadas:', balance: 'Balance / Horas Extra:' }
   }[lang];
 
-  document.getElementById('txt-titulo').textContent = t.titulo;
+  actualizarTituloConDia(t.titulo);
   document.getElementById('lbl-fecha').textContent = t.fecha;
   document.getElementById('lbl-tarea').textContent = t.tarea;
   document.getElementById('lbl-proyecto').textContent = t.proyecto;
