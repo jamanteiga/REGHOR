@@ -24,7 +24,6 @@ function toggleTheme() {
   }
 }
 
-// Configuración rápida de fechas: Día, Semana actual o Mes actual
 function setPeriodo(tipo) {
   const hoy = new Date();
   const desdeInput = document.getElementById('filtro-desde');
@@ -77,7 +76,7 @@ async function generarGrafico() {
     return;
   }
 
-  // Preparar Regex para el comodín de Tarea (*)
+  // Comodín asterisco (*) para tareas
   let regexTarea = null;
   if (filtroTareaTexto) {
     const patronEspecial = filtroTareaTexto.replace(/[-\/\\^$+?.()|[\]{}]/g, '\\$&');
@@ -88,26 +87,41 @@ async function generarGrafico() {
   const acumulado = {};
 
   data.forEach(item => {
-    const nombreTarea = item.tarea || '';
+    const nombreTarea = item.tarea || 'Sin Tarea';
+    const proy = item.proyecto || 'Sin Proyecto';
+    const bloq = item.bloque || 'Sin Bloque';
 
-    // Filtrar por tarea si hay búsqueda con comodín
+    // Filtrar por tarea si aplica
     if (regexTarea && !regexTarea.test(nombreTarea)) {
       return;
     }
 
-    // Determinar la clave de agrupación
+    // Todas las combinaciones de agrupación
     let clave = '';
-    const proy = item.proyecto || 'Sin Proyecto';
-    const bloq = item.bloque || 'Sin Bloque';
-
-    if (agruparPor === 'proyecto') {
-      clave = proy;
-    } else if (agruparPor === 'proyecto_bloque') {
-      clave = `${proy} / ${bloq}`;
-    } else if (agruparPor === 'proyecto_tarea') {
-      clave = `${proy} / ${nombreTarea}`;
-    } else if (agruparPor === 'tarea') {
-      clave = nombreTarea || 'Sin Tarea';
+    switch (agruparPor) {
+      case 'proyecto':
+        clave = proy;
+        break;
+      case 'tarea':
+        clave = nombreTarea;
+        break;
+      case 'bloque':
+        clave = bloq;
+        break;
+      case 'proyecto_tarea':
+        clave = `${proy} / ${nombreTarea}`;
+        break;
+      case 'proyecto_bloque':
+        clave = `${proy} / ${bloq}`;
+        break;
+      case 'tarea_bloque':
+        clave = `${nombreTarea} / ${bloq}`;
+        break;
+      case 'proyecto_tarea_bloque':
+        clave = `${proy} / ${nombreTarea} / ${bloq}`;
+        break;
+      default:
+        clave = proy;
     }
 
     const minutos = obtenerMinutosDuracion(item.horainicio, item.horafin);
