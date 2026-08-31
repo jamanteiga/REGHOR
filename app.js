@@ -387,21 +387,21 @@ const TEXTOS_INDEX = {
   es: {
     titulo: 'REGHOR', fecha: 'Fecha', tarea: 'Tarea', proyecto: 'Proyecto', bloque: 'Bloque',
     horainicio: 'Hora inicio', horafin: 'Hora fin', comentario: 'Comentario', notas: 'Notas',
-    acciones: 'Acciones', listado: 'Listado de Tareas', informes: '📊 Informes', graficos: '📈 Gráficos',
+    acciones: 'Acciones', listado: 'Listado de Tareas', informes: '📊 Informes', graficos: '📈 Gráficos', semana: '📅 Registro Semana',
     guardar: 'Guardar', actualizar: 'Actualizar', cancelar: 'Cancelar',
     teorica: 'Jornada Teórica del Día:', total: 'Total Horas Trabajadas:', balance: 'Balance / Horas Extra:'
   },
   gl: {
     titulo: 'REGHOR', fecha: 'Data', tarea: 'Tarefa', proyecto: 'Proxecto', bloque: 'Bloque',
     horainicio: 'Hora inicio', horafin: 'Hora fin', comentario: 'Comentario', notas: 'Notas',
-    acciones: 'Accións', listado: 'Listaxe de Tarefas', informes: '📊 Informes', graficos: '📈 Gráficas',
+    acciones: 'Accións', listado: 'Listaxe de Tarefas', informes: '📊 Informes', graficos: '📈 Gráficas', semana: '📅 Rexistro Semana',
     guardar: 'Gardar', actualizar: 'Actualizar', cancelar: 'Cancelar',
     teorica: 'Xornada Teórica do Día:', total: 'Total Horas Traballadas:', balance: 'Balance / Horas Extra:'
   },
   en: {
     titulo: 'REGHOR', fecha: 'Date', tarea: 'Task', proyecto: 'Project', bloque: 'Block',
     horainicio: 'Start Time', horafin: 'End Time', comentario: 'Comment', notas: 'Notes',
-    acciones: 'Actions', listado: 'Task List', informes: '📊 Reports', graficos: '📈 Charts',
+    acciones: 'Actions', listado: 'Task List', informes: '📊 Reports', graficos: '📈 Charts', semana: '📅 Week Log',
     guardar: 'Save', actualizar: 'Update', cancelar: 'Cancel',
     teorica: 'Theoretical Day Hours:', total: 'Total Hours Worked:', balance: 'Balance / Overtime:'
   }
@@ -423,6 +423,7 @@ function cambiarIdioma(lang) {
   document.getElementById('txt-listado').textContent = t.listado;
   document.getElementById('btn-informes').textContent = t.informes;
   document.getElementById('btn-graficos').textContent = t.graficos;
+  document.getElementById('btn-semana').textContent = t.semana;
   document.getElementById('btn-cancelar').textContent = t.cancelar;
 
   const idEditando = document.getElementById('tarea-id').value;

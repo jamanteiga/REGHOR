@@ -111,22 +111,8 @@
     .close-modal { float: right; cursor: pointer; font-weight: bold; font-size: 20px; }
 
     /* Tabla y Pie de tabla */
-    .tabla-contenedor {
-            max-height: 65vh;
-            overflow-y: auto;
-            overflow-x: auto;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        table {
-            width: 100%;
-            min-width: 1100px;
-            border-collapse: collapse;
-            background: var(--card-bg);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        th, td { padding: 10px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 13px; }
+    table { width: 100%; border-collapse: collapse; background: var(--card-bg); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    th, td { padding: 10px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 13px; }
     th { background-color: var(--header-bg); color: white; }
     
     tfoot tr { background-color: rgba(0, 123, 255, 0.08); font-weight: bold; }
@@ -152,6 +138,7 @@
       <!-- Botones de navegación externa -->
       <a href="informes.html" target="_blank" class="icon-btn" id="btn-informes">📊 Informes</a>
       <a href="graficos.html" target="_blank" class="icon-btn" id="btn-graficos">📈 Gráficos</a>
+      <a href="Semana.html" target="_blank" class="icon-btn" id="btn-semana">📅 Registro Semana</a>
 
       <!-- Bandera España SVG -->
       <button class="flag-btn" onclick="cambiarIdioma('es')" title="Español">
@@ -261,8 +248,7 @@
   </form>
 
   <h2 id="txt-listado">Listado de Tareas</h2>
-  <div class="tabla-contenedor">
-        <table>
+  <table>
     <thead>
       <tr>
         <th id="th-fecha">Fecha</th>
@@ -296,7 +282,6 @@
       </tr>
     </tfoot>
   </table>
-        </div>
 
   <!-- Modal Config -->
   <div id="modal-config" class="modal">
