@@ -305,7 +305,7 @@ function resetearFormulario() {
   document.getElementById('notas').value = '';
 
   const btnGuardar = document.getElementById('btn-guardar');
-  btnGuardar.textContent = (idiomaActual === 'gl') ? 'Gardar' : 'Guardar';
+  btnGuardar.textContent = TEXTOS_INDEX[idiomaActual].guardar;
   btnGuardar.style.backgroundColor = '#28a745';
   btnGuardar.style.color = '#fff';
   document.getElementById('btn-cancelar').style.display = 'none';
@@ -383,19 +383,47 @@ function actualizarResumenHoras(listaTareas, fechaStr) {
   elBalance.className = balanceMinutos > 0 ? 'saldo-positivo' : (balanceMinutos < 0 ? 'saldo-negativo' : 'saldo-neutro');
 }
 
+const TEXTOS_INDEX = {
+  es: {
+    titulo: 'REGHOR', fecha: 'Fecha', tarea: 'Tarea', proyecto: 'Proyecto', bloque: 'Bloque',
+    horainicio: 'Hora inicio', horafin: 'Hora fin', comentario: 'Comentario', notas: 'Notas',
+    acciones: 'Acciones', listado: 'Listado de Tareas', informes: '📊 Informes', graficos: '📈 Gráficos',
+    guardar: 'Guardar', actualizar: 'Actualizar', cancelar: 'Cancelar',
+    teorica: 'Jornada Teórica del Día:', total: 'Total Horas Trabajadas:', balance: 'Balance / Horas Extra:'
+  },
+  gl: {
+    titulo: 'REGHOR', fecha: 'Data', tarea: 'Tarefa', proyecto: 'Proxecto', bloque: 'Bloque',
+    horainicio: 'Hora inicio', horafin: 'Hora fin', comentario: 'Comentario', notas: 'Notas',
+    acciones: 'Accións', listado: 'Listaxe de Tarefas', informes: '📊 Informes', graficos: '📈 Gráficas',
+    guardar: 'Gardar', actualizar: 'Actualizar', cancelar: 'Cancelar',
+    teorica: 'Xornada Teórica do Día:', total: 'Total Horas Traballadas:', balance: 'Balance / Horas Extra:'
+  },
+  en: {
+    titulo: 'REGHOR', fecha: 'Date', tarea: 'Task', proyecto: 'Project', bloque: 'Block',
+    horainicio: 'Start Time', horafin: 'End Time', comentario: 'Comment', notas: 'Notes',
+    acciones: 'Actions', listado: 'Task List', informes: '📊 Reports', graficos: '📈 Charts',
+    guardar: 'Save', actualizar: 'Update', cancelar: 'Cancel',
+    teorica: 'Theoretical Day Hours:', total: 'Total Hours Worked:', balance: 'Balance / Overtime:'
+  }
+};
+
 function cambiarIdioma(lang) {
   idiomaActual = lang;
-  const t = {
-    es: { titulo: 'REGHOR', fecha: 'Fecha', tarea: 'Tarea', proyecto: 'Proyecto', listado: 'Listado de Tareas', informes: '📊 Informes', guardar: 'Guardar', actualizar: 'Actualizar', teorica: 'Jornada Teórica del Día:', total: 'Total Horas Trabajadas:', balance: 'Balance / Horas Extra:' },
-    gl: { titulo: 'REGHOR', fecha: 'Data', tarea: 'Tarefa', proyecto: 'Proxecto', listado: 'Listaxe de Tarefas', informes: '📊 Informes', guardar: 'Gardar', actualizar: 'Actualizar', teorica: 'Xornada Teórica do Día:', total: 'Total Horas Traballadas:', balance: 'Balance / Horas Extra:' }
-  }[lang];
+  const t = TEXTOS_INDEX[lang];
 
   actualizarTituloConDia(t.titulo);
   document.getElementById('lbl-fecha').textContent = t.fecha;
   document.getElementById('lbl-tarea').textContent = t.tarea;
   document.getElementById('lbl-proyecto').textContent = t.proyecto;
+  document.getElementById('lbl-bloque').textContent = t.bloque;
+  document.getElementById('lbl-horainicio').textContent = t.horainicio;
+  document.getElementById('lbl-horafin').textContent = t.horafin;
+  document.getElementById('lbl-comentario').textContent = t.comentario;
+  document.getElementById('lbl-notas').textContent = t.notas;
   document.getElementById('txt-listado').textContent = t.listado;
   document.getElementById('btn-informes').textContent = t.informes;
+  document.getElementById('btn-graficos').textContent = t.graficos;
+  document.getElementById('btn-cancelar').textContent = t.cancelar;
 
   const idEditando = document.getElementById('tarea-id').value;
   document.getElementById('btn-guardar').textContent = idEditando ? t.actualizar : t.guardar;
@@ -407,6 +435,13 @@ function cambiarIdioma(lang) {
   document.getElementById('th-fecha').textContent = t.fecha;
   document.getElementById('th-tarea').textContent = t.tarea;
   document.getElementById('th-proyecto').textContent = t.proyecto;
+  document.getElementById('th-bloque').textContent = t.bloque;
+  document.getElementById('th-inicio').textContent = t.horainicio;
+  document.getElementById('th-fin').textContent = t.horafin;
+  document.getElementById('th-duracion').textContent = (lang === 'en') ? 'Duration' : 'Duración';
+  document.getElementById('th-comentario').textContent = t.comentario;
+  document.getElementById('th-notas').textContent = t.notas;
+  document.getElementById('th-acciones').textContent = t.acciones;
 
   poblarSelects();
 }
