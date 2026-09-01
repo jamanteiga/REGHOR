@@ -29,21 +29,23 @@ let tipoConfigActual = '';
 let idiomaActual = 'es';
 let tareasCargadasCache = [];
  
-const DIAS_SEMANA = {
-  es: ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'],
-  gl: ['domingo', 'luns', 'martes', 'mércores', 'xoves', 'venres', 'sábado']
-};
- 
-const MESES = {
-  es: ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'],
-  gl: ['xaneiro', 'febreiro', 'marzo', 'abril', 'maio', 'xuño', 'xullo', 'agosto', 'setembro', 'outubro', 'novembro', 'decembro']
-};
+// DIAS_SEMANA, MESES, formatearFechaISO, obtenerFechaHoyISO,
+// obtenerJornadaTeoricaMinutos y obtenerDescansoMinutos viven ahora en
+// config.js (compartidos con informes.js y Semana.js, para que no se
+// desincronicen entre páginas).
  
 function actualizarTituloConDia(titulo) {
   const hoy = new Date();
   const nombreDia = DIAS_SEMANA[idiomaActual][hoy.getDay()];
   const nombreMes = MESES[idiomaActual][hoy.getMonth()];
-  document.getElementById('txt-titulo').textContent = `${titulo}, ${nombreDia} ${hoy.getDate()} de ${nombreMes} de ${hoy.getFullYear()}`;
+  const dia = hoy.getDate();
+  const anio = hoy.getFullYear();
+ 
+  const fechaTexto = (idiomaActual === 'en')
+    ? `${nombreDia}, ${nombreMes} ${dia}, ${anio}`
+    : `${nombreDia} ${dia} de ${nombreMes} de ${anio}`;
+ 
+  document.getElementById('txt-titulo').textContent = `${titulo}, ${fechaTexto}`;
 }
  
 document.addEventListener('DOMContentLoaded', async () => {
@@ -83,9 +85,7 @@ async function obtenerUltimaFechaDesdeSupabase() {
     console.error("Error al obtener la última fecha de Supabase:", e);
   }
  
-  const hoy = new Date();
-  const offset = hoy.getTimezoneOffset();
-  return new Date(hoy.getTime() - (offset * 60 * 1000)).toISOString().split('T')[0];
+  return obtenerFechaHoyISO();
 }
  
 function ordenarLista(array) {
@@ -187,41 +187,6 @@ async function copiarHoraFinAnterior() {
   } catch(e) {
     alert("Error de conexión al consultar Supabase.");
   }
-}
- 
-function obtenerJornadaTeoricaMinutos(fechaStr) {
-  if (!fechaStr) return 0;
-  const partes = fechaStr.split('-');
-  if (partes.length !== 3) return 0;
- 
-  const fecha = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
-  const mes = fecha.getMonth() + 1;
-  const diaSemana = fecha.getDay();
- 
-  if (diaSemana === 0 || diaSemana === 6) return 0;
-  if (mes === 7 || mes === 8) return 435; // Verano: 7h 15m
-  if (diaSemana === 5) return 420;        // Viernes: 7h 00m
-  return 510;                             // Lunes a Jueves: 8h 30m
-}
- 
-/**
- * Minutos de descanso a descontar del total de horas trabajadas (y por tanto
- * también del balance de horas extra, que se calcula a partir de ese total).
- * Se aplica de lunes a jueves, dentro del periodo del 1 de septiembre al 30
- * de junio. En julio y agosto (horario de verano) no se descuenta nada.
- */
-function obtenerDescansoMinutos(fechaStr) {
-  if (!fechaStr) return 0;
-  const partes = fechaStr.split('-');
-  if (partes.length !== 3) return 0;
- 
-  const fecha = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
-  const mes = fecha.getMonth() + 1;
-  const diaSemana = fecha.getDay();
- 
-  if (mes === 7 || mes === 8) return 0; // Verano: sin descanso
-  const esLunesAJueves = diaSemana >= 1 && diaSemana <= 4;
-  return esLunesAJueves ? 30 : 0;
 }
  
 async function cargarTareas() {

@@ -1,8 +1,10 @@
 // SUPABASE_URL, SUPABASE_KEY, supabaseClient, TABLA, crearRegexFiltro,
-// calcularDuracion, toggleTheme y cerrarPestana ahora viven en config.js
-
+// obtenerMinutosDuracion, calcularDuracion, formatearMinutosAHoras,
+// formatearFechaISO, obtenerFechaHoyISO, obtenerDescansoMinutos,
+// toggleTheme y cerrarPestana ahora viven en config.js
+ 
 let idiomaActual = 'es';
-
+ 
 const TEXTOS_INFORME = {
   es: {
     titulo: '📊 Informes y Registros', cerrar: '❌ Cerrar', rangoRapido: 'Rango Rápido',
@@ -32,11 +34,11 @@ const TEXTOS_INFORME = {
     thDuracion: 'Duration', thComentario: 'Comment', thNotas: 'Notes', totalHoras: 'Total Hours:'
   }
 };
-
+ 
 function cambiarIdioma(lang) {
   idiomaActual = lang;
   const t = TEXTOS_INFORME[lang];
-
+ 
   document.getElementById('txt-titulo').textContent = t.titulo;
   document.getElementById('btn-cerrar').textContent = t.cerrar;
   document.getElementById('lbl-rango-rapido').textContent = t.rangoRapido;
@@ -64,38 +66,29 @@ function cambiarIdioma(lang) {
   document.getElementById('th-notas').textContent = t.thNotas;
   document.getElementById('txt-total-label').textContent = t.totalHoras;
 }
-
+ 
 document.addEventListener('DOMContentLoaded', () => {
   establecerValoresPorDefecto();
   cargarInforme();
 });
-
+ 
 function establecerValoresPorDefecto() {
-  const hoy = new Date();
-  const offset = hoy.getTimezoneOffset();
-  const fechaHoy = new Date(hoy.getTime() - (offset * 60 * 1000)).toISOString().split('T')[0];
-
+  const fechaHoy = obtenerFechaHoyISO();
+ 
   document.getElementById('filtro-desde').value = fechaHoy;
   document.getElementById('filtro-hasta').value = fechaHoy;
-
+ 
   document.getElementById('filtro-tarea').value = '*';
   document.getElementById('filtro-proyecto').value = '*';
   document.getElementById('filtro-bloque').value = '*';
   document.getElementById('filtro-comentario').value = '*';
 }
-
-function formatearFechaISO(fecha) {
-  const yyyy = fecha.getFullYear();
-  const mm = String(fecha.getMonth() + 1).padStart(2, '0');
-  const dd = String(fecha.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
-}
-
+ 
 function establecerRango(tipo) {
   const hoy = new Date();
   let desde = new Date();
   let hasta = new Date();
-
+ 
   if (tipo === 'hoy') {
     desde = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
     hasta = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
@@ -112,30 +105,30 @@ function establecerRango(tipo) {
     desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
     hasta = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
   }
-
+ 
   document.getElementById('filtro-desde').value = formatearFechaISO(desde);
   document.getElementById('filtro-hasta').value = formatearFechaISO(hasta);
-
+ 
   cargarInforme();
 }
-
+ 
 async function cargarInforme() {
   if (!supabaseClient) return;
-
+ 
   const desde = document.getElementById('filtro-desde').value;
   const hasta = document.getElementById('filtro-hasta').value;
-
+ 
   const regexTarea = crearRegexFiltro(document.getElementById('filtro-tarea').value);
   const regexProyecto = crearRegexFiltro(document.getElementById('filtro-proyecto').value);
   const regexBloque = crearRegexFiltro(document.getElementById('filtro-bloque').value);
   const regexComentario = crearRegexFiltro(document.getElementById('filtro-comentario').value);
-
+ 
   // Supabase limita cada consulta a 1000 filas por defecto: paginamos con
   // .range() hasta traer todos los registros que cumplan el filtro de fechas.
   const TAMANO_PAGINA = 1000;
   let data = [];
   let desdeIndice = 0;
-
+ 
   while (true) {
     let query = supabaseClient
       .from(TABLA)
@@ -143,42 +136,50 @@ async function cargarInforme() {
       .order('fecha', { ascending: true })
       .order('horainicio', { ascending: true })
       .range(desdeIndice, desdeIndice + TAMANO_PAGINA - 1);
-
+ 
     if (desde) query = query.gte('fecha', desde);
     if (hasta) query = query.lte('fecha', hasta);
-
+ 
     const { data: pagina, error } = await query;
-
+ 
     if (error) {
       console.error("Error al cargar datos:", error);
       return;
     }
-
+ 
     data = data.concat(pagina);
-
+ 
     if (!pagina || pagina.length < TAMANO_PAGINA) break;
     desdeIndice += TAMANO_PAGINA;
   }
-
+ 
   const tbody = document.getElementById('tabla-informe-body');
   tbody.innerHTML = '';
-
-  let totalMinutos = 0;
-
+ 
+  // Minutos brutos acumulados por fecha (solo de las filas que pasan el
+  // filtro), para poder aplicar el descuento de 00:30 una vez por día —
+  // el mismo criterio que usa index.html — en lugar de sumar todas las
+  // filas sueltas sin distinguir a qué día pertenecen.
+  const minutosPorDia = {};
+ 
   data.forEach(item => {
     const tarea = item.tarea || '';
     const proyecto = item.proyecto || '';
     const bloque = item.bloque || '';
     const comentario = item.comentario || '';
-
+ 
     // Evaluación del comodín '*' en los campos correspondientes
     if (regexTarea && !regexTarea.test(tarea)) return;
     if (regexProyecto && !regexProyecto.test(proyecto)) return;
     if (regexBloque && !regexBloque.test(bloque)) return;
     if (regexComentario && !regexComentario.test(comentario)) return;
-
-    totalMinutos += obtenerMinutosDuracion(item.horainicio, item.horafin);
-
+ 
+    let fechaKey = String(item.fecha || '').trim();
+    if (fechaKey.includes('T')) fechaKey = fechaKey.split('T')[0];
+    if (fechaKey.includes(' ')) fechaKey = fechaKey.split(' ')[0];
+ 
+    minutosPorDia[fechaKey] = (minutosPorDia[fechaKey] || 0) + obtenerMinutosDuracion(item.horainicio, item.horafin);
+ 
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${item.fecha || ''}</td>
@@ -193,40 +194,53 @@ async function cargarInforme() {
     `;
     tbody.appendChild(tr);
   });
-
+ 
+  // Igual que en el registro diario (app.js): se descuentan 00:30 por cada
+  // día de lunes a jueves dentro del periodo 1 sept-30 jun, para que el
+  // total del informe cuadre con la suma de los "Total Horas Trabajadas"
+  // diarios en vez de sumar las horas brutas sin descanso.
+  let totalMinutos = 0;
+  Object.keys(minutosPorDia).forEach(fechaKey => {
+    let minutosDia = minutosPorDia[fechaKey];
+    if (minutosDia > 0) {
+      minutosDia = Math.max(0, minutosDia - obtenerDescansoMinutos(fechaKey));
+    }
+    totalMinutos += minutosDia;
+  });
+ 
   document.getElementById('total-informe-horas').textContent = formatearMinutosAHoras(totalMinutos);
 }
-
+ 
 // Exportación a Excel nativo (.xlsx)
 function exportarXLSX() {
   const tabla = document.querySelector("table");
   const filas = tabla.querySelectorAll("tr");
-
+ 
   if (filas.length <= 1) {
     alert("No hay datos cargados para exportar.");
     return;
   }
-
+ 
   const wb = XLSX.utils.table_to_book(tabla, { sheet: "Informe REGHOR" });
-
+ 
   const desde = document.getElementById("filtro-desde").value || "inicio";
   const hasta = document.getElementById("filtro-hasta").value || "fin";
-
+ 
   XLSX.writeFile(wb, `Informe_REGHOR_${desde}_a_${hasta}.xlsx`);
 }
-
+ 
 // Exportación a CSV (.csv)
 function exportarCSV() {
   const tabla = document.querySelector("table");
   const filas = tabla.querySelectorAll("tr");
-
+ 
   if (filas.length <= 1) {
     alert("No hay datos cargados para exportar.");
     return;
   }
-
+ 
   let csvContent = "";
-
+ 
   filas.forEach((fila) => {
     const celdas = fila.querySelectorAll("th, td");
     const filaTexto = Array.from(celdas)
@@ -235,21 +249,21 @@ function exportarCSV() {
         return `"${texto}"`;
       })
       .join(";");
-
+ 
     csvContent += filaTexto + "\r\n";
   });
-
-  const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+ 
+  const blob = new Blob(["﻿" + csvContent], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
-
+ 
   const link = document.createElement("a");
   const desde = document.getElementById("filtro-desde").value || "inicio";
   const hasta = document.getElementById("filtro-hasta").value || "fin";
-
+ 
   link.setAttribute("href", url);
   link.setAttribute("download", `Informe_REGHOR_${desde}_a_${hasta}.csv`);
   document.body.appendChild(link);
-
+ 
   link.click();
   document.body.removeChild(link);
 }

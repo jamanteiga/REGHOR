@@ -48,8 +48,14 @@
     #txt-rango-semana {
       font-weight: bold;
       font-size: 15px;
-      margin-bottom: 20px;
       color: var(--text-color);
+    }
+
+    #txt-nota {
+      font-size: 12px;
+      color: var(--text-color);
+      opacity: 0.7;
+      margin-bottom: 20px;
     }
 
     .panel-navegacion {
@@ -109,34 +115,10 @@
     table.tabla-semana tbody tr.fila-dia-editable:nth-child(odd) td { background-color: var(--stripe-color); }
     table.tabla-semana tbody tr.fila-dia-editable:not(.fila-festivo):hover td { background-color: var(--hover-color); }
 
-    table.tabla-semana td input[type="time"] {
-      width: 100%;
-      padding: 5px;
-      border: 1px solid var(--border-color);
-      border-radius: 4px;
-      background: var(--card-bg);
-      color: var(--text-color);
-      font-size: 13px;
-      box-sizing: border-box;
-    }
-
     .fila-viernes td { border-left: 3px solid var(--header-bg); }
     .fila-viernes td:first-child { border-left: none; }
 
     .fila-festivo td { opacity: 0.4; }
-    .fila-festivo input[type="time"] { cursor: not-allowed; background: var(--bg-color); color: #999; }
-    .fila-festivo .btn-guardar-dia { cursor: not-allowed; }
-
-    .btn-guardar-dia {
-      background: var(--header-bg);
-      color: white;
-      border: none;
-      border-radius: 4px;
-      padding: 6px 10px;
-      cursor: pointer;
-      font-size: 14px;
-    }
-    .btn-guardar-dia:hover { filter: brightness(0.9); }
 
     tr.fila-resumen td { background-color: var(--card-bg); font-weight: bold; border-bottom: none; border-top: 1px solid var(--border-color); }
     tr.fila-resumen td:first-child { text-align: right; }
@@ -181,6 +163,7 @@
   </div>
 
   <div id="txt-rango-semana"></div>
+  <div id="txt-nota">Cálculo automático a partir de las tareas registradas cada día en el Listado de Tareas.</div>
 
   <div class="panel-navegacion">
     <button class="btn-nav" id="btn-anterior" onclick="cambiarSemana(-1)">◀ Semana anterior</button>
@@ -198,7 +181,6 @@
           <th id="th-salida">Salida</th>
           <th id="th-teorica">Jornada Teórica</th>
           <th id="th-duracion">Duración</th>
-          <th id="th-accion"></th>
         </tr>
       </thead>
       <tbody id="tabla-semana-body"></tbody>
