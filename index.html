@@ -14,6 +14,7 @@
 
       /* Anchos compartidos entre el formulario y el listado de tareas,
          para que ambos queden alineados visualmente. */
+      --w-numero: 40px;
       --w-fecha: 130px;
       --w-hora: 100px;
       --w-duracion: 90px;
@@ -59,6 +60,7 @@
     .form-grid {
       display: grid;
       grid-template-columns:
+        var(--w-numero)
         var(--w-fecha)
         var(--fr-tarea)
         var(--fr-proyecto)
@@ -147,6 +149,7 @@
     .tabla-grid-row {
       display: grid;
       grid-template-columns:
+        var(--w-numero)
         var(--w-fecha)
         var(--fr-tarea)
         var(--fr-proyecto)
@@ -160,6 +163,9 @@
       gap: 8px;
       align-items: center;
     }
+
+    .celda-numero { text-align: center; color: var(--text-color); opacity: 0.6; font-size: 12px; }
+    .tabla-header-row .celda-numero { opacity: 1; }
 
     .tabla-header-row {
       background-color: var(--header-bg);
@@ -201,8 +207,8 @@
 
     .tabla-footer-row { font-weight: bold; background-color: rgba(0, 123, 255, 0.08); }
     .tabla-footer-row.row-extra { background-color: rgba(40, 167, 69, 0.12); }
-    .tabla-footer-row .footer-label { grid-column: 1 / 9; text-align: right; }
-    .tabla-footer-row .footer-value { grid-column: 9 / 10; }
+    .tabla-footer-row .footer-label { grid-column: 2 / 10; text-align: right; }
+    .tabla-footer-row .footer-value { grid-column: 10 / 11; }
 
     .saldo-positivo { color: #28a745; font-weight: bold; }
     .saldo-negativo { color: #dc3545; font-weight: bold; }
@@ -256,6 +262,11 @@
     <input type="hidden" id="tarea-id">
 
     <div class="form-grid">
+      <!-- Columna vacía: solo de relleno, para alinear el formulario con la
+           columna "Nº" del listado (ese número es autonumérico, no un campo
+           que se rellene al dar de alta una tarea). -->
+      <div class="form-group" aria-hidden="true"></div>
+
       <div class="form-group">
         <label for="fecha" id="lbl-fecha">Fecha</label>
         <input type="date" id="fecha" onchange="cargarTareas()" required>
@@ -332,6 +343,7 @@
 
   <div class="tabla-container">
     <div class="tabla-grid-row tabla-header-row">
+      <div class="celda-numero" id="th-numero">Nº</div>
       <div id="th-fecha">Fecha</div>
       <div id="th-tarea">Tarea</div>
       <div id="th-proyecto">Proyecto</div>

@@ -225,12 +225,16 @@ async function cargarTareas() {
     tareas.sort((a, b) => (a.id || 0) - (b.id || 0));
     tareasCargadasCache = tareas;
  
-    tablaBody.innerHTML = tareas.map(item => {
+    // El índice (idx + 1) es un número de fila puramente visual, calculado
+    // en el navegador a partir de la posición en la lista ya ordenada por
+    // id: no se guarda en Supabase ni depende del id real del registro.
+    tablaBody.innerHTML = tareas.map((item, idx) => {
       let rawF = String(item.fecha || '').trim();
       let fDisplay = rawF.includes('T') ? rawF.split('T')[0] : rawF.split(' ')[0];
  
       return `
         <div class="tabla-grid-row tabla-row" ondblclick="cargarParaEditar(${item.id})" title="Doble clic para editar este registro">
+          <div class="celda-numero">${idx + 1}</div>
           <div>${fDisplay}</div>
           <div>${item.tarea || ''}</div>
           <div>${item.proyecto || ''}</div>
@@ -470,3 +474,4 @@ function cambiarIdioma(lang) {
  
   poblarSelects();
 }
+ 
