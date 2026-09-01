@@ -11,6 +11,21 @@
       --text-color: #333333;
       --border-color: #cccccc;
       --header-bg: #007bff;
+
+      /* Anchos compartidos entre el formulario y el listado de tareas,
+         para que ambos queden alineados visualmente. */
+      --w-fecha: 130px;
+      --w-hora: 100px;
+      --w-duracion: 90px;
+      --w-acciones: 210px;
+      --fr-tarea: 1fr;
+      --fr-proyecto: 1fr;
+      --fr-bloque: 1fr;
+      --fr-comentario: 2fr;
+      --fr-notas: 1.1fr;
+
+      /* Altura máxima del listado antes de mostrar scroll interno */
+      --altura-listado: 45vh;
     }
 
     body.dark-mode {
@@ -21,108 +36,174 @@
       --header-bg: #0b5ed7;
     }
 
-    body { 
-      font-family: Arial, sans-serif; 
-      margin: 20px; 
-      background-color: var(--bg-color); 
-      color: var(--text-color); 
-      transition: background 0.3s, color 0.3s; 
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      transition: background 0.3s, color 0.3s;
     }
-    
+
     .header-container { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
     .controls-right { display: flex; gap: 10px; align-items: center; }
 
     /* Banderas SVG */
     .flag-btn { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 4px; padding: 4px 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
     .flag-icon { width: 24px; height: 16px; display: block; }
-    
+
     .icon-btn { padding: 6px 12px; cursor: pointer; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-color); font-weight: bold; text-decoration: none; font-size: 13.33px; display: inline-flex; align-items: center; }
 
-    /* Formulario: Disposición ajustada con pesos */
+    /* Formulario: grid con los mismos anchos de columna que el listado de tareas */
     form, .modal-content { background: var(--card-bg); padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    
-    .form-grid { 
-      display: flex; 
-      flex-direction: row; 
-      flex-wrap: nowrap; 
-      gap: 8px; 
-      align-items: flex-end; 
+
+    .form-grid {
+      display: grid;
+      grid-template-columns:
+        var(--w-fecha)
+        var(--fr-tarea)
+        var(--fr-proyecto)
+        var(--fr-bloque)
+        var(--w-hora)
+        var(--w-hora)
+        var(--fr-comentario)
+        var(--fr-notas)
+        var(--w-acciones);
+      gap: 8px;
+      align-items: end;
       width: 100%;
       box-sizing: border-box;
     }
-    
-    .form-group { 
-      display: flex; 
-      flex-direction: column; 
-      min-width: 0; 
-      flex: 1; /* Peso por defecto */
-    }
 
-    /* Proporciones específicas para optimizar el espacio */
-    .fg-fecha { flex: 0 0 130px; }
-    .fg-hora { flex: 0 0 100px; }
-    .fg-expand { flex: 2; } /* Comentario y Notas se expanden el doble */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
 
     .form-group-btn {
-      flex: 0 0 auto;
       display: flex;
-      gap: 5px;
+      gap: 6px;
+      align-items: flex-end;
+      min-width: 0;
     }
-    
+    .form-group-btn button { flex: 1; min-width: 0; }
+
     .label-wrapper { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
     .label-wrapper label, .form-group > label { font-weight: bold; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    
+
     input, select { padding: 6px 6px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--card-bg); color: var(--text-color); font-size: 12px; width: 100%; box-sizing: border-box; transition: border-color 0.15s, box-shadow 0.15s; }
     input:focus, select:focus { outline: none; border-color: var(--header-bg); box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25); }
-    
+
     .btn-mini { padding: 2px 4px; font-size: 10px; cursor: pointer; border-radius: 3px; border: 1px solid var(--border-color); background: #e9ecef; color: #000; font-weight: bold; white-space: nowrap; }
     body.dark-mode .btn-mini { background: #333; color: #fff; }
 
     /* Botones de acción */
-    .btn-submit { 
-      background-color: #28a745; 
-      color: white; 
-      padding: 6px 12px; 
-      border: none; 
-      border-radius: 4px; 
-      cursor: pointer; 
-      font-weight: bold; 
+    .btn-submit {
+      background-color: #28a745;
+      color: white;
+      padding: 6px 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
       font-size: 12px;
       white-space: nowrap;
-      height: 31px; 
+      height: 31px;
     }
-    .btn-cancel { 
-      background-color: #6c757d; 
-      color: white; 
-      padding: 6px 12px; 
-      border: none; 
-      border-radius: 4px; 
-      cursor: pointer; 
-      font-weight: bold; 
+    .btn-cancel {
+      background-color: #6c757d;
+      color: white;
+      padding: 6px 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
       font-size: 12px;
       white-space: nowrap;
-      height: 31px; 
-      display: none; 
+      height: 31px;
+      display: none;
     }
-    
+
     /* Modal Config */
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
     .modal-content { width: 350px; max-width: 90%; }
     .close-modal { float: right; cursor: pointer; font-weight: bold; font-size: 20px; }
 
-    /* Tabla y Pie de tabla */
-    table { width: 100%; border-collapse: collapse; background: var(--card-bg); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    th, td { padding: 10px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 13px; }
-    th { background-color: var(--header-bg); color: white; }
-    
-    tfoot tr { background-color: rgba(0, 123, 255, 0.08); font-weight: bold; }
-    tfoot tr.row-extra { background-color: rgba(40, 167, 69, 0.12); }
-    tfoot td { border-top: 1px solid var(--border-color); }
+    /* Listado de tareas: filas en grid con los mismos anchos que el formulario,
+       más las columnas Duración y Acciones que no existen en el formulario. */
+    /* padding horizontal 20px = el mismo que usa <form>, para que las
+       columnas queden alineadas en vertical con los campos de entrada. */
+    .tabla-container {
+      background: var(--card-bg);
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      padding: 16px 20px;
+      box-sizing: border-box;
+    }
 
-    #tabla-body tr:nth-child(odd) { background-color: rgba(0, 123, 255, 0.08); }
-    #tabla-body tr:nth-child(even) { background-color: var(--card-bg); }
-    #tabla-body tr:hover { background-color: rgba(0, 123, 255, 0.25); }
-    
+    /* Mismo orden que el formulario (Fecha…Notas) y con los mismos anchos,
+       para que ambos bloques queden alineados en vertical; Duración y
+       Acciones son columnas adicionales que el formulario no tiene. */
+    .tabla-grid-row {
+      display: grid;
+      grid-template-columns:
+        var(--w-fecha)
+        var(--fr-tarea)
+        var(--fr-proyecto)
+        var(--fr-bloque)
+        var(--w-hora)
+        var(--w-hora)
+        var(--fr-comentario)
+        var(--fr-notas)
+        var(--w-duracion)
+        var(--w-acciones);
+      gap: 8px;
+      align-items: center;
+    }
+
+    .tabla-header-row {
+      background-color: var(--header-bg);
+      color: #fff;
+      font-weight: bold;
+      font-size: 13px;
+      border-radius: 6px;
+    }
+    .tabla-header-row > div {
+      padding: 8px 6px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Solo esta zona hace scroll vertical: el resto de la página
+       (formulario, cabecera del listado y pie con los totales) permanece siempre visible. */
+    .tabla-body-scroll {
+      max-height: var(--altura-listado);
+      overflow-y: auto;
+    }
+
+    .tabla-row > div, .tabla-footer-row > div {
+      padding: 8px 6px;
+      border-bottom: 1px solid var(--border-color);
+      font-size: 13px;
+      white-space: normal;
+      word-break: break-word;
+    }
+
+    .tabla-row { cursor: pointer; }
+    .tabla-row:nth-child(odd) { background-color: rgba(0, 123, 255, 0.08); }
+    .tabla-row:nth-child(even) { background-color: var(--card-bg); }
+    .tabla-row:hover { background-color: rgba(0, 123, 255, 0.25); }
+
+    .acciones-cell { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; white-space: nowrap; }
+
+    .tabla-msg { padding: 12px; color: var(--text-color); }
+
+    .tabla-footer-row { font-weight: bold; background-color: rgba(0, 123, 255, 0.08); }
+    .tabla-footer-row.row-extra { background-color: rgba(40, 167, 69, 0.12); }
+    .tabla-footer-row .footer-label { grid-column: 1 / 9; text-align: right; }
+    .tabla-footer-row .footer-value { grid-column: 9 / 10; }
+
     .saldo-positivo { color: #28a745; font-weight: bold; }
     .saldo-negativo { color: #dc3545; font-weight: bold; }
     .saldo-neutro { color: #6c757d; font-weight: bold; }
@@ -133,7 +214,7 @@
 
   <div class="header-container">
     <h1 id="txt-titulo">REGHOR</h1>
-    
+
     <div class="controls-right">
       <!-- Botones de navegación externa -->
       <a href="informes.html" target="_blank" class="icon-btn" id="btn-informes">📊 Informes</a>
@@ -173,9 +254,9 @@
 
   <form id="tarea-form">
     <input type="hidden" id="tarea-id">
-    
+
     <div class="form-grid">
-      <div class="form-group fg-fecha">
+      <div class="form-group">
         <label for="fecha" id="lbl-fecha">Fecha</label>
         <input type="date" id="fecha" onchange="cargarTareas()" required>
       </div>
@@ -211,7 +292,7 @@
         <input type="text" id="bloque" placeholder="Ej: B242-PI-SB4">
       </div>
 
-      <div class="form-group fg-hora">
+      <div class="form-group">
         <div class="label-wrapper">
           <label for="horainicio" id="lbl-horainicio">Hora inicio</label>
           <div>
@@ -222,7 +303,7 @@
         <input type="time" id="horainicio" required>
       </div>
 
-      <div class="form-group fg-hora">
+      <div class="form-group">
         <div class="label-wrapper">
           <label for="horafin" id="lbl-horafin">Hora fin</label>
           <button type="button" class="btn-mini" onclick="setHoraActual('horafin')">⏱️</button>
@@ -230,12 +311,12 @@
         <input type="time" id="horafin" required>
       </div>
 
-      <div class="form-group fg-expand">
+      <div class="form-group">
         <label for="comentario" id="lbl-comentario">Comentario</label>
         <input type="text" id="comentario">
       </div>
 
-      <div class="form-group fg-expand">
+      <div class="form-group">
         <label for="notas" id="lbl-notas">Notas</label>
         <input type="text" id="notas">
       </div>
@@ -248,40 +329,40 @@
   </form>
 
   <h2 id="txt-listado">Listado de Tareas</h2>
-  <table>
-    <thead>
-      <tr>
-        <th id="th-fecha">Fecha</th>
-        <th id="th-tarea">Tarea</th>
-        <th id="th-proyecto">Proyecto</th>
-        <th id="th-bloque">Bloque</th>
-        <th id="th-inicio">Hora inicio</th>
-        <th id="th-fin">Hora fin</th>
-        <th id="th-duracion">Duración</th>
-        <th id="th-comentario">Comentario</th>
-        <th id="th-notas">Notas</th>
-        <th id="th-acciones">Acciones</th>
-      </tr>
-    </thead>
-    <tbody id="tabla-body"></tbody>
-    <tfoot>
-      <tr>
-        <td colspan="6" style="text-align: right;" id="txt-teorica-label">Jornada Teórica del Día:</td>
-        <td id="total-teorica">00:00</td>
-        <td colspan="3"></td>
-      </tr>
-      <tr>
-        <td colspan="6" style="text-align: right;" id="txt-total-label">Total Horas Trabajadas:</td>
-        <td id="total-duracion">00:00</td>
-        <td colspan="3"></td>
-      </tr>
-      <tr class="row-extra">
-        <td colspan="6" style="text-align: right;" id="txt-balance-label">Balance / Horas Extra:</td>
-        <td id="total-balance">00:00</td>
-        <td colspan="3"></td>
-      </tr>
-    </tfoot>
-  </table>
+
+  <div class="tabla-container">
+    <div class="tabla-grid-row tabla-header-row">
+      <div id="th-fecha">Fecha</div>
+      <div id="th-tarea">Tarea</div>
+      <div id="th-proyecto">Proyecto</div>
+      <div id="th-bloque">Bloque</div>
+      <div id="th-inicio">Hora inicio</div>
+      <div id="th-fin">Hora fin</div>
+      <div id="th-comentario">Comentario</div>
+      <div id="th-notas">Notas</div>
+      <div id="th-duracion">Duración</div>
+      <div id="th-acciones">Acciones</div>
+    </div>
+
+    <!-- Único bloque con scroll vertical propio: el resto de la página
+         (formulario, cabecera de columnas y pie con los totales) es siempre visible. -->
+    <div class="tabla-body-scroll">
+      <div id="tabla-body"></div>
+    </div>
+
+    <div class="tabla-grid-row tabla-footer-row">
+      <div class="footer-label" id="txt-teorica-label">Jornada Teórica del Día:</div>
+      <div class="footer-value" id="total-teorica">00:00</div>
+    </div>
+    <div class="tabla-grid-row tabla-footer-row">
+      <div class="footer-label" id="txt-total-label">Total Horas Trabajadas:</div>
+      <div class="footer-value" id="total-duracion">00:00</div>
+    </div>
+    <div class="tabla-grid-row tabla-footer-row row-extra">
+      <div class="footer-label" id="txt-balance-label">Balance / Horas Extra:</div>
+      <div class="footer-value" id="total-balance">00:00</div>
+    </div>
+  </div>
 
   <!-- Modal Config -->
   <div id="modal-config" class="modal">

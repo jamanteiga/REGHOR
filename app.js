@@ -1,5 +1,5 @@
 // SUPABASE_URL, SUPABASE_KEY, supabaseClient y TABLA ahora viven en config.js
-
+ 
 // Las 35 Tareas predefinidas
 const TAREAS_DEFAULT = [
   "Análisis especificaciones cliente", "Anidado de ficheros 3000's", "AOYV", "Comida",
@@ -8,60 +8,60 @@ const TAREAS_DEFAULT = [
   "Maquillaje .e2 1000's", "Maquillaje .e2 2000's", "Maquillaje .e2 3000's", "Maquillaje .e2 4000's",
   "Maquillaje .e2 6000's", "Maquillaje de UA", "Maquillaje de UL", "Modificación planos GR",
   "Modificaciones en planos", "Plano previas", "Problemas red en servidores cliente",
-  "Productos intermedios", "Reinstalación software", "Revisión de comentarios", "Revisión de paneles",
+  "Productos intermedios", "Programación", "Reunión por Teams", "Reinstalación software", "Revisión de comentarios", "Revisión de paneles",
   "Revisión de unidades abiertas UA", "Revisión de unidades lineales UL", "Revisión maquillaje 1000's",
   "Revisión maquillaje 2000's", "Revisión maquillaje 3000's", "Revisión maquillaje 4000's",
   "Revisión maquillaje 6000's", "Solicitada nueva tarea"
 ];
-
+ 
 // Los 12 Proyectos predefinidos
 const PROYECTOS_DEFAULT = [
   "ABAC", "BAC2", "BLOR", "COM", "DES", "FOR", "INFO", "INT", "MAN", "NAV", "PROG", "VAC"
 ];
-
+ 
 // Cargar desde LocalStorage si existen o usar los por defecto
 let configData = {
   tareas: JSON.parse(localStorage.getItem('cfg_tareas')) || TAREAS_DEFAULT,
   proyectos: JSON.parse(localStorage.getItem('cfg_proyectos')) || PROYECTOS_DEFAULT
 };
-
+ 
 let tipoConfigActual = '';
 let idiomaActual = 'es';
 let tareasCargadasCache = [];
-
+ 
 const DIAS_SEMANA = {
   es: ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'],
   gl: ['domingo', 'luns', 'martes', 'mércores', 'xoves', 'venres', 'sábado']
 };
-
+ 
 const MESES = {
   es: ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'],
   gl: ['xaneiro', 'febreiro', 'marzo', 'abril', 'maio', 'xuño', 'xullo', 'agosto', 'setembro', 'outubro', 'novembro', 'decembro']
 };
-
+ 
 function actualizarTituloConDia(titulo) {
   const hoy = new Date();
   const nombreDia = DIAS_SEMANA[idiomaActual][hoy.getDay()];
   const nombreMes = MESES[idiomaActual][hoy.getMonth()];
   document.getElementById('txt-titulo').textContent = `${titulo}, ${nombreDia} ${hoy.getDate()} de ${nombreMes} de ${hoy.getFullYear()}`;
 }
-
+ 
 document.addEventListener('DOMContentLoaded', async () => {
   poblarSelects();
   actualizarTituloConDia('REGHOR');
-
+ 
   const inputFecha = document.getElementById('fecha');
   if (inputFecha) {
     inputFecha.addEventListener('change', () => cargarTareas());
   }
-
+ 
   if (supabaseClient) {
     await cargarTareas();
   } else {
-    document.getElementById('tabla-body').innerHTML = '<tr><td colspan="10" style="color:red;">⚠️ Error al inicializar Supabase.</td></tr>';
+    document.getElementById('tabla-body').innerHTML = '<div class="tabla-msg" style="color:red;">⚠️ Error al inicializar Supabase.</div>';
   }
 });
-
+ 
 /**
  * Consulta la última fecha registrada en Supabase si el input está vacío
  */
@@ -72,7 +72,7 @@ async function obtenerUltimaFechaDesdeSupabase() {
       .select('fecha')
       .order('id', { ascending: false })
       .limit(1);
-
+ 
     if (!error && data && data.length > 0 && data[0].fecha) {
       let raw = String(data[0].fecha).trim();
       if (raw.includes('T')) raw = raw.split('T')[0];
@@ -82,28 +82,28 @@ async function obtenerUltimaFechaDesdeSupabase() {
   } catch (e) {
     console.error("Error al obtener la última fecha de Supabase:", e);
   }
-
+ 
   const hoy = new Date();
   const offset = hoy.getTimezoneOffset();
   return new Date(hoy.getTime() - (offset * 60 * 1000)).toISOString().split('T')[0];
 }
-
+ 
 function ordenarLista(array) {
   return array.sort((a, b) => a.localeCompare(b, idiomaActual, { sensitivity: 'base' }));
 }
-
+ 
 function poblarSelects() {
   const selTarea = document.getElementById('tarea');
   const selProyecto = document.getElementById('proyecto');
-
+ 
   configData.tareas = ordenarLista(configData.tareas);
   configData.proyectos = ordenarLista(configData.proyectos);
-
+ 
   if (selTarea) {
     selTarea.innerHTML = configData.tareas.map(t => `<option value="${t}">${t}</option>`).join('');
     sincronizarComentario();
   }
-
+ 
   if (selProyecto) {
     selProyecto.innerHTML = configData.proyectos.map(p => `<option value="${p}">${p}</option>`).join('');
     if (configData.proyectos.includes('BAC2')) {
@@ -111,7 +111,7 @@ function poblarSelects() {
     }
   }
 }
-
+ 
 function sincronizarComentario() {
   const selTarea = document.getElementById('tarea');
   const inputComentario = document.getElementById('comentario');
@@ -119,22 +119,22 @@ function sincronizarComentario() {
     inputComentario.value = selTarea.value;
   }
 }
-
+ 
 function abrirConfig(tipo) {
   tipoConfigActual = tipo;
   document.getElementById('modal-titulo').textContent = `Configurar ${tipo}`;
   renderListaConfig();
   document.getElementById('modal-config').style.display = 'flex';
 }
-
+ 
 function cerrarConfig() {
   document.getElementById('modal-config').style.display = 'none';
 }
-
+ 
 function renderListaConfig() {
   const ul = document.getElementById('lista-config');
   configData[tipoConfigActual] = ordenarLista(configData[tipoConfigActual]);
-
+ 
   ul.innerHTML = configData[tipoConfigActual].map((item, idx) => `
     <li style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
       <span>${item}</span>
@@ -142,7 +142,7 @@ function renderListaConfig() {
     </li>
   `).join('');
 }
-
+ 
 function agregarOpcionConfig() {
   const input = document.getElementById('nuevo-valor-config');
   const val = input.value.trim();
@@ -155,21 +155,21 @@ function agregarOpcionConfig() {
     poblarSelects();
   }
 }
-
+ 
 function eliminarOpcionConfig(idx) {
   configData[tipoConfigActual].splice(idx, 1);
   localStorage.setItem(`cfg_${tipoConfigActual}`, JSON.stringify(configData[tipoConfigActual]));
   renderListaConfig();
   poblarSelects();
 }
-
+ 
 function setHoraActual(inputId) {
   const now = new Date();
   const hh = String(now.getHours()).padStart(2, '0');
   const mm = String(now.getMinutes()).padStart(2, '0');
   document.getElementById(inputId).value = `${hh}:${mm}`;
 }
-
+ 
 async function copiarHoraFinAnterior() {
   if (!supabaseClient) return;
   try {
@@ -178,7 +178,7 @@ async function copiarHoraFinAnterior() {
       .select('horafin')
       .order('id', { ascending: false })
       .limit(1);
-
+ 
     if (!error && data && data.length > 0 && data[0].horafin) {
       document.getElementById('horainicio').value = data[0].horafin;
     } else {
@@ -188,98 +188,120 @@ async function copiarHoraFinAnterior() {
     alert("Error de conexión al consultar Supabase.");
   }
 }
-
+ 
 function obtenerJornadaTeoricaMinutos(fechaStr) {
   if (!fechaStr) return 0;
   const partes = fechaStr.split('-');
   if (partes.length !== 3) return 0;
-
+ 
   const fecha = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
   const mes = fecha.getMonth() + 1;
   const diaSemana = fecha.getDay();
-
+ 
   if (diaSemana === 0 || diaSemana === 6) return 0;
   if (mes === 7 || mes === 8) return 435; // Verano: 7h 15m
   if (diaSemana === 5) return 420;        // Viernes: 7h 00m
   return 510;                             // Lunes a Jueves: 8h 30m
 }
-
+ 
+/**
+ * Minutos de descanso a descontar del total de horas trabajadas (y por tanto
+ * también del balance de horas extra, que se calcula a partir de ese total).
+ * Se aplica de lunes a jueves, dentro del periodo del 1 de septiembre al 30
+ * de junio. En julio y agosto (horario de verano) no se descuenta nada.
+ */
+function obtenerDescansoMinutos(fechaStr) {
+  if (!fechaStr) return 0;
+  const partes = fechaStr.split('-');
+  if (partes.length !== 3) return 0;
+ 
+  const fecha = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
+  const mes = fecha.getMonth() + 1;
+  const diaSemana = fecha.getDay();
+ 
+  if (mes === 7 || mes === 8) return 0; // Verano: sin descanso
+  const esLunesAJueves = diaSemana >= 1 && diaSemana <= 4;
+  return esLunesAJueves ? 30 : 0;
+}
+ 
 async function cargarTareas() {
   const tablaBody = document.getElementById('tabla-body');
-  tablaBody.innerHTML = '<tr><td colspan="10">Cargando datos desde Supabase...</td></tr>';
-
+  tablaBody.innerHTML = '<div class="tabla-msg">Cargando datos desde Supabase...</div>';
+ 
   const inputFecha = document.getElementById('fecha');
   let fechaFiltroStr = inputFecha ? inputFecha.value.trim() : '';
-
+ 
   if (!fechaFiltroStr) {
     fechaFiltroStr = await obtenerUltimaFechaDesdeSupabase();
     if (inputFecha) {
       inputFecha.value = fechaFiltroStr;
     }
   }
-
+ 
   try {
     const { data: tareas, error } = await supabaseClient
       .from(TABLA)
       .select('*')
       .ilike('fecha', `%${fechaFiltroStr}%`);
-
+ 
     if (error) {
       console.error("Error al cargar registros:", error);
-      tablaBody.innerHTML = `<tr><td colspan="10" style="color:red;">Error Supabase: ${error.message}</td></tr>`;
+      tablaBody.innerHTML = `<div class="tabla-msg" style="color:red;">Error Supabase: ${error.message}</div>`;
       actualizarResumenHoras([], fechaFiltroStr);
       return;
     }
-
+ 
     if (!tareas || tareas.length === 0) {
-      tablaBody.innerHTML = `<tr><td colspan="10">No existen registros guardados para la fecha ${fechaFiltroStr}.</td></tr>`;
+      tablaBody.innerHTML = `<div class="tabla-msg">No existen registros guardados para la fecha ${fechaFiltroStr}.</div>`;
       actualizarResumenHoras([], fechaFiltroStr);
       return;
     }
-
+ 
     tareas.sort((a, b) => (a.id || 0) - (b.id || 0));
     tareasCargadasCache = tareas;
-
+ 
     tablaBody.innerHTML = tareas.map(item => {
       let rawF = String(item.fecha || '').trim();
       let fDisplay = rawF.includes('T') ? rawF.split('T')[0] : rawF.split(' ')[0];
-
+ 
       return `
-        <tr>
-          <td>${fDisplay}</td>
-          <td>${item.tarea || ''}</td>
-          <td>${item.proyecto || ''}</td>
-          <td>${item.bloque || ''}</td>
-          <td>${item.horainicio || ''}</td>
-          <td>${item.horafin || ''}</td>
-          <td><strong>${calcularDuracion(item.horainicio, item.horafin)}</strong></td>
-          <td>${item.comentario || ''}</td>
-          <td>${item.notas || ''}</td>
-          <td>
-            <button class="btn-mini" onclick="cargarParaEditar(${item.id})">Editar</button>
-            <button class="btn-mini" onclick="borrarTarea(${item.id})">Eliminar</button>
-          </td>
-        </tr>
+        <div class="tabla-grid-row tabla-row" ondblclick="cargarParaEditar(${item.id})" title="Doble clic para editar este registro">
+          <div>${fDisplay}</div>
+          <div>${item.tarea || ''}</div>
+          <div>${item.proyecto || ''}</div>
+          <div>${item.bloque || ''}</div>
+          <div>${item.horainicio || ''}</div>
+          <div>${item.horafin || ''}</div>
+          <div>${item.comentario || ''}</div>
+          <div>${item.notas || ''}</div>
+          <div><strong>${calcularDuracion(item.horainicio, item.horafin)}</strong></div>
+          <div class="acciones-cell">
+            <button type="button" class="btn-mini" onclick="event.stopPropagation(); cargarParaEditar(${item.id})">✏️ Editar</button>
+            <button type="button" class="btn-mini" onclick="event.stopPropagation(); cargarParaDuplicar(${item.id})" title="Usa este registro como base para crear uno nuevo">📋 Duplicar</button>
+            <button type="button" class="btn-mini" onclick="event.stopPropagation(); borrarTarea(${item.id})">🗑️ Eliminar</button>
+          </div>
+        </div>
       `;
     }).join('');
-
+ 
     actualizarResumenHoras(tareas, fechaFiltroStr);
-
+ 
   } catch(err) {
     console.error("Error inesperado en cargarTareas:", err);
-    tablaBody.innerHTML = `<tr><td colspan="10" style="color:red;">Error al procesar la solicitud.</td></tr>`;
+    tablaBody.innerHTML = `<div class="tabla-msg" style="color:red;">Error al procesar la solicitud.</div>`;
     actualizarResumenHoras([], fechaFiltroStr);
   }
 }
-
-function cargarParaEditar(id) {
-  const registro = tareasCargadasCache.find(t => t.id === id);
-  if (!registro) return;
-
+ 
+/**
+ * Vuelca los datos de un registro guardado en el formulario de entrada.
+ * No toca el campo oculto tarea-id: quien llama decide si el envío
+ * resultante debe actualizar (editar) o crear un registro nuevo (duplicar).
+ */
+function poblarFormularioDesdeRegistro(registro) {
   let rawF = String(registro.fecha || '').trim();
   let fDisplay = rawF.includes('T') ? rawF.split('T')[0] : rawF.split(' ')[0];
-
-  document.getElementById('tarea-id').value = registro.id;
+ 
   document.getElementById('fecha').value = fDisplay;
   document.getElementById('tarea').value = registro.tarea || '';
   document.getElementById('proyecto').value = registro.proyecto || '';
@@ -288,14 +310,43 @@ function cargarParaEditar(id) {
   document.getElementById('horafin').value = registro.horafin || '';
   document.getElementById('comentario').value = registro.comentario || '';
   document.getElementById('notas').value = registro.notas || '';
-
+}
+ 
+function cargarParaEditar(id) {
+  const registro = tareasCargadasCache.find(t => t.id === id);
+  if (!registro) return;
+ 
+  poblarFormularioDesdeRegistro(registro);
+  document.getElementById('tarea-id').value = registro.id;
+ 
   const btnGuardar = document.getElementById('btn-guardar');
-  btnGuardar.textContent = 'Actualizar';
+  btnGuardar.textContent = TEXTOS_INDEX[idiomaActual].actualizar;
   btnGuardar.style.backgroundColor = '#ffc107';
   btnGuardar.style.color = '#000';
   document.getElementById('btn-cancelar').style.display = 'inline-block';
 }
-
+ 
+/**
+ * Carga un registro existente en el formulario pero SIN su id, de modo que
+ * al guardar se cree un registro nuevo en la base de datos en lugar de
+ * actualizar el original (útil para repetir una tarea similar).
+ */
+function cargarParaDuplicar(id) {
+  const registro = tareasCargadasCache.find(t => t.id === id);
+  if (!registro) return;
+ 
+  poblarFormularioDesdeRegistro(registro);
+  document.getElementById('tarea-id').value = '';
+ 
+  const btnGuardar = document.getElementById('btn-guardar');
+  btnGuardar.textContent = TEXTOS_INDEX[idiomaActual].guardar;
+  btnGuardar.style.backgroundColor = '#28a745';
+  btnGuardar.style.color = '#fff';
+  document.getElementById('btn-cancelar').style.display = 'inline-block';
+ 
+  document.getElementById('horainicio').focus();
+}
+ 
 function resetearFormulario() {
   document.getElementById('tarea-id').value = '';
   document.getElementById('bloque').value = '';
@@ -303,29 +354,29 @@ function resetearFormulario() {
   document.getElementById('horafin').value = '';
   document.getElementById('comentario').value = '';
   document.getElementById('notas').value = '';
-
+ 
   const btnGuardar = document.getElementById('btn-guardar');
   btnGuardar.textContent = TEXTOS_INDEX[idiomaActual].guardar;
   btnGuardar.style.backgroundColor = '#28a745';
   btnGuardar.style.color = '#fff';
   document.getElementById('btn-cancelar').style.display = 'none';
-
+ 
   sincronizarComentario();
 }
-
+ 
 document.getElementById('tarea-form').addEventListener('submit', async (e) => {
   e.preventDefault();
-
+ 
   const id = document.getElementById('tarea-id').value;
   const fechaStr = document.getElementById('fecha').value.trim();
   const horaInicio = document.getElementById('horainicio').value;
   const horaFin = document.getElementById('horafin').value;
-
+ 
   if (horaInicio && horaFin && horaFin < horaInicio) {
     alert('❌ Error: La Hora Fin no puede ser anterior a la Hora Inicio.');
     return;
   }
-
+ 
   const registro = {
     fecha: fechaStr,
     tarea: document.getElementById('tarea').value,
@@ -336,7 +387,7 @@ document.getElementById('tarea-form').addEventListener('submit', async (e) => {
     comentario: document.getElementById('comentario').value,
     notas: document.getElementById('notas').value
   };
-
+ 
   try {
     let response;
     if (id) {
@@ -344,7 +395,7 @@ document.getElementById('tarea-form').addEventListener('submit', async (e) => {
     } else {
       response = await supabaseClient.from(TABLA).insert([registro]);
     }
-
+ 
     if (response.error) {
       alert('Error de Supabase: ' + response.error.message);
     } else {
@@ -355,34 +406,42 @@ document.getElementById('tarea-form').addEventListener('submit', async (e) => {
     alert('Error de red al conectar con Supabase.');
   }
 });
-
+ 
 async function borrarTarea(id) {
   if (confirm('¿Eliminar este registro?')) {
     await supabaseClient.from(TABLA).delete().eq('id', id);
     cargarTareas();
   }
 }
-
+ 
 function actualizarResumenHoras(listaTareas, fechaStr) {
   let totalMinutosReales = 0;
-
+ 
   listaTareas.forEach(item => {
     totalMinutosReales += obtenerMinutosDuracion(item.horainicio, item.horafin);
   });
-
+ 
+  // Descuento de 00:30 (lunes a jueves, periodo 1 sept - 30 jun) sobre las
+  // horas realmente trabajadas. El balance de horas extra, al calcularse a
+  // partir de este total, hereda automáticamente el mismo descuento.
+  if (totalMinutosReales > 0) {
+    const descanso = obtenerDescansoMinutos(fechaStr);
+    totalMinutosReales = Math.max(0, totalMinutosReales - descanso);
+  }
+ 
   const minutosTeoricos = obtenerJornadaTeoricaMinutos(fechaStr);
   const balanceMinutos = totalMinutosReales - minutosTeoricos;
-
+ 
   document.getElementById('total-teorica').textContent = formatearMinutosAHoras(minutosTeoricos);
   document.getElementById('total-duracion').textContent = formatearMinutosAHoras(totalMinutosReales);
-
+ 
   const elBalance = document.getElementById('total-balance');
   const signoStr = balanceMinutos > 0 ? '+' : '';
   elBalance.textContent = `${signoStr}${formatearMinutosAHoras(balanceMinutos)}`;
-
+ 
   elBalance.className = balanceMinutos > 0 ? 'saldo-positivo' : (balanceMinutos < 0 ? 'saldo-negativo' : 'saldo-neutro');
 }
-
+ 
 const TEXTOS_INDEX = {
   es: {
     titulo: 'REGHOR', fecha: 'Fecha', tarea: 'Tarea', proyecto: 'Proyecto', bloque: 'Bloque',
@@ -406,11 +465,11 @@ const TEXTOS_INDEX = {
     teorica: 'Theoretical Day Hours:', total: 'Total Hours Worked:', balance: 'Balance / Overtime:'
   }
 };
-
+ 
 function cambiarIdioma(lang) {
   idiomaActual = lang;
   const t = TEXTOS_INDEX[lang];
-
+ 
   actualizarTituloConDia(t.titulo);
   document.getElementById('lbl-fecha').textContent = t.fecha;
   document.getElementById('lbl-tarea').textContent = t.tarea;
@@ -425,14 +484,14 @@ function cambiarIdioma(lang) {
   document.getElementById('btn-graficos').textContent = t.graficos;
   document.getElementById('btn-semana').textContent = t.semana;
   document.getElementById('btn-cancelar').textContent = t.cancelar;
-
+ 
   const idEditando = document.getElementById('tarea-id').value;
   document.getElementById('btn-guardar').textContent = idEditando ? t.actualizar : t.guardar;
-
+ 
   document.getElementById('txt-teorica-label').textContent = t.teorica;
   document.getElementById('txt-total-label').textContent = t.total;
   document.getElementById('txt-balance-label').textContent = t.balance;
-
+ 
   document.getElementById('th-fecha').textContent = t.fecha;
   document.getElementById('th-tarea').textContent = t.tarea;
   document.getElementById('th-proyecto').textContent = t.proyecto;
@@ -443,6 +502,6 @@ function cambiarIdioma(lang) {
   document.getElementById('th-comentario').textContent = t.comentario;
   document.getElementById('th-notas').textContent = t.notas;
   document.getElementById('th-acciones').textContent = t.acciones;
-
+ 
   poblarSelects();
 }
