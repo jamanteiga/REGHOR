@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+  <script src="auth.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>REGHOR</title>
@@ -53,6 +54,8 @@
     .flag-icon { width: 24px; height: 16px; display: block; }
 
     .icon-btn { padding: 6px 12px; cursor: pointer; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-color); font-weight: bold; text-decoration: none; font-size: 13.33px; display: inline-flex; align-items: center; }
+    .btn-cerrar { background-color: #dc3545; color: white; border: none; }
+    .btn-cerrar:hover { background-color: #bd2130; }
 
     /* Formulario: grid con los mismos anchos de columna que el listado de tareas */
     form, .modal-content { background: var(--card-bg); padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
@@ -255,6 +258,7 @@
       </button>
 
       <button class="icon-btn" onclick="toggleTheme()" id="btn-theme">🌙 Oscuro</button>
+      <button class="icon-btn btn-cerrar" onclick="cerrarSesion()" id="btn-logout" title="Cerrar sesión">🔒 Salir</button>
     </div>
   </div>
 
