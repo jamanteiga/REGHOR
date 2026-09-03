@@ -1,10 +1,10 @@
 // SUPABASE_URL, SUPABASE_KEY, supabaseClient, TABLA, crearRegexFiltro,
 // obtenerMinutosDuracion, formatearFechaISO, toggleTheme y cerrarPestana
 // ahora viven en config.js
- 
+
 let miChart = null;
 let idiomaActual = 'es';
- 
+
 const TEXTOS_GRAFICOS = {
   es: {
     titulo: '📈 Análisis Gráfico de Tiempos', cerrar: '❌ Cerrar', rangoRapido: 'Rango Rápido',
@@ -31,11 +31,11 @@ const TEXTOS_GRAFICOS = {
     actualizar: 'Update Chart'
   }
 };
- 
+
 function cambiarIdioma(lang) {
   idiomaActual = lang;
   const t = TEXTOS_GRAFICOS[lang];
- 
+
   document.getElementById('txt-titulo').textContent = t.titulo;
   document.getElementById('btn-cerrar').textContent = t.cerrar;
   document.getElementById('lbl-rango-rapido').textContent = t.rangoRapido;
@@ -61,16 +61,16 @@ function cambiarIdioma(lang) {
   document.getElementById('opt-tipo-doughnut').textContent = t.optDoughnut;
   document.getElementById('btn-actualizar').textContent = t.actualizar;
 }
- 
+
 document.addEventListener('DOMContentLoaded', () => {
   establecerRango('mes');
 });
- 
+
 function establecerRango(tipo) {
   const hoy = new Date();
   let desde = new Date();
   let hasta = new Date();
- 
+
   if (tipo === 'hoy') {
     desde = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
     hasta = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
@@ -82,16 +82,16 @@ function establecerRango(tipo) {
     desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
     hasta = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
   }
- 
+
   document.getElementById('filtro-desde').value = formatearFechaISO(desde);
   document.getElementById('filtro-hasta').value = formatearFechaISO(hasta);
- 
+
   generarGrafico();
 }
- 
+
 async function generarGrafico() {
   if (!supabaseClient) return;
- 
+
   const desde = document.getElementById('filtro-desde').value;
   const hasta = document.getElementById('filtro-hasta').value;
   const campoProyecto = document.getElementById('filtro-proyecto').value;
@@ -100,26 +100,26 @@ async function generarGrafico() {
   const campoComentarios = document.getElementById('filtro-comentarios').value;
   const agruparPor = document.getElementById('agrupar-por').value;
   const tipoGrafico = document.getElementById('tipo-grafico').value;
- 
+
   const regexProyecto = crearRegexFiltro(campoProyecto);
   const regexTarea = crearRegexFiltro(campoTarea);
   const regexBloque = crearRegexFiltro(campoBloque);
   const regexComentarios = crearRegexFiltro(campoComentarios);
- 
+
   let query = supabaseClient.from(TABLA).select('*').order('fecha', { ascending: true });
- 
+
   if (desde) query = query.gte('fecha', desde);
   if (hasta) query = query.lte('fecha', hasta);
- 
+
   const { data, error } = await query;
- 
+
   if (error) {
     console.error("Error al recuperar datos:", error);
     return;
   }
- 
+
   const acumulado = {};
- 
+
   if (data) {
     data.forEach(item => {
       const proyecto = item.proyecto || '';
@@ -129,39 +129,47 @@ async function generarGrafico() {
       // no 'comentarios'. Con el filtro leyendo el campo equivocado, el
       // filtro de Comentarios nunca encontraba coincidencias reales.
       const comentario = item.comentario || '';
- 
+
       if (regexProyecto && !regexProyecto.test(proyecto)) return;
       if (regexTarea && !regexTarea.test(tarea)) return;
       if (regexBloque && !regexBloque.test(bloque)) return;
       if (regexComentarios && !regexComentarios.test(comentario)) return;
- 
+
       let clave = item[agruparPor] || 'Sin Clasificar';
       const duracion = obtenerMinutosDuracion(item.horainicio, item.horafin) / 60;
- 
+
       if (!acumulado[clave]) acumulado[clave] = 0;
       acumulado[clave] += duracion;
     });
   }
- 
+
   const etiquetas = Object.keys(acumulado);
   const valores = Object.values(acumulado).map(v => parseFloat(v.toFixed(2)));
- 
+
   renderizarChart(etiquetas, valores, tipoGrafico, agruparPor);
 }
- 
+
+/** Convierte horas en decimal (p.ej. 1.5) al formato h:mm (p.ej. "1:30"). */
+function formatearHorasComoHMM(horasDecimal) {
+  const totalMin = Math.round((horasDecimal || 0) * 60);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return `${h}:${String(m).padStart(2, '0')}`;
+}
+
 function renderizarChart(labels, data, tipo, criterio) {
   const canvas = document.getElementById('miGrafico');
   const ctx = canvas.getContext('2d');
- 
+
   if (miChart) {
     miChart.destroy();
   }
- 
+
   const coloresBase = [
     '#007bff', '#28a745', '#ffc107', '#dc3545', '#17a2b8',
     '#6f42c1', '#fd7e14', '#20c997', '#e83e8c', '#6c757d'
   ];
- 
+
   let chartType = tipo;
   let datasetConfig = {
     label: `Horas por ${criterio.toUpperCase()}`,
@@ -170,7 +178,7 @@ function renderizarChart(labels, data, tipo, criterio) {
     borderColor: coloresBase,
     borderWidth: 1
   };
- 
+
   if (tipo === 'area') {
     chartType = 'line';
     datasetConfig.fill = true;
@@ -183,7 +191,7 @@ function renderizarChart(labels, data, tipo, criterio) {
     datasetConfig.borderWidth = 2;
     datasetConfig.tension = 0.2;
   }
- 
+
   miChart = new Chart(ctx, {
     type: chartType,
     data: {
@@ -200,8 +208,9 @@ function renderizarChart(labels, data, tipo, criterio) {
         },
         tooltip: {
           callbacks: {
+            // Duración con formato h:mm (p.ej. "1:30") en vez de horas en decimal.
             label: function(context) {
-              return ` ${context.label || ''}: ${context.raw} horas`;
+              return ` ${context.label || ''}: ${formatearHorasComoHMM(context.raw)}`;
             }
           }
         }

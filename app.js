@@ -1,8 +1,8 @@
 // SUPABASE_URL, SUPABASE_KEY, supabaseClient y TABLA ahora viven en config.js
 
-// Las 41 Tareas predefinidas
+// Las 43 Tareas predefinidas
 const TAREAS_DEFAULT = [
-  "Análisis especificaciones cliente", "Anidado de ficheros 3000's", "AOYV", "Comida",
+  "Análisis especificaciones cliente", "Anidado de ficheros 3000's", "AOYV", "Ausencia no recuperable", "Ausencia recuperable", "Comida",
   "Descanso 20'", "Descanso 30'", "Espera de nueva tarea", "Fuera escritorio", "Generación .e2", "Generación .e3",
   "Generación de lotes de planchas", "Generación de previas", "Generación de secuencias de corte",
   "Maquillaje .e2 1000's", "Maquillaje .e2 2000's", "Maquillaje .e2 3000's", "Maquillaje .e2 4000's",
@@ -19,25 +19,36 @@ const PROYECTOS_DEFAULT = [
   "ABAC", "BAC2", "BLOR", "COM", "DES", "FOR", "INFO", "INT", "MAN", "NAV", "PROG", "VAC"
 ];
 
-// Tareas incorporadas en esta actualización: si el navegador ya tenía una
+// Tareas incorporadas en cada actualización: si el navegador ya tenía una
 // lista de tareas guardada en localStorage (personalizada desde "+config"),
-// TAREAS_DEFAULT no le afecta -por eso se fusionan aquí una única vez-, para
-// que aparezcan sin tener que añadirlas a mano. No se repite en cargas
-// posteriores (usa MIGRACION_TAREAS_KEY como marca), así que si luego borras
-// alguna con el botón 🗑️ no vuelve a aparecer sola.
-const TAREAS_NUEVAS_2026_09 = [
-  "Fuera escritorio", "Varios", "Nueva tarea", "Revisión grupos", "Revisión previas", "Maquillaje de previas"
+// TAREAS_DEFAULT no le afecta -por eso se fusionan aquí-, para que aparezcan
+// sin tener que añadirlas a mano. Cada bloque se fusiona una única vez (su
+// propia clave en localStorage marca si ya se aplicó), así que si luego
+// borras alguna con el botón 🗑️ no vuelve a aparecer sola, y añadir un
+// bloque nuevo en el futuro no repite los anteriores.
+const MIGRACIONES_TAREAS = [
+  { clave: 'cfg_migracion_tareas_2026_09', tareas: ["Fuera escritorio", "Varios", "Nueva tarea", "Revisión grupos", "Revisión previas", "Maquillaje de previas"] },
+  { clave: 'cfg_migracion_tareas_2026_09_v2', tareas: ["Ausencia no recuperable", "Ausencia recuperable"] }
 ];
-const MIGRACION_TAREAS_KEY = 'cfg_migracion_tareas_2026_09';
 
 let tareasGuardadas = JSON.parse(localStorage.getItem('cfg_tareas'));
-if (tareasGuardadas && !localStorage.getItem(MIGRACION_TAREAS_KEY)) {
-  TAREAS_NUEVAS_2026_09.forEach(t => {
-    if (!tareasGuardadas.includes(t)) tareasGuardadas.push(t);
+if (tareasGuardadas) {
+  let huboCambios = false;
+  MIGRACIONES_TAREAS.forEach(migracion => {
+    if (!localStorage.getItem(migracion.clave)) {
+      migracion.tareas.forEach(t => {
+        if (!tareasGuardadas.includes(t)) {
+          tareasGuardadas.push(t);
+          huboCambios = true;
+        }
+      });
+      localStorage.setItem(migracion.clave, '1');
+    }
   });
-  localStorage.setItem('cfg_tareas', JSON.stringify(tareasGuardadas));
+  if (huboCambios) {
+    localStorage.setItem('cfg_tareas', JSON.stringify(tareasGuardadas));
+  }
 }
-localStorage.setItem(MIGRACION_TAREAS_KEY, '1');
 
 // Cargar desde LocalStorage si existen o usar los por defecto
 let configData = {
@@ -54,23 +65,28 @@ let tareasCargadasCache = [];
 // config.js (compartidos con informes.js y Semana.js, para que no se
 // desincronicen entre páginas).
 
-function actualizarTituloConDia(titulo) {
+/**
+ * Muestra en la cabecera solo el día y la fecha de hoy (sin el nombre
+ * "REGHOR"), con la primera letra del día en mayúscula.
+ */
+function actualizarTituloConDia() {
   const hoy = new Date();
   const nombreDia = DIAS_SEMANA[idiomaActual][hoy.getDay()];
+  const nombreDiaCap = nombreDia.charAt(0).toUpperCase() + nombreDia.slice(1);
   const nombreMes = MESES[idiomaActual][hoy.getMonth()];
   const dia = hoy.getDate();
   const anio = hoy.getFullYear();
 
   const fechaTexto = (idiomaActual === 'en')
-    ? `${nombreDia}, ${nombreMes} ${dia}, ${anio}`
-    : `${nombreDia} ${dia} de ${nombreMes} de ${anio}`;
+    ? `${nombreDiaCap}, ${nombreMes} ${dia}, ${anio}`
+    : `${nombreDiaCap} ${dia} de ${nombreMes} de ${anio}`;
 
-  document.getElementById('txt-titulo').textContent = `${titulo}, ${fechaTexto}`;
+  document.getElementById('txt-titulo').textContent = fechaTexto;
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
   poblarSelects();
-  actualizarTituloConDia('REGHOR');
+  actualizarTituloConDia();
 
   const inputFecha = document.getElementById('fecha');
   if (inputFecha) {
@@ -409,15 +425,17 @@ document.getElementById('tarea-form').addEventListener('submit', async (e) => {
 });
 
 /**
- * Botón "Fuera escritorio": si el formulario tiene una tarea en curso con
- * todos los campos obligatorios rellenos, se guarda primero (igual que
- * pulsar Guardar/Actualizar) para no perderla; si está vacío o incompleto,
- * este paso se omite sin avisar. A continuación se prepara en el formulario
- * un registro nuevo de "Fuera escritorio" con fecha de hoy y hora de inicio
- * la hora actual; la hora de fin se deja en blanco para indicarla a mano al
- * volver, y solo entonces (al pulsar Guardar) se crea el registro en Supabase.
+ * Botón "Ausencia": si el formulario tiene una tarea en curso con todos los
+ * campos obligatorios rellenos, se guarda primero (igual que pulsar
+ * Guardar/Actualizar) para no perderla; si está vacío o incompleto, este
+ * paso se omite sin avisar. A continuación se prepara en el formulario un
+ * registro nuevo con fecha de hoy y hora de inicio la hora actual, con la
+ * tarea "Ausencia no recuperable" preseleccionada (cámbiala por "Ausencia
+ * recuperable" en el desplegable si corresponde); la hora de fin se deja en
+ * blanco para indicarla a mano al volver, y solo entonces (al pulsar
+ * Guardar) se crea el registro en Supabase.
  */
-async function iniciarFueraEscritorio() {
+async function iniciarAusencia() {
   const form = document.getElementById('tarea-form');
 
   if (form.checkValidity()) {
@@ -427,7 +445,7 @@ async function iniciarFueraEscritorio() {
 
   document.getElementById('tarea-id').value = '';
   document.getElementById('fecha').value = obtenerFechaHoyISO();
-  document.getElementById('tarea').value = 'Fuera escritorio';
+  document.getElementById('tarea').value = 'Ausencia no recuperable';
   document.getElementById('proyecto').value = 'DES';
   document.getElementById('bloque').value = 'GENERAL';
 
@@ -435,7 +453,7 @@ async function iniciarFueraEscritorio() {
   document.getElementById('horainicio').value =
     `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`;
   document.getElementById('horafin').value = '';
-  document.getElementById('comentario').value = 'Fuera de escritorio';
+  document.getElementById('comentario').value = 'Ausencia';
   document.getElementById('notas').value = '';
 
   const btnGuardar = document.getElementById('btn-guardar');
@@ -486,24 +504,24 @@ const TEXTOS_INDEX = {
   es: {
     titulo: 'REGHOR', fecha: 'Fecha', tarea: 'Tarea', proyecto: 'Proyecto', bloque: 'Bloque',
     horainicio: 'Hora inicio', horafin: 'Hora fin', comentario: 'Comentario', notas: 'Notas',
-    acciones: 'Acciones', listado: 'Listado de Tareas', informes: '📊 Informes', graficos: '📈 Gráficos', semana: '📅 Registro Semana',
-    fueraEscritorio: '🚶 Fuera escritorio',
+    acciones: 'Acciones', listado: 'Listado de tareas', informes: '📊 Informes', graficos: '📈 Gráficos', semana: '📅 Registro Semana',
+    ausencia: '🚶 Ausencia',
     guardar: 'Guardar', actualizar: 'Actualizar', cancelar: 'Cancelar',
     teorica: 'Jornada Teórica del Día:', total: 'Total Horas Trabajadas:', balance: 'Balance / Horas Extra:'
   },
   gl: {
     titulo: 'REGHOR', fecha: 'Data', tarea: 'Tarefa', proyecto: 'Proxecto', bloque: 'Bloque',
     horainicio: 'Hora inicio', horafin: 'Hora fin', comentario: 'Comentario', notas: 'Notas',
-    acciones: 'Accións', listado: 'Listaxe de Tarefas', informes: '📊 Informes', graficos: '📈 Gráficas', semana: '📅 Rexistro Semana',
-    fueraEscritorio: '🚶 Fóra do posto',
+    acciones: 'Accións', listado: 'Listaxe de tarefas', informes: '📊 Informes', graficos: '📈 Gráficas', semana: '📅 Rexistro Semana',
+    ausencia: '🚶 Ausencia',
     guardar: 'Gardar', actualizar: 'Actualizar', cancelar: 'Cancelar',
     teorica: 'Xornada Teórica do Día:', total: 'Total Horas Traballadas:', balance: 'Balance / Horas Extra:'
   },
   en: {
     titulo: 'REGHOR', fecha: 'Date', tarea: 'Task', proyecto: 'Project', bloque: 'Block',
     horainicio: 'Start Time', horafin: 'End Time', comentario: 'Comment', notas: 'Notes',
-    acciones: 'Actions', listado: 'Task List', informes: '📊 Reports', graficos: '📈 Charts', semana: '📅 Week Log',
-    fueraEscritorio: '🚶 Away from desk',
+    acciones: 'Actions', listado: 'Task list', informes: '📊 Reports', graficos: '📈 Charts', semana: '📅 Week Log',
+    ausencia: '🚶 Absence',
     guardar: 'Save', actualizar: 'Update', cancelar: 'Cancel',
     teorica: 'Theoretical Day Hours:', total: 'Total Hours Worked:', balance: 'Balance / Overtime:'
   }
@@ -513,7 +531,7 @@ function cambiarIdioma(lang) {
   idiomaActual = lang;
   const t = TEXTOS_INDEX[lang];
 
-  actualizarTituloConDia(t.titulo);
+  actualizarTituloConDia();
   document.getElementById('lbl-fecha').textContent = t.fecha;
   document.getElementById('lbl-tarea').textContent = t.tarea;
   document.getElementById('lbl-proyecto').textContent = t.proyecto;
@@ -526,7 +544,7 @@ function cambiarIdioma(lang) {
   document.getElementById('btn-informes').textContent = t.informes;
   document.getElementById('btn-graficos').textContent = t.graficos;
   document.getElementById('btn-semana').textContent = t.semana;
-  document.getElementById('btn-fuera-escritorio').textContent = t.fueraEscritorio;
+  document.getElementById('btn-ausencia').textContent = t.ausencia;
   document.getElementById('btn-cancelar').textContent = t.cancelar;
 
   const idEditando = document.getElementById('tarea-id').value;

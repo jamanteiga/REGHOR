@@ -6,21 +6,21 @@
 // Esta página YA NO tiene entrada/salida manual ni tabla propia: las horas
 // de cada día se calculan automáticamente sumando las tareas que ya están
 // registradas ese día en 'obras' (las que se dan de alta en index.html).
- 
+
 let idiomaActual = 'es';
 let lunesActual = null;
 let diasSemanaActual = [];
- 
+
 // Datos calculados de cada día de la semana actual (índices 0=lunes..4=viernes).
 // Se recalculan en cada cargarSemana() y los usa actualizarResumenSemana().
 let datosDiaActual = [];
- 
+
 const DIAS_CORTOS = {
   es: ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'],
   gl: ['Luns', 'Martes', 'Mércores', 'Xoves', 'Venres'],
   en: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
 };
- 
+
 const TEXTOS_SEMANA = {
   es: {
     titulo: '📅 Resumen Semanal', cerrar: '❌ Cerrar', nota: 'Cálculo automático a partir de las tareas registradas cada día en el Listado de Tareas.',
@@ -47,22 +47,22 @@ const TEXTOS_SEMANA = {
     pendiente: 'Pending', sinDatos: 'No tasks logged'
   }
 };
- 
+
 // MESES vive en config.js (compartido con app.js)
- 
+
 function formatearFechaDDMMYYYY(fecha) {
   const dd = String(fecha.getDate()).padStart(2, '0');
   const mm = String(fecha.getMonth() + 1).padStart(2, '0');
   const yyyy = fecha.getFullYear();
   return `${dd}/${mm}/${yyyy}`;
 }
- 
+
 /** Lunes de la semana (lunes-domingo) que contiene 'fecha'. */
 function obtenerLunes(fecha) {
   const diaSemana = fecha.getDay() === 0 ? 7 : fecha.getDay();
   return new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate() - (diaSemana - 1));
 }
- 
+
 /** Suma minutos (puede ser negativo) a una hora 'HH:MM', con vuelta de 24h. */
 function sumarMinutosAHora(horaStr, minutosExtra) {
   const [h, m] = horaStr.split(':').map(Number);
@@ -72,7 +72,7 @@ function sumarMinutosAHora(horaStr, minutosExtra) {
   const mm = String(total % 60).padStart(2, '0');
   return `${hh}:${mm}`;
 }
- 
+
 /** Número de semana ISO-8601 (la semana pertenece al año de su jueves). */
 function obtenerNumeroSemanaISO(fecha) {
   const d = new Date(Date.UTC(fecha.getFullYear(), fecha.getMonth(), fecha.getDate()));
@@ -81,19 +81,19 @@ function obtenerNumeroSemanaISO(fecha) {
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
   return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
 }
- 
+
 function actualizarEncabezadoSemana() {
   const lunes = diasSemanaActual[0];
   const viernes = diasSemanaActual[4];
   const numSemana = obtenerNumeroSemanaISO(lunes);
   const meses = MESES[idiomaActual];
- 
+
   const d1 = lunes.getDate();
   const m1 = meses[lunes.getMonth()];
   const d2 = viernes.getDate();
   const m2 = meses[viernes.getMonth()];
   const anio = viernes.getFullYear();
- 
+
   let texto;
   if (idiomaActual === 'gl') {
     texto = `Semana ${numSemana} — semana do ${d1} de ${m1} ao ${d2} de ${m2} de ${anio}`;
@@ -102,10 +102,10 @@ function actualizarEncabezadoSemana() {
   } else {
     texto = `Semana ${numSemana} — semana del ${d1} de ${m1} al ${d2} de ${m2} de ${anio}`;
   }
- 
+
   document.getElementById('txt-rango-semana').textContent = texto;
 }
- 
+
 /**
  * Carga la semana que empieza en 'lunes', trayendo de 'obras' todas las
  * tareas de esos 5 días y agregándolas por fecha: entrada = hora de inicio
@@ -114,17 +114,17 @@ function actualizarEncabezadoSemana() {
  */
 async function cargarSemana(lunes) {
   lunesActual = lunes;
- 
+
   diasSemanaActual = [];
   for (let i = 0; i < 5; i++) {
     diasSemanaActual.push(new Date(lunes.getFullYear(), lunes.getMonth(), lunes.getDate() + i));
   }
- 
+
   actualizarEncabezadoSemana();
- 
+
   const desdeStr = formatearFechaISO(diasSemanaActual[0]);
   const hastaStr = formatearFechaISO(diasSemanaActual[4]);
- 
+
   const tareasPorFecha = {};
   if (supabaseClient) {
     const { data, error } = await supabaseClient
@@ -132,7 +132,7 @@ async function cargarSemana(lunes) {
       .select('*')
       .gte('fecha', desdeStr)
       .lte('fecha', hastaStr);
- 
+
     if (!error && data) {
       data.forEach(r => {
         let f = String(r.fecha || '').trim();
@@ -145,18 +145,18 @@ async function cargarSemana(lunes) {
       console.error('Error al cargar las tareas de obras:', error);
     }
   }
- 
+
   const t = TEXTOS_SEMANA[idiomaActual];
   const nombresDias = DIAS_CORTOS[idiomaActual];
- 
+
   datosDiaActual = [];
- 
+
   const filas = diasSemanaActual.map((fecha, idx) => {
     const fechaStr = formatearFechaISO(fecha);
     const tareasDia = tareasPorFecha[fechaStr] || [];
     const festivo = esFestivo(fechaStr);
     const esViernes = idx === 4;
- 
+
     let entrada = '';
     let salida = '';
     let minutosBrutos = 0;
@@ -165,14 +165,14 @@ async function cargarSemana(lunes) {
       if (r.horainicio && (!entrada || r.horainicio < entrada)) entrada = r.horainicio;
       if (r.horafin && (!salida || r.horafin > salida)) salida = r.horafin;
     });
- 
+
     const tieneDatos = tareasDia.length > 0;
     const minutosEfectivos = (minutosBrutos > 0)
       ? Math.max(0, minutosBrutos - obtenerDescansoMinutos(fechaStr))
       : 0;
- 
+
     datosDiaActual.push({ fechaStr, entrada, salida, minutosEfectivos, tieneDatos, festivo });
- 
+
     return `
       <tr class="fila-dia-editable ${esViernes ? 'fila-viernes' : ''} ${festivo ? 'fila-festivo' : ''}">
         <td>${formatearFechaDDMMYYYY(fecha)}</td>
@@ -184,7 +184,7 @@ async function cargarSemana(lunes) {
       </tr>
     `;
   });
- 
+
   const tbody = document.getElementById('tabla-semana-body');
   tbody.innerHTML = filas.join('') + `
     <tr class="fila-resumen">
@@ -204,55 +204,67 @@ async function cargarSemana(lunes) {
       <td id="valor-salida-prevista">-</td>
     </tr>
   `;
- 
+
   actualizarResumenSemana();
 }
- 
+
+/**
+ * Fórmula de la hora de salida prevista del viernes:
+ *  - Horas totales de la semana = suma de la jornada teórica de los 5 días
+ *    laborables (obtenerJornadaTeoricaMinutos ya da 0 en festivo/fin de
+ *    semana, 7:00 todos los días en verano, y 8:30 lunes-jueves + 7:00
+ *    viernes el resto del año) → 41:00 en invierno sin festivos, 35:00 en
+ *    verano sin festivos, menos las horas de cualquier festivo de Ferrol
+ *    que caiga esa semana.
+ *  - Horas pendientes de trabajo el viernes = horas totales de la semana -
+ *    horas REALMENTE trabajadas de lunes a jueves (si algún día se superan
+ *    las 8:30 teóricas, ese exceso ya reduce lo pendiente del viernes).
+ *  - Hora de salida del viernes = hora de entrada del viernes (la primera
+ *    tarea registrada ese día) + horas pendientes de trabajo.
+ */
 function actualizarResumenSemana() {
   const t = TEXTOS_SEMANA[idiomaActual];
- 
+
   let teoricoTotalMin = 0;
   diasSemanaActual.forEach(fecha => {
     teoricoTotalMin += obtenerJornadaTeoricaMinutos(formatearFechaISO(fecha));
   });
- 
+
   let totalesLunesJueves = 0;
-  let estimadoLunesJueves = 0;
   for (let i = 0; i < 4; i++) {
-    const dia = datosDiaActual[i];
-    totalesLunesJueves += dia.minutosEfectivos;
-    estimadoLunesJueves += dia.tieneDatos ? dia.minutosEfectivos : obtenerJornadaTeoricaMinutos(dia.fechaStr);
+    totalesLunesJueves += datosDiaActual[i].minutosEfectivos;
   }
- 
+
   const pendienteMin = teoricoTotalMin - totalesLunesJueves;
-  const pendienteEstimadoMin = teoricoTotalMin - estimadoLunesJueves;
- 
+
   // La hora de salida prevista del viernes se calcula a partir de la
   // primera tarea que ya hayas registrado ese día (su hora de inicio); si
-  // el viernes aún no tiene ninguna tarea registrada, no se puede estimar.
+  // el viernes aún no tiene ninguna tarea registrada, no se puede calcular.
+  // Se acota en 0 para no dar una salida anterior a la propia entrada
+  // cuando la semana ya está cumplida antes de empezar el viernes.
   const diaViernes = datosDiaActual[4];
   const salidaPrevista = (diaViernes && diaViernes.entrada)
-    ? sumarMinutosAHora(diaViernes.entrada, Math.max(0, pendienteEstimadoMin))
+    ? sumarMinutosAHora(diaViernes.entrada, Math.max(0, pendienteMin))
     : t.pendiente;
- 
+
   document.getElementById('valor-teoricas').textContent = formatearMinutosAHoras(teoricoTotalMin);
   document.getElementById('valor-totales').textContent = formatearMinutosAHoras(totalesLunesJueves);
   document.getElementById('valor-pendiente').textContent = formatearMinutosAHoras(pendienteMin);
   document.getElementById('valor-salida-prevista').textContent = salidaPrevista;
 }
- 
+
 function cambiarSemana(direccion) {
   const nuevoLunes = (direccion === 0)
     ? obtenerLunes(new Date())
     : new Date(lunesActual.getFullYear(), lunesActual.getMonth(), lunesActual.getDate() + direccion * 7);
- 
+
   cargarSemana(nuevoLunes);
 }
- 
+
 function cambiarIdioma(lang) {
   idiomaActual = lang;
   const t = TEXTOS_SEMANA[lang];
- 
+
   document.getElementById('txt-titulo').textContent = t.titulo;
   document.getElementById('btn-cerrar').textContent = t.cerrar;
   document.getElementById('txt-nota').textContent = t.nota;
@@ -265,10 +277,10 @@ function cambiarIdioma(lang) {
   document.getElementById('btn-anterior').textContent = t.anterior;
   document.getElementById('btn-actual').textContent = t.actual;
   document.getElementById('btn-siguiente').textContent = t.siguiente;
- 
+
   if (lunesActual) cargarSemana(lunesActual);
 }
- 
+
 document.addEventListener('DOMContentLoaded', () => {
   cargarSemana(obtenerLunes(new Date()));
 });
