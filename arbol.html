@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESTRUCTURA - Árbol</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 1050px; margin: 30px auto; padding: 0 20px; color: #333; }
+    h1 { font-size: 22px; }
+    .card { background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 14px; margin-bottom: 16px; }
+    .header-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+    button { padding: 6px 12px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px; }
+    button:hover { background: #0069d9; }
+    button.secundario { background: #6c757d; }
+    button.secundario:hover { background: #5a6268; }
+    button.peligro { background: #dc3545; }
+    button.peligro:hover { background: #bd2130; }
+    button.exito { background: #28a745; }
+    button.exito:hover { background: #218838; }
+    button.pequeno { padding: 3px 7px; font-size: 11px; }
+    button:disabled { background: #ccc; cursor: not-allowed; }
+
+    .leyenda { display: flex; gap: 14px; font-size: 12px; align-items: center; flex-wrap: wrap; }
+    .punto { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+    .p-gris { background: #adb5bd; }
+    .p-azul { background: #007bff; }
+    .p-amarillo { background: #ffc107; }
+    .p-verde { background: #28a745; }
+    .p-rojo { background: #dc3545; }
+    .p-mezcla { background: white; border: 2px solid #ccc; }
+
+    .barra-global { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    ul.arbol { list-style: none; padding-left: 18px; margin: 0; }
+    ul.arbol.raiz { padding-left: 0; }
+    li.nodo { margin: 2px 0; }
+    .fila-nodo { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 4px; flex-wrap: wrap; }
+    .fila-nodo:hover { background: rgba(0,123,255,0.06); }
+    .toggle { width: 16px; cursor: pointer; text-align: center; user-select: none; color: #666; font-size: 11px; }
+    .toggle.vacio { visibility: hidden; }
+    .codigo { font-weight: bold; }
+    .tipo-tag { font-size: 10px; background: #e9ecef; padding: 1px 6px; border-radius: 10px; color: #555; }
+    .asignados { font-size: 11px; color: #888; }
+    .asignados .fecha { color: #aaa; font-size: 10px; }
+    .motivo-rechazo { font-size: 11px; color: #dc3545; font-style: italic; width: 100%; padding-left: 26px; }
+    .acciones { display: flex; gap: 3px; margin-left: auto; flex-wrap: wrap; }
+    .hijos { display: none; }
+    .hijos.abierto { display: block; }
+
+    .overlay {
+      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.55); align-items: center; justify-content: center; z-index: 1000;
+    }
+    .overlay-caja { background: white; border-radius: 8px; padding: 22px; max-width: 460px; width: 90%; max-height: 85vh; overflow-y: auto; }
+    .overlay-caja h3 { margin-top: 0; font-size: 16px; }
+    .overlay-caja label { display: block; font-weight: bold; font-size: 12px; margin: 10px 0 4px; }
+    .overlay-caja input, .overlay-caja select, .overlay-caja textarea {
+      width: 100%; padding: 7px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 13px;
+    }
+    .overlay-botones { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+    .estado-msg { font-size: 12px; margin-top: 8px; }
+    .error { color: #dc3545; }
+    .ok { color: #218838; }
+    .fila-doble { display: flex; gap: 8px; }
+    .fila-doble > div { flex: 1; }
+
+    .lista-mover { max-height: 260px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; margin-top: 6px; }
+    .opcion-mover { padding: 6px 10px; font-size: 12px; cursor: pointer; border-bottom: 1px solid #eee; }
+    .opcion-mover:hover { background: #eef3ff; }
+    .opcion-mover.seleccionada { background: #007bff; color: white; }
+
+    .aviso {
+      position: fixed; top: 16px; right: 16px; max-width: 340px; z-index: 2000;
+      background: #fff; border-left: 5px solid #007bff; box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+      border-radius: 6px; padding: 12px 14px; font-size: 13px; animation: entrada 0.2s ease-out;
+    }
+    .aviso.rechazo { border-left-color: #dc3545; }
+    .aviso.aprobado { border-left-color: #28a745; }
+    .aviso.pendiente { border-left-color: #ffc107; }
+    .aviso strong { display: block; margin-bottom: 4px; }
+    .aviso .ruta { color: #666; font-size: 11px; margin-top: 4px; }
+    .aviso .cerrar-aviso { float: right; cursor: pointer; color: #999; font-weight: bold; }
+    @keyframes entrada { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+  </style>
+</head>
+<body>
+
+  <div class="header-bar">
+    <h1>🌳 Estructura</h1>
+    <div>
+      <span id="texto-usuario" class="estado-msg"></span>
+      <button class="secundario" onclick="location.href='index.html'">🏠 Inicio</button>
+      <button class="secundario" onclick="location.href='usuarios.html'">👤 Usuarios</button>
+      <button class="secundario" onclick="cerrarSesion()">Cerrar sesión</button>
+    </div>
+  </div>
+
+  <div class="card leyenda">
+    <span><span class="punto p-gris"></span>Sin iniciar</span>
+    <span><span class="punto p-azul"></span>En trabajo</span>
+    <span><span class="punto p-amarillo"></span>Pendiente revisión</span>
+    <span><span class="punto p-verde"></span>Aprobado</span>
+    <span><span class="punto p-rojo"></span>Rechazado</span>
+    <span><span class="punto p-mezcla"></span>Estados mezclados</span>
+  </div>
+
+  <div class="card barra-global">
+    <button class="secundario" onclick="expandirTodo()">⏬ Expandir todo</button>
+    <button class="secundario" onclick="encogerTodo()">⏫ Encoger todo</button>
+    <button id="btn-crear-buque" onclick="abrirModalCrear(null, 'BUQUE')" style="display:none;">+ Añadir Buque</button>
+  </div>
+
+  <div class="card">
+    <ul class="arbol raiz" id="arbol-raiz">
+      <li>Cargando...</li>
+    </ul>
+  </div>
+
+  <div class="overlay" id="modal-nodo">
+    <div class="overlay-caja">
+      <h3 id="modal-nodo-titulo">Nuevo nodo</h3>
+      <div id="modal-nodo-tipo-wrap">
+        <label>Tipo</label>
+        <select id="modal-nodo-tipo"></select>
+      </div>
+      <label>Código</label>
+      <input type="text" id="modal-nodo-codigo" placeholder="Ej: SB3, UA1, NL801...">
+      <label>Nombre</label>
+      <input type="text" id="modal-nodo-nombre">
+      <label>Descripción (opcional)</label>
+      <textarea id="modal-nodo-descripcion" rows="2"></textarea>
+      <label>Orden</label>
+      <input type="number" id="modal-nodo-orden" value="0">
+      <div class="estado-msg" id="modal-nodo-estado"></div>
+      <div class="overlay-botones">
+        <button class="secundario" onclick="cerrarModalNodo()">Cancelar</button>
+        <button id="modal-nodo-guardar">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="modal-lote">
+    <div class="overlay-caja">
+      <h3>Crear varios nodos de una vez</h3>
+      <p style="font-size:12px; color:#666;">Ej: prefijo "PS", desde 232 hasta 237 crea PS232, PS233... PS237.</p>
+      <div id="modal-lote-tipo-wrap">
+        <label>Tipo</label>
+        <select id="modal-lote-tipo"></select>
+      </div>
+      <label>Prefijo del código</label>
+      <input type="text" id="modal-lote-prefijo" placeholder="Ej: PS">
+      <div class="fila-doble">
+        <div><label>Desde nº</label><input type="text" id="modal-lote-desde" placeholder="232"></div>
+        <div><label>Hasta nº</label><input type="text" id="modal-lote-hasta" placeholder="237"></div>
+      </div>
+      <label>Nombre base (opcional, se usa el código si se deja en blanco)</label>
+      <input type="text" id="modal-lote-nombre">
+      <label>Trabajador (opcional, se asigna a todos)</label>
+      <select id="modal-lote-trabajador"><option value="">— Sin asignar —</option></select>
+      <label>Revisor (opcional, se asigna a todos)</label>
+      <select id="modal-lote-revisor"><option value="">— Sin asignar —</option></select>
+      <div class="estado-msg" id="modal-lote-estado"></div>
+      <div class="overlay-botones">
+        <button class="secundario" onclick="cerrarModalLote()">Cancelar</button>
+        <button id="modal-lote-guardar" onclick="guardarLote()">Crear todos</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="modal-asignar">
+    <div class="overlay-caja">
+      <h3>Asignar usuario / revisor</h3>
+      <label>Usuario</label>
+      <select id="modal-asignar-trabajador"><option value="">— Sin asignar —</option></select>
+      <label>Revisor</label>
+      <select id="modal-asignar-revisor"><option value="">— Sin asignar —</option></select>
+      <div class="estado-msg" id="modal-asignar-estado"></div>
+      <div class="overlay-botones">
+        <button class="secundario" onclick="cerrarModalAsignar()">Cancelar</button>
+        <button onclick="guardarAsignacion()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="modal-mover">
+    <div class="overlay-caja">
+      <h3>Mover nodo</h3>
+      <p style="font-size:12px; color:#666;">Elige el nuevo nodo padre.</p>
+      <input type="text" id="modal-mover-buscar" placeholder="Buscar por código o nombre...">
+      <div class="lista-mover" id="modal-mover-lista"></div>
+      <div class="estado-msg" id="modal-mover-estado"></div>
+      <div class="overlay-botones">
+        <button class="secundario" onclick="cerrarModalMover()">Cancelar</button>
+        <button onclick="confirmarMover()">Mover aquí</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="modal-duplicar">
+    <div class="overlay-caja">
+      <h3>Duplicar estructura de este Bloque</h3>
+      <p style="font-size:12px; color:#666;">Se copiará toda la estructura interna (sin usuarios asignados). Elige el código del nuevo Bloque.</p>
+      <label>Código del nuevo Bloque</label>
+      <input type="text" id="modal-duplicar-codigo" placeholder="Ej: B222">
+      <label>Nombre del nuevo Bloque</label>
+      <input type="text" id="modal-duplicar-nombre">
+      <div class="estado-msg" id="modal-duplicar-estado"></div>
+      <div class="overlay-botones">
+        <button class="secundario" onclick="cerrarModalDuplicar()">Cancelar</button>
+        <button id="modal-duplicar-guardar" onclick="confirmarDuplicar()">Duplicar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="contenedor-avisos"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const SUPABASE_URL = 'https://wuarkraddnndmgvfnkmm.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_qF-x44yXSydPBojMk_GOUg_TM34uXFI';
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const TIPOS_SIN_ASIGNACION = new Set(['BUQUE', 'BLOQUE', 'PRODUCTO_INTERMEDIO', 'SUBBLOQUE']);
+
+    let miPerfil = null;
+    let todosLosNodos = [];
+    let mapaHijosPorPadre = {};
+    let mapaNodoPorId = {};
+    let nodosAbiertos = new Set();
+    let perfilesCache = [];
+    let nodoAsignarActual = null;
+    let nodoCrearPadre = null;
+    let nodoMoverActual = null;
+    let parentIdSeleccionadoParaMover = null;
+    let nodoLotePadre = null;
+    let nodoDuplicarActual = null;
+
+    function formatearFechaHora(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mm = String(d.getMinutes()).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mes = String(d.getMonth() + 1).padStart(2, '0');
+      const aaaa = d.getFullYear();
+      return `${hh}:${mm} ${dd}/${mes}/${aaaa}`;
+    }
+
+    function rutaCompleta(nodo) {
+      const partes = [];
+      let actual = nodo;
+      while (actual) {
+        partes.unshift(`${actual.tipo} ${actual.codigo}`);
+        actual = actual.parent_id ? mapaNodoPorId[actual.parent_id] : null;
+      }
+      return partes.join(' › ');
+    }
+
+    async function iniciar() {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (!session) { window.location.href = 'login.html?next=arbol.html'; return; }
+
+      const { data: perfil, error } = await supabaseClient
+        .from('profiles').select('*').eq('id', session.user.id).single();
+
+      if (error || !perfil || !perfil.activo) {
+        document.body.innerHTML = '<p style="color:red; font-weight:bold; margin-top:60px; text-align:center;">No tienes acceso.</p>';
+        return;
+      }
+
+      miPerfil = perfil;
+      document.getElementById('texto-usuario').textContent =
+        `${perfil.nombre_completo} (${perfil.username}) — ${perfil.rol === 'TRABAJADOR' ? 'USUARIO' : perfil.rol}`;
+
+      if (esGestor()) document.getElementById('btn-crear-buque').style.display = 'inline-block';
+      if (perfil.rol !== 'ADMIN') document.querySelector('button[onclick*="usuarios.html"]').style.display = 'none';
+
+      await cargarPerfiles();
+      await cargarArbol();
+      suscribirseARealtime();
+    }
+
+    function esGestor() { return miPerfil.rol === 'ADMIN' || miPerfil.rol === 'REVISOR'; }
+
+    async function cerrarSesion() {
+      await supabaseClient.auth.signOut();
+      window.location.href = 'login.html';
+    }
+
+    async function cargarPerfiles() {
+      const { data } = await supabaseClient.from('profiles').select('*').eq('activo', true);
+      perfilesCache = data || [];
+    }
+
+    async function cargarArbol() {
+      const { data, error } = await supabaseClient
+        .from('v_nodes_with_workflow').select('*').eq('activo', true).order('orden', { ascending: true });
+
+      const raiz = document.getElementById('arbol-raiz');
+      if (error) { raiz.innerHTML = `<li style="color:red;">Error al cargar: ${error.message}</li>`; return; }
+
+      todosLosNodos = data || [];
+      mapaHijosPorPadre = {};
+      mapaNodoPorId = {};
+
+      todosLosNodos.forEach(n => {
+        mapaNodoPorId[n.id] = n;
+        const clave = n.parent_id || '__raiz__';
+        if (!mapaHijosPorPadre[clave]) mapaHijosPorPadre[clave] = [];
+        mapaHijosPorPadre[clave].push(n);
+      });
+
+      const nodosRaiz = mapaHijosPorPadre['__raiz__'] || [];
+      raiz.innerHTML = nodosRaiz.length === 0
+        ? '<li>No hay ningún Buque todavía.</li>'
+        : nodosRaiz.map(n => renderizarNodo(n)).join('');
+    }
+
+    function calcularEstadoPropio(nodo) {
+      if (nodo.revision_estado === 'APROBADO') return 'verde';
+      if (nodo.revision_estado === 'RECHAZADO') return 'rojo';
+      if (nodo.revision_estado === 'PENDIENTE' || nodo.revision_estado === 'EN_REVISION') return 'amarillo';
+      if (nodo.trabajo_estado === 'EN_TRABAJO') return 'azul';
+      if (nodo.trabajo_estado === 'REQUIERE_CORRECCION') return 'amarillo';
+      return 'gris';
+    }
+
+    function calcularEstadoConsenso(nodo) {
+      const hijos = mapaHijosPorPadre[nodo.id] || [];
+      if (hijos.length === 0) return calcularEstadoPropio(nodo);
+      const estadosHijos = hijos.map(h => calcularEstadoConsenso(h));
+      const primero = estadosHijos[0];
+      return estadosHijos.every(e => e === primero) ? primero : null;
+    }
+
+    function obtenerDescendientesIds(nodeId) {
+      const resultado = [];
+      const hijos = mapaHijosPorPadre[nodeId] || [];
+      hijos.forEach(h => {
+        resultado.push(h.id);
+        resultado.push(...obtenerDescendientesIds(h.id));
+      });
+      return resultado;
+    }
+
+    function renderizarNodo(nodo) {
+      const hijos = mapaHijosPorPadre[nodo.id] || [];
+      const tieneHijos = hijos.length > 0;
+      const abierto = nodosAbiertos.has(nodo.id);
+      const estado = calcularEstadoConsenso(nodo);
+      const claseColor = estado ? `p-${estado}` : 'p-mezcla';
+      const sinAsignacion = TIPOS_SIN_ASIGNACION.has(nodo.tipo);
+
+      const fechaTrabajador = nodo.trabajo_terminado_en
+        ? formatearFechaHora(nodo.trabajo_terminado_en)
+        : (nodo.trabajo_iniciado_en ? formatearFechaHora(nodo.trabajo_iniciado_en) : '');
+      const fechaRevisor = nodo.revisado_en ? formatearFechaHora(nodo.revisado_en) : '';
+
+      let asignadosTexto = '';
+      if (!sinAsignacion) {
+        const partes = [];
+        if (nodo.trabajador_nombre) partes.push(`👷 ${nodo.trabajador_nombre}${fechaTrabajador ? ` <span class="fecha">(${fechaTrabajador})</span>` : ''}`);
+        if (nodo.revisor_nombre) partes.push(`🔍 ${nodo.revisor_nombre}${fechaRevisor ? ` <span class="fecha">(${fechaRevisor})</span>` : ''}`);
+        asignadosTexto = partes.join(' · ');
+      }
+
+      let acciones = '';
+      if (esGestor()) {
+        acciones += `<button class="pequeno" onclick="abrirModalCrear('${nodo.id}', '${nodo.tipo}')" title="Añadir hijo">+</button>`;
+        acciones += `<button class="pequeno secundario" onclick="abrirModalLote('${nodo.id}', '${nodo.tipo}')" title="Crear varios">+N</button>`;
+        acciones += `<button class="pequeno secundario" onclick="abrirModalEditar('${nodo.id}')" title="Editar">✎</button>`;
+        acciones += `<button class="pequeno secundario" onclick="abrirModalMover('${nodo.id}')" title="Mover">↔️</button>`;
+        acciones += `<button class="pequeno secundario" onclick="reordenar('${nodo.id}', -1)" title="Subir">▲</button>`;
+        acciones += `<button class="pequeno secundario" onclick="reordenar('${nodo.id}', 1)" title="Bajar">▼</button>`;
+        if (nodo.tipo === 'BLOQUE') {
+          acciones += `<button class="pequeno secundario" onclick="abrirModalDuplicar('${nodo.id}')" title="Duplicar bloque">⧉</button>`;
+          acciones += `<button class="pequeno secundario" onclick="expandirRama('${nodo.id}')" title="Expandir este bloque">⏬</button>`;
+          acciones += `<button class="pequeno secundario" onclick="encogerRama('${nodo.id}')" title="Encoger este bloque">⏫</button>`;
+        }
+        if (!sinAsignacion) {
+          acciones += `<button class="pequeno secundario" onclick="abrirModalAsignar('${nodo.id}')" title="Asignar">👤</button>`;
+        }
+        acciones += `<button class="pequeno peligro" onclick="desactivarNodo('${nodo.id}')" title="Desactivar">🗑️</button>`;
+      }
+
+      if (!sinAsignacion) {
+        const puedeEmpezarTerminar = esGestor() || nodo.trabajador_id === miPerfil.id;
+        if (puedeEmpezarTerminar) {
+          if (nodo.trabajo_estado === 'SIN_INICIAR' || nodo.trabajo_estado === 'REQUIERE_CORRECCION') {
+            acciones += `<button class="pequeno" onclick="accionMarcarEnTrabajo('${nodo.id}')">▶ Empezar</button>`;
+          } else if (nodo.trabajo_estado === 'EN_TRABAJO') {
+            acciones += `<button class="pequeno exito" onclick="accionMarcarTerminado('${nodo.id}')">✔ Terminar</button>`;
+          }
+        }
+        if (esGestor() && nodo.trabajo_estado === 'TERMINADO') {
+          acciones += `<button class="pequeno exito" onclick="accionRevisar('${nodo.id}', true)">✔ Aprobar</button>`;
+          acciones += `<button class="pequeno peligro" onclick="accionRevisar('${nodo.id}', false)">✘ Rechazar</button>`;
+        }
+      }
+
+      const motivoRechazo = (!sinAsignacion && nodo.revision_estado === 'RECHAZADO' && nodo.comentario_revision)
+        ? `<div class="motivo-rechazo">✘ Motivo: ${nodo.comentario_revision}</div>` : '';
+
+      return `
+        <li class="nodo" id="li-${nodo.id}">
+          <div class="fila-nodo">
+            <span class="toggle ${tieneHijos ? '' : 'vacio'}" onclick="toggleNodo('${nodo.id}')">${abierto ? '▼' : '▶'}</span>
+            <span class="punto ${claseColor}" title="${estado || 'estados mezclados'}"></span>
+            <span class="codigo">${nodo.codigo}</span>
+            <span>${nodo.nombre}</span>
+            <span class="tipo-tag">${nodo.tipo}</span>
+            ${asignadosTexto ? `<span class="asignados">${asignadosTexto}</span>` : ''}
+            <span class="acciones">${acciones}</span>
+            ${motivoRechazo}
+          </div>
+          <ul class="arbol hijos ${abierto ? 'abierto' : ''}" id="hijos-${nodo.id}">
+            ${tieneHijos ? hijos.map(h => renderizarNodo(h)).join('') : ''}
+          </ul>
+        </li>
+      `;
+    }
+
+    function toggleNodo(id) {
+      if (nodosAbiertos.has(id)) nodosAbiertos.delete(id); else nodosAbiertos.add(id);
+      const ul = document.getElementById(`hijos-${id}`);
+      const toggle = document.querySelector(`#li-${id} > .fila-nodo > .toggle`);
+      if (ul) ul.classList.toggle('abierto');
+      if (toggle) toggle.textContent = nodosAbiertos.has(id) ? '▼' : '▶';
+    }
+
+    function expandirTodo() { todosLosNodos.forEach(n => nodosAbiertos.add(n.id)); cargarArbol(); }
+    function encogerTodo() { nodosAbiertos.clear(); cargarArbol(); }
+    function expandirRama(nodeId) {
+      nodosAbiertos.add(nodeId);
+      obtenerDescendientesIds(nodeId).forEach(id => nodosAbiertos.add(id));
+      cargarArbol();
+    }
+    function encogerRama(nodeId) {
+      nodosAbiertos.delete(nodeId);
+      obtenerDescendientesIds(nodeId).forEach(id => nodosAbiertos.delete(id));
+      cargarArbol();
+    }
+
+    async function reordenar(nodeId, direccion) {
+      const nodo = mapaNodoPorId[nodeId];
+      const clave = nodo.parent_id || '__raiz__';
+      const hermanos = [...(mapaHijosPorPadre[clave] || [])];
+      const idx = hermanos.findIndex(n => n.id === nodeId);
+      const nuevoIdx = idx + direccion;
+      if (nuevoIdx < 0 || nuevoIdx >= hermanos.length) return;
+
+      [hermanos[idx], hermanos[nuevoIdx]] = [hermanos[nuevoIdx], hermanos[idx]];
+
+      for (let i = 0; i < hermanos.length; i++) {
+        if (hermanos[i].orden !== i) {
+          await supabaseClient.from('nodes').update({ orden: i }).eq('id', hermanos[i].id);
+        }
+      }
+      await cargarArbol();
+    }
+
+    async function obtenerTiposHijoValidos(parentTipo) {
+      const { data } = await supabaseClient.from('node_type_rules').select('child_type').eq('parent_type', parentTipo);
+      return (data || []).map(r => r.child_type);
+    }
+
+    async function abrirModalCrear(parentId, parentTipo) {
+      nodoCrearPadre = parentId ? { id: parentId, tipo: parentTipo } : null;
+      document.getElementById('modal-nodo-titulo').textContent = parentId ? 'Añadir nodo hijo' : 'Añadir Buque';
+      document.getElementById('modal-nodo-codigo').value = '';
+      document.getElementById('modal-nodo-nombre').value = '';
+      document.getElementById('modal-nodo-descripcion').value = '';
+      document.getElementById('modal-nodo-orden').value = '0';
+      document.getElementById('modal-nodo-estado').textContent = '';
+      document.getElementById('modal-nodo-guardar').onclick = () => guardarNodoNuevo();
+
+      const selectTipo = document.getElementById('modal-nodo-tipo');
+      const wrapTipo = document.getElementById('modal-nodo-tipo-wrap');
+
+      if (!parentId) {
+        selectTipo.innerHTML = '<option value="BUQUE">BUQUE</option>';
+        wrapTipo.style.display = 'none';
+      } else {
+        wrapTipo.style.display = 'block';
+        const tipos = await obtenerTiposHijoValidos(parentTipo);
+        selectTipo.innerHTML = tipos.length === 0
+          ? '<option value="">(este tipo no admite hijos)</option>'
+          : tipos.map(t => `<option value="${t}">${t}</option>`).join('');
+      }
+      document.getElementById('modal-nodo').style.display = 'flex';
+    }
+
+    async function abrirModalEditar(nodeId) {
+      const nodo = mapaNodoPorId[nodeId];
+      document.getElementById('modal-nodo-titulo').textContent = 'Editar nodo';
+      document.getElementById('modal-nodo-tipo-wrap').style.display = 'none';
+      document.getElementById('modal-nodo-codigo').value = nodo.codigo;
+      document.getElementById('modal-nodo-nombre').value = nodo.nombre;
+      document.getElementById('modal-nodo-descripcion').value = nodo.descripcion || '';
+      document.getElementById('modal-nodo-orden').value = nodo.orden || 0;
+      document.getElementById('modal-nodo-estado').textContent = '';
+      document.getElementById('modal-nodo-guardar').onclick = () => guardarNodoEditado(nodeId);
+      document.getElementById('modal-nodo').style.display = 'flex';
+    }
+
+    function cerrarModalNodo() { document.getElementById('modal-nodo').style.display = 'none'; }
+
+    async function guardarNodoNuevo() {
+      const estadoEl = document.getElementById('modal-nodo-estado');
+      const tipo = document.getElementById('modal-nodo-tipo').value;
+      const codigo = document.getElementById('modal-nodo-codigo').value.trim();
+      const nombre = document.getElementById('modal-nodo-nombre').value.trim();
+      const descripcion = document.getElementById('modal-nodo-descripcion').value.trim();
+      const orden = parseInt(document.getElementById('modal-nodo-orden').value, 10) || 0;
+
+      if (!tipo || !codigo || !nombre) {
+        estadoEl.textContent = 'Rellena tipo, código y nombre.'; estadoEl.className = 'estado-msg error'; return;
+      }
+
+      const esBuqueNuevo = !nodoCrearPadre;
+
+      const { error } = await supabaseClient.from('nodes').insert({
+        parent_id: nodoCrearPadre ? nodoCrearPadre.id : null, tipo, codigo, nombre, descripcion: descripcion || null, orden
+      });
+
+      if (error) { estadoEl.textContent = 'Error: ' + error.message; estadoEl.className = 'estado-msg error'; return; }
+
+      cerrarModalNodo();
+      if (nodoCrearPadre) nodosAbiertos.add(nodoCrearPadre.id);
+      await cargarArbol();
+
+      if (esBuqueNuevo && esGestor()) {
+        mostrarAviso('pendiente', '🚢 Buque creado', 'Ahora puedes crear usuarios nuevos o asignar existentes desde Usuarios, y montar su estructura interna aquí.', null);
+      }
+    }
+
+    async function guardarNodoEditado(nodeId) {
+      const estadoEl = document.getElementById('modal-nodo-estado');
+      const codigo = document.getElementById('modal-nodo-codigo').value.trim();
+      const nombre = document.getElementById('modal-nodo-nombre').value.trim();
+      const descripcion = document.getElementById('modal-nodo-descripcion').value.trim();
+      const orden = parseInt(document.getElementById('modal-nodo-orden').value, 10) || 0;
+
+      if (!codigo || !nombre) { estadoEl.textContent = 'Rellena código y nombre.'; estadoEl.className = 'estado-msg error'; return; }
+
+      const { error } = await supabaseClient.from('nodes')
+        .update({ codigo, nombre, descripcion: descripcion || null, orden }).eq('id', nodeId);
+
+      if (error) { estadoEl.textContent = 'Error: ' + error.message; estadoEl.className = 'estado-msg error'; return; }
+
+      cerrarModalNodo();
+      await cargarArbol();
+    }
+
+    async function desactivarNodo(nodeId) {
+      const nodo = mapaNodoPorId[nodeId];
+      if ((mapaHijosPorPadre[nodeId] || []).length > 0) {
+        alert('Este nodo tiene hijos. Desactívalos primero.'); return;
+      }
+      if (!confirm(`¿Desactivar "${nodo.codigo} - ${nodo.nombre}"? No se borra, solo deja de aparecer.`)) return;
+
+      const { error } = await supabaseClient.from('nodes').update({ activo: false }).eq('id', nodeId);
+      if (error) { alert('Error: ' + error.message); return; }
+      await cargarArbol();
+    }
+
+    async function abrirModalLote(parentId, parentTipo) {
+      nodoLotePadre = { id: parentId, tipo: parentTipo };
+      document.getElementById('modal-lote-prefijo').value = '';
+      document.getElementById('modal-lote-desde').value = '';
+      document.getElementById('modal-lote-hasta').value = '';
+      document.getElementById('modal-lote-nombre').value = '';
+      document.getElementById('modal-lote-estado').textContent = '';
+
+      const selectTipo = document.getElementById('modal-lote-tipo');
+      const tipos = await obtenerTiposHijoValidos(parentTipo);
+      selectTipo.innerHTML = tipos.length === 0
+        ? '<option value="">(este tipo no admite hijos)</option>'
+        : tipos.map(t => `<option value="${t}">${t}</option>`).join('');
+
+      const selTrab = document.getElementById('modal-lote-trabajador');
+      selTrab.innerHTML = '<option value="">— Sin asignar —</option>' +
+        perfilesCache.map(p => `<option value="${p.id}">${p.nombre_completo} (${p.rol === 'TRABAJADOR' ? 'USUARIO' : p.rol})</option>`).join('');
+
+      const revisores = perfilesCache.filter(p => p.rol === 'REVISOR' || p.rol === 'ADMIN');
+      const selRev = document.getElementById('modal-lote-revisor');
+      selRev.innerHTML = '<option value="">— Sin asignar —</option>' +
+        revisores.map(p => `<option value="${p.id}">${p.nombre_completo} (${p.rol})</option>`).join('');
+
+      document.getElementById('modal-lote').style.display = 'flex';
+    }
+
+    function cerrarModalLote() { document.getElementById('modal-lote').style.display = 'none'; }
+
+    async function guardarLote() {
+      const estadoEl = document.getElementById('modal-lote-estado');
+      const btn = document.getElementById('modal-lote-guardar');
+      const tipo = document.getElementById('modal-lote-tipo').value;
+      const prefijo = document.getElementById('modal-lote-prefijo').value.trim();
+      const desdeStr = document.getElementById('modal-lote-desde').value.trim();
+      const hastaStr = document.getElementById('modal-lote-hasta').value.trim();
+      const nombreBase = document.getElementById('modal-lote-nombre').value.trim();
+      const trabajadorId = document.getElementById('modal-lote-trabajador').value || null;
+      const revisorId = document.getElementById('modal-lote-revisor').value || null;
+
+      const desde = parseInt(desdeStr, 10);
+      const hasta = parseInt(hastaStr, 10);
+      const anchoPadding = desdeStr.length;
+
+      if (!tipo || !prefijo || isNaN(desde) || isNaN(hasta) || hasta < desde) {
+        estadoEl.textContent = 'Rellena tipo, prefijo, y un rango "desde"-"hasta" válido.';
+        estadoEl.className = 'estado-msg error';
+        return;
+      }
+      if (hasta - desde > 200) {
+        estadoEl.textContent = 'Demasiados nodos de golpe (máximo 200). Reduce el rango.';
+        estadoEl.className = 'estado-msg error';
+        return;
+      }
+
+      btn.disabled = true;
+      let creados = 0;
+
+      for (let n = desde; n <= hasta; n++) {
+        const numeroTexto = String(n).padStart(anchoPadding, '0');
+        const codigo = `${prefijo}${numeroTexto}`;
+        const nombre = nombreBase ? `${nombreBase} ${codigo}` : codigo;
+
+        estadoEl.textContent = `Creando ${codigo} (${creados + 1}/${hasta - desde + 1})...`;
+        estadoEl.className = 'estado-msg';
+
+        const { data: nuevoNodo, error } = await supabaseClient.from('nodes').insert({
+          parent_id: nodoLotePadre.id, tipo, codigo, nombre, orden: n
+        }).select().single();
+
+        if (error) {
+          estadoEl.textContent = `Error en ${codigo}: ${error.message} (creados ${creados} de ${hasta - desde + 1})`;
+          estadoEl.className = 'estado-msg error';
+          btn.disabled = false;
+          await cargarArbol();
+          return;
+        }
+
+        if (trabajadorId || revisorId) {
+          await supabaseClient.rpc('asignar_trabajo', {
+            p_node_id: nuevoNodo.id, p_trabajador_id: trabajadorId, p_revisor_id: revisorId
+          });
+        }
+
+        creados++;
+      }
+
+      btn.disabled = false;
+      cerrarModalLote();
+      nodosAbiertos.add(nodoLotePadre.id);
+      await cargarArbol();
+    }
+
+    function abrirModalDuplicar(nodeId) {
+      nodoDuplicarActual = mapaNodoPorId[nodeId];
+      document.getElementById('modal-duplicar-codigo').value = '';
+      document.getElementById('modal-duplicar-nombre').value = nodoDuplicarActual.nombre + ' (copia)';
+      document.getElementById('modal-duplicar-estado').textContent = '';
+      document.getElementById('modal-duplicar').style.display = 'flex';
+    }
+
+    function cerrarModalDuplicar() { document.getElementById('modal-duplicar').style.display = 'none'; }
+
+    async function clonarSubarbol(nodoOriginalId, nuevoParentId, overrideCodigo, overrideNombre) {
+      const original = mapaNodoPorId[nodoOriginalId];
+      const { data: nuevoNodo, error } = await supabaseClient.from('nodes').insert({
+        parent_id: nuevoParentId,
+        tipo: original.tipo,
+        codigo: overrideCodigo || original.codigo,
+        nombre: overrideNombre || original.nombre,
+        descripcion: original.descripcion,
+        orden: original.orden
+      }).select().single();
+
+      if (error) throw error;
+
+      const hijos = mapaHijosPorPadre[nodoOriginalId] || [];
+      for (const hijo of hijos) {
+        await clonarSubarbol(hijo.id, nuevoNodo.id);
+      }
+      return nuevoNodo;
+    }
+
+    async function confirmarDuplicar() {
+      const estadoEl = document.getElementById('modal-duplicar-estado');
+      const btn = document.getElementById('modal-duplicar-guardar');
+      const codigo = document.getElementById('modal-duplicar-codigo').value.trim();
+      const nombre = document.getElementById('modal-duplicar-nombre').value.trim();
+
+      if (!codigo || !nombre) { estadoEl.textContent = 'Rellena código y nombre.'; estadoEl.className = 'estado-msg error'; return; }
+
+      btn.disabled = true;
+      estadoEl.textContent = 'Duplicando estructura, un momento...';
+      estadoEl.className = 'estado-msg';
+
+      try {
+        await clonarSubarbol(nodoDuplicarActual.id, nodoDuplicarActual.parent_id, codigo, nombre);
+        cerrarModalDuplicar();
+        await cargarArbol();
+      } catch (err) {
+        estadoEl.textContent = 'Error: ' + err.message;
+        estadoEl.className = 'estado-msg error';
+      }
+      btn.disabled = false;
+    }
+
+    async function abrirModalMover(nodeId) {
+      nodoMoverActual = mapaNodoPorId[nodeId];
+      parentIdSeleccionadoParaMover = null;
+      document.getElementById('modal-mover-estado').textContent = '';
+      document.getElementById('modal-mover-buscar').value = '';
+
+      const { data: reglas } = await supabaseClient
+        .from('node_type_rules').select('parent_type').eq('child_type', nodoMoverActual.tipo);
+      const tiposPadreValidos = new Set((reglas || []).map(r => r.parent_type));
+
+      const candidatos = todosLosNodos.filter(n =>
+        tiposPadreValidos.has(n.tipo) &&
+        n.id !== nodoMoverActual.id &&
+        n.id !== nodoMoverActual.parent_id &&
+        !esDescendiente(n.id, nodoMoverActual.id)
+      );
+
+      renderizarListaMover(candidatos);
+      document.getElementById('modal-mover-buscar').oninput = (e) => {
+        const q = e.target.value.trim().toLowerCase();
+        renderizarListaMover(candidatos.filter(n => n.codigo.toLowerCase().includes(q) || n.nombre.toLowerCase().includes(q)));
+      };
+
+      document.getElementById('modal-mover').style.display = 'flex';
+    }
+
+    function esDescendiente(posibleDescendienteId, deId) {
+      let actual = mapaNodoPorId[posibleDescendienteId];
+      while (actual && actual.parent_id) {
+        if (actual.parent_id === deId) return true;
+        actual = mapaNodoPorId[actual.parent_id];
+      }
+      return false;
+    }
+
+    function renderizarListaMover(lista) {
+      const cont = document.getElementById('modal-mover-lista');
+      cont.innerHTML = lista.length === 0
+        ? '<div class="opcion-mover">No hay ningún sitio válido para mover este nodo.</div>'
+        : lista.map(n => `<div class="opcion-mover" data-id="${n.id}" onclick="seleccionarDestinoMover('${n.id}')">${rutaCompleta(n)}</div>`).join('');
+    }
+
+    function seleccionarDestinoMover(id) {
+      parentIdSeleccionadoParaMover = id;
+      document.querySelectorAll('.opcion-mover').forEach(el => el.classList.remove('seleccionada'));
+      const el = document.querySelector(`.opcion-mover[data-id="${id}"]`);
+      if (el) el.classList.add('seleccionada');
+    }
+
+    function cerrarModalMover() { document.getElementById('modal-mover').style.display = 'none'; }
+
+    async function confirmarMover() {
+      const estadoEl = document.getElementById('modal-mover-estado');
+      if (!parentIdSeleccionadoParaMover) { estadoEl.textContent = 'Elige un destino de la lista.'; estadoEl.className = 'estado-msg error'; return; }
+
+      const { error } = await supabaseClient.from('nodes').update({ parent_id: parentIdSeleccionadoParaMover }).eq('id', nodoMoverActual.id);
+      if (error) { estadoEl.textContent = 'Error: ' + error.message; estadoEl.className = 'estado-msg error'; return; }
+
+      cerrarModalMover();
+      nodosAbiertos.add(parentIdSeleccionadoParaMover);
+      await cargarArbol();
+    }
+
+    function abrirModalAsignar(nodeId) {
+      nodoAsignarActual = nodeId;
+      const nodo = mapaNodoPorId[nodeId];
+      const selTrab = document.getElementById('modal-asignar-trabajador');
+      const selRev = document.getElementById('modal-asignar-revisor');
+
+      selTrab.innerHTML = '<option value="">— Sin asignar —</option>' +
+        perfilesCache.map(p => `<option value="${p.id}" ${p.id === nodo.trabajador_id ? 'selected' : ''}>${p.nombre_completo} (${p.rol === 'TRABAJADOR' ? 'USUARIO' : p.rol})</option>`).join('');
+
+      const revisores = perfilesCache.filter(p => p.rol === 'REVISOR' || p.rol === 'ADMIN');
+      selRev.innerHTML = '<option value="">— Sin asignar —</option>' +
+        revisores.map(p => `<option value="${p.id}" ${p.id === nodo.revisor_id ? 'selected' : ''}>${p.nombre_completo} (${p.rol})</option>`).join('');
+
+      document.getElementById('modal-asignar-estado').textContent = '';
+      document.getElementById('modal-asignar').style.display = 'flex';
+    }
+
+    function cerrarModalAsignar() { document.getElementById('modal-asignar').style.display = 'none'; }
+
+    async function guardarAsignacion() {
+      const estadoEl = document.getElementById('modal-asignar-estado');
+      const trabajadorId = document.getElementById('modal-asignar-trabajador').value || null;
+      const revisorId = document.getElementById('modal-asignar-revisor').value || null;
+
+      const { error } = await supabaseClient.rpc('asignar_trabajo', {
+        p_node_id: nodoAsignarActual, p_trabajador_id: trabajadorId, p_revisor_id: revisorId
+      });
+
+      if (error) { estadoEl.textContent = 'Error: ' + error.message; estadoEl.className = 'estado-msg error'; return; }
+
+      cerrarModalAsignar();
+      await cargarArbol();
+    }
+
+    async function accionMarcarEnTrabajo(nodeId) {
+      const { error } = await supabaseClient.rpc('marcar_en_trabajo', { p_node_id: nodeId });
+      if (error) { alert('Error: ' + error.message); return; }
+      await cargarArbol();
+    }
+
+    async function accionMarcarTerminado(nodeId) {
+      if (!confirm('¿Marcar este trabajo como terminado y enviarlo a revisión?')) return;
+      const { error } = await supabaseClient.rpc('marcar_terminado', { p_node_id: nodeId });
+      if (error) { alert('Error: ' + error.message); return; }
+      await cargarArbol();
+    }
+
+    async function accionRevisar(nodeId, aprobado) {
+      let comentario = null;
+      if (!aprobado) {
+        comentario = prompt('Motivo del rechazo (obligatorio):');
+        if (!comentario || !comentario.trim()) return;
+      }
+      const { error } = await supabaseClient.rpc('revisar_nodo', { p_node_id: nodeId, p_aprobado: aprobado, p_comentario: comentario });
+      if (error) { alert('Error: ' + error.message); return; }
+      await cargarArbol();
+    }
+
+    function mostrarAviso(tipo, titulo, detalle, ruta) {
+      const cont = document.getElementById('contenedor-avisos');
+      const id = 'aviso-' + Date.now() + Math.random().toString(36).slice(2);
+      const div = document.createElement('div');
+      div.className = `aviso ${tipo}`;
+      div.id = id;
+      div.innerHTML = `
+        <span class="cerrar-aviso" onclick="document.getElementById('${id}').remove()">✕</span>
+        <strong>${titulo}</strong>
+        ${detalle}
+        ${ruta ? `<div class="ruta">${ruta}</div>` : ''}
+      `;
+      cont.appendChild(div);
+      setTimeout(() => { const el = document.getElementById(id); if (el) el.remove(); }, 15000);
+    }
+
+    function suscribirseARealtime() {
+      supabaseClient
+        .channel('node_workflow_cambios')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'node_workflow' }, async (payload) => {
+          await procesarEventoRealtime(payload);
+        })
+        .subscribe();
+    }
+
+    async function procesarEventoRealtime(payload) {
+      const fila = payload.new;
+      const filaAnterior = payload.old || {};
+      if (!fila || !fila.node_id) return;
+
+      if (!mapaNodoPorId[fila.node_id]) await cargarArbol();
+      const nodo = mapaNodoPorId[fila.node_id];
+      if (!nodo) return;
+      const ruta = rutaCompleta(nodo);
+
+      if (fila.trabajador_id === miPerfil.id && filaAnterior.trabajador_id !== miPerfil.id) {
+        mostrarAviso('pendiente', '📋 Nueva tarea asignada', 'Te han asignado esta tarea para trabajar en ella.', ruta);
+      }
+      if (fila.revisor_id === miPerfil.id && filaAnterior.revisor_id !== miPerfil.id) {
+        mostrarAviso('pendiente', '🔍 Nueva asignación de revisión', 'Te han asignado como revisor de este nodo.', ruta);
+      }
+      if (fila.trabajador_id === miPerfil.id && fila.revision_estado === 'RECHAZADO' && filaAnterior.revision_estado !== 'RECHAZADO') {
+        mostrarAviso('rechazo', '✘ Tarea rechazada', fila.comentario_revision ? `Motivo: ${fila.comentario_revision}` : 'Revisa los comentarios.', ruta);
+      }
+      if (fila.trabajador_id === miPerfil.id && fila.revision_estado === 'APROBADO' && filaAnterior.revision_estado !== 'APROBADO') {
+        mostrarAviso('aprobado', '✔ Tarea aprobada', '¡Bien hecho!', ruta);
+      }
+      if ((fila.revisor_id === miPerfil.id || miPerfil.rol === 'ADMIN') &&
+          fila.trabajo_estado === 'TERMINADO' && filaAnterior.trabajo_estado !== 'TERMINADO') {
+        mostrarAviso('pendiente', '📥 Pendiente de revisión', 'Un usuario ha terminado una tarea asignada a ti.', ruta);
+      }
+
+      await cargarArbol();
+    }
+
+    iniciar();
+  </script>
+</body>
+</html>
