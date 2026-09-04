@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <script src="auth.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>REGHOR - Generación de Informes</title>
+  <style>
+    :root {
+      --bg-color: #f4f7f6;
+      --card-bg: #ffffff;
+      --text-color: #333333;
+      --border-color: #cccccc;
+      --header-bg: #007bff;
+    }
+
+    body.dark-mode {
+      --bg-color: #121212;
+      --card-bg: #1e1e1e;
+      --text-color: #e0e0e0;
+      --border-color: #333333;
+      --header-bg: #0b5ed7;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+    }
+
+    .header-container { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .controls-right { display: flex; gap: 10px; align-items: center; }
+
+    .icon-btn { padding: 6px 12px; cursor: pointer; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-color); font-weight: bold; }
+
+    .flag-btn { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 4px; padding: 4px 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .flag-icon { width: 24px; height: 16px; display: block; }
+
+    .btn-cerrar {
+      background-color: #dc3545;
+      color: white;
+      border: none;
+    }
+    .btn-cerrar:hover {
+      background-color: #bd2130;
+    }
+
+    .panel-filtros {
+      background: var(--card-bg);
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: flex-end;
+    }
+
+    .grupo-filtro { display: flex; flex-direction: column; flex: 1 1 120px; min-width: 110px; }
+    .grupo-filtro label { font-weight: bold; font-size: 12px; margin-bottom: 4px; }
+    input, select { padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--card-bg); color: var(--text-color); font-size: 12px; width: 100%; box-sizing: border-box; }
+
+    .grupo-rapido {
+      display: flex;
+      gap: 4px;
+    }
+
+    .btn-rapido {
+      background-color: #6c757d;
+      color: white;
+      border: none;
+      padding: 6px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: bold;
+      white-space: nowrap;
+    }
+    .btn-rapido:hover {
+      background-color: #5a6268;
+    }
+
+    .grupo-botones {
+      display: flex;
+      gap: 8px;
+      flex: 0 0 auto;
+    }
+
+    .btn-filtrar {
+      background-color: #28a745;
+      color: white;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      height: 31px;
+      white-space: nowrap;
+    }
+
+    .btn-xlsx {
+      background-color: #198754;
+      color: white;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      height: 31px;
+      white-space: nowrap;
+    }
+    .btn-xlsx:hover {
+      background-color: #157347;
+    }
+
+    .btn-csv {
+      background-color: #0d6efd;
+      color: white;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      height: 31px;
+      white-space: nowrap;
+    }
+    .btn-csv:hover {
+      background-color: #0b5ed7;
+    }
+
+    .tabla-contenedor {
+      max-height: 65vh;
+      overflow-y: auto;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    table { width: 100%; border-collapse: collapse; background: var(--card-bg); }
+    th, td { padding: 10px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 13px; }
+
+    #tabla-informe-body tr:nth-child(odd) { background-color: rgba(0, 123, 255, 0.08); }
+    #tabla-informe-body tr:nth-child(even) { background-color: var(--card-bg); }
+    #tabla-informe-body tr:hover { background-color: rgba(0, 123, 255, 0.25); }
+
+    thead th {
+      background-color: var(--header-bg);
+      color: white;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+
+    tfoot tr { background-color: rgba(0, 123, 255, 0.08); font-weight: bold; }
+    tfoot td {
+      border-top: 1px solid var(--border-color);
+      position: sticky;
+      bottom: 0;
+      background-color: var(--card-bg);
+      background-image: linear-gradient(rgba(0, 123, 255, 0.08), rgba(0, 123, 255, 0.08));
+    }
+  </style>
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- SheetJS para exportación nativa XLSX -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+
+  <div class="header-container">
+    <h1 id="txt-titulo">📊 Informes y Registros</h1>
+    <div class="controls-right">
+      <button class="flag-btn" onclick="cambiarIdioma('es')" title="Español">
+        <svg class="flag-icon" viewBox="0 0 750 500">
+          <rect width="750" height="500" fill="#c60b1e"/>
+          <rect y="125" width="750" height="250" fill="#ffc400"/>
+        </svg>
+      </button>
+
+      <button class="flag-btn" onclick="cambiarIdioma('gl')" title="Galego">
+        <svg class="flag-icon" viewBox="0 0 3 2">
+          <rect width="3" height="2" fill="#fff"/>
+          <path d="M0 0 L3 2" stroke="#009ac6" stroke-width="0.4"/>
+        </svg>
+      </button>
+
+      <button class="flag-btn" onclick="cambiarIdioma('en')" title="English">
+        <svg class="flag-icon" viewBox="0 0 60 30">
+          <rect width="60" height="30" fill="#00247d"/>
+          <path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/>
+          <path d="M0,0 L60,30 M60,0 L0,30" stroke="#cf142b" stroke-width="2"/>
+          <path d="M30,0 V30 M0,15 H60" stroke="#fff" stroke-width="10"/>
+          <path d="M30,0 V30 M0,15 H60" stroke="#cf142b" stroke-width="6"/>
+        </svg>
+      </button>
+
+      <button class="icon-btn" onclick="toggleTheme()" id="btn-theme">🌙 Oscuro</button>
+      <button class="icon-btn btn-cerrar" onclick="cerrarSesion()" id="btn-logout" title="Cerrar sesión">🔒 Salir</button>
+      <button class="icon-btn btn-cerrar" onclick="cerrarPestana()" id="btn-cerrar">❌ Cerrar</button>
+    </div>
+  </div>
+
+  <div class="panel-filtros">
+    <div class="grupo-filtro">
+      <label id="lbl-rango-rapido">Rango Rápido</label>
+      <div class="grupo-rapido">
+        <button class="btn-rapido" id="btn-hoy" onclick="establecerRango('hoy')">Hoy</button>
+        <button class="btn-rapido" id="btn-semana-actual" onclick="establecerRango('semana')">Semana actual</button>
+        <button class="btn-rapido" id="btn-semana-anterior" onclick="establecerRango('semana_anterior')">Semana anterior</button>
+        <button class="btn-rapido" id="btn-mes" onclick="establecerRango('mes')">Mes</button>
+      </div>
+    </div>
+    <div class="grupo-filtro">
+      <label id="lbl-desde">Desde Fecha</label>
+      <input type="date" id="filtro-desde">
+    </div>
+    <div class="grupo-filtro">
+      <label id="lbl-hasta">Hasta Fecha</label>
+      <input type="date" id="filtro-hasta">
+    </div>
+    <div class="grupo-filtro">
+      <label id="lbl-tarea">Tarea (*)</label>
+      <input type="text" id="filtro-tarea" value="*">
+    </div>
+    <div class="grupo-filtro">
+      <label id="lbl-proyecto">Proyecto (*)</label>
+      <input type="text" id="filtro-proyecto" value="*">
+    </div>
+    <div class="grupo-filtro">
+      <label id="lbl-bloque">Bloque (*)</label>
+      <input type="text" id="filtro-bloque" value="*">
+    </div>
+    <div class="grupo-filtro">
+      <label id="lbl-comentario">Comentario (*)</label>
+      <input type="text" id="filtro-comentario" value="*">
+    </div>
+
+    <div class="grupo-botones">
+      <button class="btn-filtrar" id="btn-generar" onclick="cargarInforme()">Generar Informe</button>
+      <button class="btn-xlsx" id="btn-xlsx" onclick="exportarXLSX()">📊 Exportar XLSX</button>
+      <button class="btn-csv" id="btn-csv" onclick="exportarCSV()">📄 Exportar CSV</button>
+    </div>
+  </div>
+
+  <div class="tabla-contenedor">
+    <table>
+      <thead>
+        <tr>
+          <th id="th-fecha">Fecha</th>
+          <th id="th-tarea">Tarea</th>
+          <th id="th-proyecto">Proyecto</th>
+          <th id="th-bloque">Bloque</th>
+          <th id="th-inicio">Hora inicio</th>
+          <th id="th-fin">Hora fin</th>
+          <th id="th-duracion">Duración</th>
+          <th id="th-comentario">Comentario</th>
+          <th id="th-notas">Notas</th>
+        </tr>
+      </thead>
+      <tbody id="tabla-informe-body"></tbody>
+      <tfoot>
+        <tr>
+          <td colspan="6" style="text-align: right;" id="txt-total-label">Total Horas:</td>
+          <td id="total-informe-horas">00:00</td>
+          <td colspan="2"></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="informes.js"></script>
+</body>
+</html>
