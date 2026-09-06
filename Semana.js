@@ -27,7 +27,9 @@ const TEXTOS_SEMANA = {
     thFecha: 'Fecha', thDia: 'Día', thEntrada: 'Entrada', thSalida: 'Salida',
     thTeorica: 'Jornada Teórica', thDuracion: 'Duración', anterior: '◀ Semana anterior', actual: 'Semana actual', siguiente: 'Semana siguiente ▶',
     teoricasSemana: 'Horas teóricas semana', totalesLunesJueves: 'Horas totales semana (lunes-jueves)',
-    pendienteViernes: 'Horas pendientes hasta viernes', salidaViernesPrevista: 'Hora salida viernes (prevista)',
+    pendienteViernes: 'Horas pendientes viernes',
+    pendienteViernesTip: 'Horas teóricas de toda la semana menos las ya trabajadas de lunes a jueves. Un lunes por la mañana coincide con el total teórico de la semana; a medida que avanza la semana va bajando según lo que se vaya trabajando.',
+    salidaViernesPrevista: 'Hora salida viernes (prevista)',
     pendiente: 'Pendiente', sinDatos: 'Sin tareas registradas'
   },
   gl: {
@@ -35,7 +37,9 @@ const TEXTOS_SEMANA = {
     thFecha: 'Data', thDia: 'Día', thEntrada: 'Entrada', thSalida: 'Saída',
     thTeorica: 'Xornada Teórica', thDuracion: 'Duración', anterior: '◀ Semana anterior', actual: 'Semana actual', siguiente: 'Semana seguinte ▶',
     teoricasSemana: 'Horas teóricas semana', totalesLunesJueves: 'Horas totais semana (luns-xoves)',
-    pendienteViernes: 'Horas pendentes ata venres', salidaViernesPrevista: 'Hora saída venres (prevista)',
+    pendienteViernes: 'Horas pendentes venres',
+    pendienteViernesTip: 'Horas teóricas de toda a semana menos as xa traballadas de luns a xoves. Un luns pola mañá coincide co total teórico da semana; a medida que avanza a semana vai baixando segundo o que se vaia traballando.',
+    salidaViernesPrevista: 'Hora saída venres (prevista)',
     pendiente: 'Pendente', sinDatos: 'Sen tarefas rexistradas'
   },
   en: {
@@ -43,7 +47,9 @@ const TEXTOS_SEMANA = {
     thFecha: 'Date', thDia: 'Day', thEntrada: 'Start', thSalida: 'End',
     thTeorica: 'Theoretical Shift', thDuracion: 'Duration', anterior: '◀ Previous Week', actual: 'Current Week', siguiente: 'Next Week ▶',
     teoricasSemana: 'Weekly Theoretical Hours', totalesLunesJueves: 'Total Hours (Mon-Thu)',
-    pendienteViernes: 'Hours Pending Until Friday', salidaViernesPrevista: 'Friday End Time (estimated)',
+    pendienteViernes: 'Hours Pending on Friday',
+    pendienteViernesTip: 'Weekly theoretical hours minus what has already been worked Monday-Thursday. On Monday morning this matches the week\'s theoretical total; it goes down as the week progresses.',
+    salidaViernesPrevista: 'Friday End Time (estimated)',
     pendiente: 'Pending', sinDatos: 'No tasks logged'
   }
 };
@@ -196,7 +202,7 @@ async function cargarSemana(lunes) {
       <td id="valor-totales">00:00</td>
     </tr>
     <tr class="fila-resumen fila-pendiente">
-      <td colspan="5">${t.pendienteViernes}</td>
+      <td colspan="5" id="txt-pendiente-label" title="${t.pendienteViernesTip}">${t.pendienteViernes} ℹ️</td>
       <td id="valor-pendiente">00:00</td>
     </tr>
     <tr class="fila-resumen fila-salida-prevista">
@@ -221,6 +227,15 @@ async function cargarSemana(lunes) {
  *    las 8:30 teóricas, ese exceso ya reduce lo pendiente del viernes).
  *  - Hora de salida del viernes = hora de entrada del viernes (la primera
  *    tarea registrada ese día) + horas pendientes de trabajo.
+ *
+ * NOTA: la aritmética de esta función es exacta (minutos enteros, sin
+ * redondeos); un desfase de pocos minutos entre la salida prevista y la
+ * salida real casi siempre viene de que la "entrada del viernes" (o la de
+ * cualquier día de lunes a jueves) no reflejaba el momento real en que se
+ * empezó a trabajar -típicamente porque el arranque de la sesión remota no
+ * se registraba como tarea-. Por eso se ha añadido la tarea "Arranque
+ * sesión remota" en app.js: registrándola con la hora real de inicio, la
+ * hora de entrada que usa esta fórmula será exacta.
  */
 function actualizarResumenSemana() {
   const t = TEXTOS_SEMANA[idiomaActual];

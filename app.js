@@ -1,8 +1,8 @@
 // SUPABASE_URL, SUPABASE_KEY, supabaseClient y TABLA ahora viven en config.js
 
-// Las 43 Tareas predefinidas
+// Las 44 Tareas predefinidas
 const TAREAS_DEFAULT = [
-  "Análisis especificaciones cliente", "Anidado de ficheros 3000's", "AOYV", "Ausencia no recuperable", "Ausencia recuperable", "Comida",
+  "Análisis especificaciones cliente", "Anidado de ficheros 3000's", "AOYV", "Arranque sesión remota", "Ausencia no recuperable", "Ausencia recuperable", "Comida",
   "Descanso 20'", "Descanso 30'", "Espera de nueva tarea", "Fuera escritorio", "Generación .e2", "Generación .e3",
   "Generación de lotes de planchas", "Generación de previas", "Generación de secuencias de corte",
   "Maquillaje .e2 1000's", "Maquillaje .e2 2000's", "Maquillaje .e2 3000's", "Maquillaje .e2 4000's",
@@ -14,31 +14,31 @@ const TAREAS_DEFAULT = [
   "Revisión maquillaje 6000's", "Revisión previas", "Solicitada nueva tarea", "Varios"
 ];
 
-// Los 12 Proyectos predefinidos
+// Los 13 Proyectos predefinidos
 const PROYECTOS_DEFAULT = [
-  "ABAC", "BAC2", "BLOR", "COM", "DES", "FOR", "INFO", "INT", "MAN", "NAV", "PROG", "VAC"
+  "ABAC", "BAC2", "BLOR", "COM", "DES", "FES", "FOR", "INFO", "INT", "MAN", "NAV", "PROG", "VAC"
 ];
 
-// Tareas incorporadas en cada actualización: si el navegador ya tenía una
-// lista de tareas guardada en localStorage (personalizada desde "+config"),
-// TAREAS_DEFAULT no le afecta -por eso se fusionan aquí-, para que aparezcan
-// sin tener que añadirlas a mano. Cada bloque se fusiona una única vez (su
-// propia clave en localStorage marca si ya se aplicó), así que si luego
-// borras alguna con el botón 🗑️ no vuelve a aparecer sola, y añadir un
-// bloque nuevo en el futuro no repite los anteriores.
-const MIGRACIONES_TAREAS = [
-  { clave: 'cfg_migracion_tareas_2026_09', tareas: ["Fuera escritorio", "Varios", "Nueva tarea", "Revisión grupos", "Revisión previas", "Maquillaje de previas"] },
-  { clave: 'cfg_migracion_tareas_2026_09_v2', tareas: ["Ausencia no recuperable", "Ausencia recuperable"] }
-];
+/**
+ * Fusiona en una lista ya guardada en localStorage (tareas o proyectos) los
+ * valores nuevos que se vayan incorporando en cada actualización de la app.
+ * Si el navegador todavía no tiene esa lista guardada (instalación nueva),
+ * no hace nada aquí: se usará directamente el array *_DEFAULT correspondiente,
+ * que ya incluye los valores nuevos. Cada bloque de migración se aplica una
+ * única vez (su propia clave en localStorage marca si ya se aplicó), así que
+ * si luego borras alguno con el botón 🗑️ no vuelve a aparecer solo, y añadir
+ * un bloque nuevo en el futuro no repite los anteriores.
+ */
+function aplicarMigracionesLista(claveLista, migraciones) {
+  let lista = JSON.parse(localStorage.getItem(claveLista));
+  if (!lista) return null;
 
-let tareasGuardadas = JSON.parse(localStorage.getItem('cfg_tareas'));
-if (tareasGuardadas) {
   let huboCambios = false;
-  MIGRACIONES_TAREAS.forEach(migracion => {
+  migraciones.forEach(migracion => {
     if (!localStorage.getItem(migracion.clave)) {
-      migracion.tareas.forEach(t => {
-        if (!tareasGuardadas.includes(t)) {
-          tareasGuardadas.push(t);
+      migracion.valores.forEach(v => {
+        if (!lista.includes(v)) {
+          lista.push(v);
           huboCambios = true;
         }
       });
@@ -46,14 +46,25 @@ if (tareasGuardadas) {
     }
   });
   if (huboCambios) {
-    localStorage.setItem('cfg_tareas', JSON.stringify(tareasGuardadas));
+    localStorage.setItem(claveLista, JSON.stringify(lista));
   }
+  return lista;
 }
 
-// Cargar desde LocalStorage si existen o usar los por defecto
+const MIGRACIONES_TAREAS = [
+  { clave: 'cfg_migracion_tareas_2026_09', valores: ["Fuera escritorio", "Varios", "Nueva tarea", "Revisión grupos", "Revisión previas", "Maquillaje de previas"] },
+  { clave: 'cfg_migracion_tareas_2026_09_v2', valores: ["Ausencia no recuperable", "Ausencia recuperable"] },
+  { clave: 'cfg_migracion_tareas_2026_09_v3', valores: ["Arranque sesión remota"] }
+];
+
+const MIGRACIONES_PROYECTOS = [
+  { clave: 'cfg_migracion_proyectos_2026_09', valores: ["FES"] }
+];
+
+// Cargar desde LocalStorage si existen (con las migraciones ya fusionadas) o usar los por defecto
 let configData = {
-  tareas: tareasGuardadas || TAREAS_DEFAULT,
-  proyectos: JSON.parse(localStorage.getItem('cfg_proyectos')) || PROYECTOS_DEFAULT
+  tareas: aplicarMigracionesLista('cfg_tareas', MIGRACIONES_TAREAS) || TAREAS_DEFAULT,
+  proyectos: aplicarMigracionesLista('cfg_proyectos', MIGRACIONES_PROYECTOS) || PROYECTOS_DEFAULT
 };
 
 let tipoConfigActual = '';
@@ -248,13 +259,13 @@ async function cargarTareas() {
     if (error) {
       console.error("Error al cargar registros:", error);
       tablaBody.innerHTML = `<div class="tabla-msg" style="color:red;">Error Supabase: ${error.message}</div>`;
-      actualizarResumenHoras([], fechaFiltroStr);
+      await actualizarResumenHoras([], fechaFiltroStr);
       return;
     }
 
     if (!tareas || tareas.length === 0) {
       tablaBody.innerHTML = `<div class="tabla-msg">No existen registros guardados para la fecha ${fechaFiltroStr}.</div>`;
-      actualizarResumenHoras([], fechaFiltroStr);
+      await actualizarResumenHoras([], fechaFiltroStr);
       return;
     }
 
@@ -289,12 +300,12 @@ async function cargarTareas() {
       `;
     }).join('');
 
-    actualizarResumenHoras(tareas, fechaFiltroStr);
+    await actualizarResumenHoras(tareas, fechaFiltroStr);
 
   } catch(err) {
     console.error("Error inesperado en cargarTareas:", err);
     tablaBody.innerHTML = `<div class="tabla-msg" style="color:red;">Error al procesar la solicitud.</div>`;
-    actualizarResumenHoras([], fechaFiltroStr);
+    await actualizarResumenHoras([], fechaFiltroStr);
   }
 }
 
@@ -425,18 +436,29 @@ document.getElementById('tarea-form').addEventListener('submit', async (e) => {
 });
 
 /**
- * Botón "Ausencia": si el formulario tiene una tarea en curso con todos los
- * campos obligatorios rellenos, se guarda primero (igual que pulsar
- * Guardar/Actualizar) para no perderla; si está vacío o incompleto, este
- * paso se omite sin avisar. A continuación se prepara en el formulario un
- * registro nuevo con fecha de hoy y hora de inicio la hora actual, con la
- * tarea "Ausencia no recuperable" preseleccionada (cámbiala por "Ausencia
- * recuperable" en el desplegable si corresponde); la hora de fin se deja en
- * blanco para indicarla a mano al volver, y solo entonces (al pulsar
- * Guardar) se crea el registro en Supabase.
+ * Botón "Ausencia": si el formulario tiene una tarea en curso (con hora de
+ * inicio pero todavía sin hora de fin, porque es la tarea que se estaba
+ * haciendo justo antes de levantarse), se le rellena automáticamente la
+ * hora de fin con la hora actual y se guarda (igual que pulsar
+ * Guardar/Actualizar), para no perder ese registro. Si el formulario ya
+ * tenía hora de fin puesta a mano, se respeta tal cual. A continuación se
+ * prepara en el formulario un registro nuevo con fecha de hoy, tarea "Fuera
+ * escritorio", proyecto "FES" y hora de inicio la misma hora actual (para
+ * que no quede hueco entre el final de la tarea anterior y el comienzo de
+ * la ausencia); la hora de fin se deja en blanco para indicarla a mano al
+ * volver, y solo entonces (al pulsar Guardar) se crea el registro en
+ * Supabase.
  */
 async function iniciarAusencia() {
   const form = document.getElementById('tarea-form');
+
+  const ahora = new Date();
+  const horaActual = `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`;
+
+  const inputHoraFin = document.getElementById('horafin');
+  if (document.getElementById('horainicio').value && !inputHoraFin.value) {
+    inputHoraFin.value = horaActual;
+  }
 
   if (form.checkValidity()) {
     const guardadoOk = await guardarRegistroFormulario();
@@ -445,13 +467,10 @@ async function iniciarAusencia() {
 
   document.getElementById('tarea-id').value = '';
   document.getElementById('fecha').value = obtenerFechaHoyISO();
-  document.getElementById('tarea').value = 'Ausencia no recuperable';
-  document.getElementById('proyecto').value = 'DES';
+  document.getElementById('tarea').value = 'Fuera escritorio';
+  document.getElementById('proyecto').value = 'FES';
   document.getElementById('bloque').value = 'GENERAL';
-
-  const ahora = new Date();
-  document.getElementById('horainicio').value =
-    `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`;
+  document.getElementById('horainicio').value = horaActual;
   document.getElementById('horafin').value = '';
   document.getElementById('comentario').value = 'Ausencia';
   document.getElementById('notas').value = '';
@@ -472,7 +491,7 @@ async function borrarTarea(id) {
   }
 }
 
-function actualizarResumenHoras(listaTareas, fechaStr) {
+async function actualizarResumenHoras(listaTareas, fechaStr) {
   let totalMinutosReales = 0;
 
   listaTareas.forEach(item => {
@@ -487,7 +506,11 @@ function actualizarResumenHoras(listaTareas, fechaStr) {
     totalMinutosReales = Math.max(0, totalMinutosReales - descanso);
   }
 
-  const minutosTeoricos = obtenerJornadaTeoricaMinutos(fechaStr);
+  // En viernes, la jornada teórica del día es la que realmente queda
+  // pendiente tras lo ya trabajado de lunes a jueves esa semana (ver
+  // obtenerJornadaTeoricaAjustada en config.js); el resto de días usa la
+  // jornada teórica fija de siempre.
+  const minutosTeoricos = await obtenerJornadaTeoricaAjustada(fechaStr);
   const balanceMinutos = totalMinutosReales - minutosTeoricos;
 
   document.getElementById('total-teorica').textContent = formatearMinutosAHoras(minutosTeoricos);
