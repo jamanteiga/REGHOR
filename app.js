@@ -259,18 +259,21 @@ async function cargarTareas() {
     if (error) {
       console.error("Error al cargar registros:", error);
       tablaBody.innerHTML = `<div class="tabla-msg" style="color:red;">Error Supabase: ${error.message}</div>`;
+      actualizarAvisoAbiertas([]);
       await actualizarResumenHoras([], fechaFiltroStr);
       return;
     }
 
     if (!tareas || tareas.length === 0) {
       tablaBody.innerHTML = `<div class="tabla-msg">No existen registros guardados para la fecha ${fechaFiltroStr}.</div>`;
+      actualizarAvisoAbiertas([]);
       await actualizarResumenHoras([], fechaFiltroStr);
       return;
     }
 
     tareas.sort((a, b) => (a.id || 0) - (b.id || 0));
     tareasCargadasCache = tareas;
+    actualizarAvisoAbiertas(tareas);
 
     // El índice (idx + 1) es un número de fila puramente visual, calculado
     // en el navegador a partir de la posición en la lista ya ordenada por
@@ -305,8 +308,38 @@ async function cargarTareas() {
   } catch(err) {
     console.error("Error inesperado en cargarTareas:", err);
     tablaBody.innerHTML = `<div class="tabla-msg" style="color:red;">Error al procesar la solicitud.</div>`;
+    actualizarAvisoAbiertas([]);
     await actualizarResumenHoras([], fechaFiltroStr);
   }
+}
+
+const TEXTOS_AVISO_ABIERTA = {
+  es: (n) => n === 1 ? '⚠️ Tienes 1 tarea sin hora de fin. Recuerda cerrarla.' : `⚠️ Tienes ${n} tareas sin hora de fin. Recuerda cerrarlas.`,
+  gl: (n) => n === 1 ? '⚠️ Tes 1 tarefa sen hora de fin. Lembra pechala.' : `⚠️ Tes ${n} tarefas sen hora de fin. Lembra pechalas.`,
+  en: (n) => n === 1 ? '⚠️ You have 1 task without an end time. Remember to close it.' : `⚠️ You have ${n} tasks without an end time. Remember to close them.`
+};
+
+/**
+ * Aviso visible sobre el listado cuando alguna tarea del día tiene hora de
+ * inicio pero no hora de fin (lo habitual tras usar el botón "Ausencia" y
+ * no volver a cerrarla). Se recalcula cada vez que se recarga el listado y
+ * también al cambiar de idioma, para que el texto quede siempre correcto.
+ */
+function actualizarAvisoAbiertas(listaTareas) {
+  const el = document.getElementById('aviso-abiertas');
+  if (!el) return;
+
+  const abiertas = (listaTareas || []).filter(t => t.horainicio && !t.horafin);
+  if (abiertas.length === 0) {
+    el.style.display = 'none';
+    el.textContent = '';
+    return;
+  }
+
+  const detalle = abiertas.map(t => `${t.horainicio} ${t.tarea || ''}`.trim()).join(', ');
+  const construirTexto = TEXTOS_AVISO_ABIERTA[idiomaActual] || TEXTOS_AVISO_ABIERTA.es;
+  el.textContent = `${construirTexto(abiertas.length)} (${detalle})`;
+  el.style.display = 'block';
 }
 
 /**
@@ -381,6 +414,43 @@ function resetearFormulario() {
 }
 
 /**
+ * Busca, entre las tareas ya guardadas ese mismo día en Supabase, alguna
+ * cuyo rango horario se solape con [horaInicio, horaFin). Dos rangos se
+ * solapan si cada uno empieza antes de que el otro termine; los que solo
+ * se tocan por un extremo (una acaba a las 10:00 y la otra empieza a las
+ * 10:00) NO cuentan como solape. Se excluye el propio registro (idExcluir)
+ * cuando se está editando, y se ignoran las tareas todavía sin hora de fin
+ * (no se puede saber su rango real). Devuelve el registro en conflicto, o
+ * null si no hay ninguno o si algo falla al consultar.
+ */
+async function existeSolapeHorario(fechaStr, horaInicio, horaFin, idExcluir) {
+  if (!supabaseClient || !fechaStr || !horaInicio || !horaFin) return null;
+
+  try {
+    const { data, error } = await supabaseClient
+      .from(TABLA)
+      .select('id,tarea,horainicio,horafin')
+      .ilike('fecha', `%${fechaStr}%`);
+
+    if (error || !data) return null;
+
+    const inicioNuevo = obtenerMinutosDuracion('00:00', horaInicio);
+    const finNuevo = obtenerMinutosDuracion('00:00', horaFin);
+
+    return data.find(r => {
+      if (idExcluir && String(r.id) === String(idExcluir)) return false;
+      if (!r.horainicio || !r.horafin) return false;
+      const inicioOtro = obtenerMinutosDuracion('00:00', r.horainicio);
+      const finOtro = obtenerMinutosDuracion('00:00', r.horafin);
+      return inicioNuevo < finOtro && inicioOtro < finNuevo;
+    }) || null;
+  } catch (e) {
+    console.error('Error al comprobar solapes de horario:', e);
+    return null;
+  }
+}
+
+/**
  * Guarda (inserta o actualiza, según tarea-id) el registro que haya
  * actualmente en el formulario. Devuelve true si se guardó correctamente,
  * false si hubo algún error o si la validación de horas no pasa. Se usa
@@ -395,6 +465,14 @@ async function guardarRegistroFormulario() {
   if (horaInicio && horaFin && horaFin < horaInicio) {
     alert('❌ Error: La Hora Fin no puede ser anterior a la Hora Inicio.');
     return false;
+  }
+
+  if (horaInicio && horaFin) {
+    const conflicto = await existeSolapeHorario(fechaStr, horaInicio, horaFin, id);
+    if (conflicto) {
+      alert(`❌ Error: El horario (${horaInicio}-${horaFin}) se solapa con otra tarea ya registrada ese día: ${conflicto.horainicio}-${conflicto.horafin} (${conflicto.tarea || 'sin nombre'}).`);
+      return false;
+    }
   }
 
   const registro = {
@@ -589,4 +667,5 @@ function cambiarIdioma(lang) {
   document.getElementById('th-acciones').textContent = t.acciones;
 
   poblarSelects();
+  actualizarAvisoAbiertas(tareasCargadasCache);
 }

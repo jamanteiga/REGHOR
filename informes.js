@@ -2,16 +2,16 @@
 // obtenerMinutosDuracion, calcularDuracion, formatearMinutosAHoras,
 // formatearFechaISO, obtenerFechaHoyISO, obtenerDescansoMinutos,
 // toggleTheme y cerrarPestana ahora viven en config.js
- 
+
 let idiomaActual = 'es';
- 
+
 const TEXTOS_INFORME = {
   es: {
     titulo: '📊 Informes y Registros', cerrar: '❌ Cerrar', rangoRapido: 'Rango Rápido',
     hoy: 'Hoy', semanaActual: 'Semana actual', semanaAnterior: 'Semana anterior', mes: 'Mes',
     desde: 'Desde Fecha', hasta: 'Hasta Fecha', tarea: 'Tarea (*)', proyecto: 'Proyecto (*)',
     bloque: 'Bloque (*)', comentario: 'Comentario (*)', generar: 'Generar Informe',
-    xlsx: '📊 Exportar XLSX', csv: '📄 Exportar CSV', thFecha: 'Fecha', thTarea: 'Tarea',
+    xlsx: '📊 Exportar XLSX', csv: '📄 Exportar CSV', pdf: '📕 Exportar PDF', thFecha: 'Fecha', thTarea: 'Tarea',
     thProyecto: 'Proyecto', thBloque: 'Bloque', thInicio: 'Hora inicio', thFin: 'Hora fin',
     thDuracion: 'Duración', thComentario: 'Comentario', thNotas: 'Notas', totalHoras: 'Total Horas:'
   },
@@ -20,7 +20,7 @@ const TEXTOS_INFORME = {
     hoy: 'Hoxe', semanaActual: 'Semana actual', semanaAnterior: 'Semana anterior', mes: 'Mes',
     desde: 'Desde Data', hasta: 'Ata Data', tarea: 'Tarefa (*)', proyecto: 'Proxecto (*)',
     bloque: 'Bloque (*)', comentario: 'Comentario (*)', generar: 'Xerar Informe',
-    xlsx: '📊 Exportar XLSX', csv: '📄 Exportar CSV', thFecha: 'Data', thTarea: 'Tarefa',
+    xlsx: '📊 Exportar XLSX', csv: '📄 Exportar CSV', pdf: '📕 Exportar PDF', thFecha: 'Data', thTarea: 'Tarefa',
     thProyecto: 'Proxecto', thBloque: 'Bloque', thInicio: 'Hora inicio', thFin: 'Hora fin',
     thDuracion: 'Duración', thComentario: 'Comentario', thNotas: 'Notas', totalHoras: 'Total de Horas:'
   },
@@ -29,16 +29,16 @@ const TEXTOS_INFORME = {
     hoy: 'Today', semanaActual: 'This Week', semanaAnterior: 'Last Week', mes: 'Month',
     desde: 'From Date', hasta: 'To Date', tarea: 'Task (*)', proyecto: 'Project (*)',
     bloque: 'Block (*)', comentario: 'Comment (*)', generar: 'Generate Report',
-    xlsx: '📊 Export XLSX', csv: '📄 Export CSV', thFecha: 'Date', thTarea: 'Task',
+    xlsx: '📊 Export XLSX', csv: '📄 Export CSV', pdf: '📕 Export PDF', thFecha: 'Date', thTarea: 'Task',
     thProyecto: 'Project', thBloque: 'Block', thInicio: 'Start Time', thFin: 'End Time',
     thDuracion: 'Duration', thComentario: 'Comment', thNotas: 'Notes', totalHoras: 'Total Hours:'
   }
 };
- 
+
 function cambiarIdioma(lang) {
   idiomaActual = lang;
   const t = TEXTOS_INFORME[lang];
- 
+
   document.getElementById('txt-titulo').textContent = t.titulo;
   document.getElementById('btn-cerrar').textContent = t.cerrar;
   document.getElementById('lbl-rango-rapido').textContent = t.rangoRapido;
@@ -55,6 +55,7 @@ function cambiarIdioma(lang) {
   document.getElementById('btn-generar').textContent = t.generar;
   document.getElementById('btn-xlsx').textContent = t.xlsx;
   document.getElementById('btn-csv').textContent = t.csv;
+  document.getElementById('btn-pdf').textContent = t.pdf;
   document.getElementById('th-fecha').textContent = t.thFecha;
   document.getElementById('th-tarea').textContent = t.thTarea;
   document.getElementById('th-proyecto').textContent = t.thProyecto;
@@ -66,29 +67,29 @@ function cambiarIdioma(lang) {
   document.getElementById('th-notas').textContent = t.thNotas;
   document.getElementById('txt-total-label').textContent = t.totalHoras;
 }
- 
+
 document.addEventListener('DOMContentLoaded', () => {
   establecerValoresPorDefecto();
   cargarInforme();
 });
- 
+
 function establecerValoresPorDefecto() {
   const fechaHoy = obtenerFechaHoyISO();
- 
+
   document.getElementById('filtro-desde').value = fechaHoy;
   document.getElementById('filtro-hasta').value = fechaHoy;
- 
+
   document.getElementById('filtro-tarea').value = '*';
   document.getElementById('filtro-proyecto').value = '*';
   document.getElementById('filtro-bloque').value = '*';
   document.getElementById('filtro-comentario').value = '*';
 }
- 
+
 function establecerRango(tipo) {
   const hoy = new Date();
   let desde = new Date();
   let hasta = new Date();
- 
+
   if (tipo === 'hoy') {
     desde = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
     hasta = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
@@ -105,30 +106,30 @@ function establecerRango(tipo) {
     desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
     hasta = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
   }
- 
+
   document.getElementById('filtro-desde').value = formatearFechaISO(desde);
   document.getElementById('filtro-hasta').value = formatearFechaISO(hasta);
- 
+
   cargarInforme();
 }
- 
+
 async function cargarInforme() {
   if (!supabaseClient) return;
- 
+
   const desde = document.getElementById('filtro-desde').value;
   const hasta = document.getElementById('filtro-hasta').value;
- 
+
   const regexTarea = crearRegexFiltro(document.getElementById('filtro-tarea').value);
   const regexProyecto = crearRegexFiltro(document.getElementById('filtro-proyecto').value);
   const regexBloque = crearRegexFiltro(document.getElementById('filtro-bloque').value);
   const regexComentario = crearRegexFiltro(document.getElementById('filtro-comentario').value);
- 
+
   // Supabase limita cada consulta a 1000 filas por defecto: paginamos con
   // .range() hasta traer todos los registros que cumplan el filtro de fechas.
   const TAMANO_PAGINA = 1000;
   let data = [];
   let desdeIndice = 0;
- 
+
   while (true) {
     let query = supabaseClient
       .from(TABLA)
@@ -136,50 +137,50 @@ async function cargarInforme() {
       .order('fecha', { ascending: true })
       .order('horainicio', { ascending: true })
       .range(desdeIndice, desdeIndice + TAMANO_PAGINA - 1);
- 
+
     if (desde) query = query.gte('fecha', desde);
     if (hasta) query = query.lte('fecha', hasta);
- 
+
     const { data: pagina, error } = await query;
- 
+
     if (error) {
       console.error("Error al cargar datos:", error);
       return;
     }
- 
+
     data = data.concat(pagina);
- 
+
     if (!pagina || pagina.length < TAMANO_PAGINA) break;
     desdeIndice += TAMANO_PAGINA;
   }
- 
+
   const tbody = document.getElementById('tabla-informe-body');
   tbody.innerHTML = '';
- 
+
   // Minutos brutos acumulados por fecha (solo de las filas que pasan el
   // filtro), para poder aplicar el descuento de 00:30 una vez por día —
   // el mismo criterio que usa index.html — en lugar de sumar todas las
   // filas sueltas sin distinguir a qué día pertenecen.
   const minutosPorDia = {};
- 
+
   data.forEach(item => {
     const tarea = item.tarea || '';
     const proyecto = item.proyecto || '';
     const bloque = item.bloque || '';
     const comentario = item.comentario || '';
- 
+
     // Evaluación del comodín '*' en los campos correspondientes
     if (regexTarea && !regexTarea.test(tarea)) return;
     if (regexProyecto && !regexProyecto.test(proyecto)) return;
     if (regexBloque && !regexBloque.test(bloque)) return;
     if (regexComentario && !regexComentario.test(comentario)) return;
- 
+
     let fechaKey = String(item.fecha || '').trim();
     if (fechaKey.includes('T')) fechaKey = fechaKey.split('T')[0];
     if (fechaKey.includes(' ')) fechaKey = fechaKey.split(' ')[0];
- 
+
     minutosPorDia[fechaKey] = (minutosPorDia[fechaKey] || 0) + obtenerMinutosDuracion(item.horainicio, item.horafin);
- 
+
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${item.fecha || ''}</td>
@@ -194,7 +195,7 @@ async function cargarInforme() {
     `;
     tbody.appendChild(tr);
   });
- 
+
   // Igual que en el registro diario (app.js): se descuentan 00:30 por cada
   // día de lunes a jueves dentro del periodo 1 sept-30 jun, para que el
   // total del informe cuadre con la suma de los "Total Horas Trabajadas"
@@ -207,40 +208,40 @@ async function cargarInforme() {
     }
     totalMinutos += minutosDia;
   });
- 
+
   document.getElementById('total-informe-horas').textContent = formatearMinutosAHoras(totalMinutos);
 }
- 
+
 // Exportación a Excel nativo (.xlsx)
 function exportarXLSX() {
   const tabla = document.querySelector("table");
   const filas = tabla.querySelectorAll("tr");
- 
+
   if (filas.length <= 1) {
     alert("No hay datos cargados para exportar.");
     return;
   }
- 
+
   const wb = XLSX.utils.table_to_book(tabla, { sheet: "Informe REGHOR" });
- 
+
   const desde = document.getElementById("filtro-desde").value || "inicio";
   const hasta = document.getElementById("filtro-hasta").value || "fin";
- 
+
   XLSX.writeFile(wb, `Informe_REGHOR_${desde}_a_${hasta}.xlsx`);
 }
- 
+
 // Exportación a CSV (.csv)
 function exportarCSV() {
   const tabla = document.querySelector("table");
   const filas = tabla.querySelectorAll("tr");
- 
+
   if (filas.length <= 1) {
     alert("No hay datos cargados para exportar.");
     return;
   }
- 
+
   let csvContent = "";
- 
+
   filas.forEach((fila) => {
     const celdas = fila.querySelectorAll("th, td");
     const filaTexto = Array.from(celdas)
@@ -249,21 +250,82 @@ function exportarCSV() {
         return `"${texto}"`;
       })
       .join(";");
- 
+
     csvContent += filaTexto + "\r\n";
   });
- 
+
   const blob = new Blob(["﻿" + csvContent], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
- 
+
   const link = document.createElement("a");
   const desde = document.getElementById("filtro-desde").value || "inicio";
   const hasta = document.getElementById("filtro-hasta").value || "fin";
- 
+
   link.setAttribute("href", url);
   link.setAttribute("download", `Informe_REGHOR_${desde}_a_${hasta}.csv`);
   document.body.appendChild(link);
- 
+
   link.click();
   document.body.removeChild(link);
+}
+
+// Exportación a PDF (jsPDF + autoTable, cargados en informes.html)
+function exportarPDF() {
+  const tabla = document.querySelector("table");
+  const filas = tabla.querySelectorAll("tbody tr");
+
+  if (filas.length === 0) {
+    alert("No hay datos cargados para exportar.");
+    return;
+  }
+
+  const t = TEXTOS_INFORME[idiomaActual];
+  const desde = document.getElementById('filtro-desde').value || '-';
+  const hasta = document.getElementById('filtro-hasta').value || '-';
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+
+  // El emoji inicial del título ("📊 ...") no se ve bien con la fuente por
+  // defecto de jsPDF, así que se quita solo para el PDF.
+  const tituloSinEmoji = t.titulo.replace(/^\S+\s+/, '');
+  doc.setFontSize(14);
+  doc.text(tituloSinEmoji, 40, 40);
+
+  doc.setFontSize(10);
+  let lineaFiltros = `${t.desde}: ${desde}    ${t.hasta}: ${hasta}`;
+
+  const filtrosExtra = [
+    ['filtro-tarea', t.tarea], ['filtro-proyecto', t.proyecto],
+    ['filtro-bloque', t.bloque], ['filtro-comentario', t.comentario]
+  ]
+    .map(([id, etiqueta]) => {
+      const valor = document.getElementById(id).value.trim();
+      return (valor && valor !== '*') ? `${etiqueta.replace(' (*)', '')}: ${valor}` : null;
+    })
+    .filter(Boolean);
+
+  if (filtrosExtra.length > 0) {
+    lineaFiltros += '    ' + filtrosExtra.join('    ');
+  }
+  doc.text(lineaFiltros, 40, 58);
+
+  const cabeceras = [...tabla.querySelectorAll('thead th')].map(th => th.textContent);
+  const filasDatos = [...filas].map(tr => [...tr.querySelectorAll('td')].map(td => td.textContent));
+
+  doc.autoTable({
+    head: [cabeceras],
+    body: filasDatos,
+    foot: [[
+      { content: document.getElementById('txt-total-label').textContent, colSpan: 6, styles: { halign: 'right' } },
+      { content: document.getElementById('total-informe-horas').textContent, styles: { fontStyle: 'bold' } },
+      '', ''
+    ]],
+    startY: 72,
+    styles: { fontSize: 8, cellPadding: 4, overflow: 'linebreak' },
+    headStyles: { fillColor: [0, 123, 255] },
+    footStyles: { fillColor: [225, 238, 255], textColor: [0, 0, 0], fontStyle: 'bold' }
+  });
+
+  doc.save(`Informe_REGHOR_${desde}_a_${hasta}.pdf`);
 }

@@ -245,6 +245,22 @@
     .saldo-positivo { color: #28a745; font-weight: bold; }
     .saldo-negativo { color: #dc3545; font-weight: bold; }
     .saldo-neutro { color: #6c757d; font-weight: bold; }
+
+    .aviso-abiertas {
+      background: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffe69c;
+      padding: 10px 14px;
+      border-radius: 6px;
+      margin-bottom: 14px;
+      font-size: 13px;
+      font-weight: bold;
+    }
+    body.dark-mode .aviso-abiertas {
+      background: #4d3800;
+      color: #ffe69c;
+      border-color: #6b5300;
+    }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -372,6 +388,8 @@
       </div>
     </div>
   </form>
+
+  <div id="aviso-abiertas" class="aviso-abiertas" style="display:none;"></div>
 
   <h2 id="txt-listado">Listado de tareas</h2>
 
