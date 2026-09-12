@@ -143,7 +143,10 @@ function esVerano(fechaStr) {
  * Minutos de jornada teórica para una fecha 'YYYY-MM-DD'.
  * - Festivo o fin de semana: 0
  * - Verano (1 jul - 31 ago): 07:00 todos los días laborables, viernes incluido
- * - Resto del año (1 sep - 30 jun): 08:30 de lunes a jueves, 07:00 el viernes
+ * - Horario de invierno (1 sep - 30 jun): 08:40 de lunes a jueves, 07:00 el
+ *   viernes. A partir de las 08:40 de un lunes a jueves se considera hora
+ *   extra (comparación que ya hacen el balance diario de index.html y el
+ *   resumen semanal de Semana.html contra este valor).
  */
 function obtenerJornadaTeoricaMinutos(fechaStr) {
   const fecha = parsearFechaLocal(fechaStr);
@@ -153,8 +156,8 @@ function obtenerJornadaTeoricaMinutos(fechaStr) {
   const diaSemana = fecha.getDay();
   if (diaSemana === 0 || diaSemana === 6) return 0;
   if (esVerano(fechaStr)) return 420;   // Verano: 7h 00m (todos los días, viernes incluido)
-  if (diaSemana === 5) return 420;      // Viernes (resto del año): 7h 00m
-  return 510;                           // Lunes a Jueves: 8h 30m
+  if (diaSemana === 5) return 420;      // Viernes (horario de invierno): 7h 00m
+  return 520;                           // Lunes a Jueves (horario de invierno): 8h 40m
 }
 
 /**

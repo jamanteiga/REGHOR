@@ -30,7 +30,7 @@ const TEXTOS_SEMANA = {
     pendienteViernes: 'Horas pendientes viernes',
     pendienteViernesTip: 'Horas teóricas de toda la semana menos las ya trabajadas de lunes a jueves. Un lunes por la mañana coincide con el total teórico de la semana; a medida que avanza la semana va bajando según lo que se vaya trabajando.',
     salidaViernesPrevista: 'Hora salida viernes (prevista)',
-    pendiente: 'Pendiente', sinDatos: 'Sin tareas registradas'
+    pendiente: 'Pendiente', sinDatos: 'Sin tareas registradas: a efectos del cálculo se asume la jornada teórica cumplida'
   },
   gl: {
     titulo: '📅 Resumo Semanal', cerrar: '❌ Pechar', nota: 'Cálculo automático a partir das tarefas rexistradas cada día na Listaxe de Tarefas.',
@@ -40,7 +40,7 @@ const TEXTOS_SEMANA = {
     pendienteViernes: 'Horas pendentes venres',
     pendienteViernesTip: 'Horas teóricas de toda a semana menos as xa traballadas de luns a xoves. Un luns pola mañá coincide co total teórico da semana; a medida que avanza a semana vai baixando segundo o que se vaia traballando.',
     salidaViernesPrevista: 'Hora saída venres (prevista)',
-    pendiente: 'Pendente', sinDatos: 'Sen tarefas rexistradas'
+    pendiente: 'Pendente', sinDatos: 'Sen tarefas rexistradas: a efectos do cálculo asúmese a xornada teórica cumprida'
   },
   en: {
     titulo: '📅 Weekly Summary', cerrar: '❌ Close', nota: 'Calculated automatically from the tasks logged each day in the Task List.',
@@ -50,7 +50,7 @@ const TEXTOS_SEMANA = {
     pendienteViernes: 'Hours Pending on Friday',
     pendienteViernesTip: 'Weekly theoretical hours minus what has already been worked Monday-Thursday. On Monday morning this matches the week\'s theoretical total; it goes down as the week progresses.',
     salidaViernesPrevista: 'Friday End Time (estimated)',
-    pendiente: 'Pending', sinDatos: 'No tasks logged'
+    pendiente: 'Pending', sinDatos: 'No tasks logged: the theoretical shift is assumed fulfilled for this calculation'
   }
 };
 
@@ -173,9 +173,13 @@ async function cargarSemana(lunes) {
     });
 
     const tieneDatos = tareasDia.length > 0;
-    const minutosEfectivos = (minutosBrutos > 0)
+    // Si el día no tiene ningún registro (nada cumplimentado en la base de
+    // datos), se asume que se cumplió la jornada teórica de ese día a
+    // efectos del cálculo de horas pendientes del viernes -en vez de
+    // contarlo como 0-, para no penalizar el viernes por días sin datos.
+    const minutosEfectivos = tieneDatos
       ? Math.max(0, minutosBrutos - obtenerDescansoMinutos(fechaStr))
-      : 0;
+      : obtenerJornadaTeoricaMinutos(fechaStr);
 
     datosDiaActual.push({ fechaStr, entrada, salida, minutosEfectivos, tieneDatos, festivo });
 
@@ -218,13 +222,16 @@ async function cargarSemana(lunes) {
  * Fórmula de la hora de salida prevista del viernes:
  *  - Horas totales de la semana = suma de la jornada teórica de los 5 días
  *    laborables (obtenerJornadaTeoricaMinutos ya da 0 en festivo/fin de
- *    semana, 7:00 todos los días en verano, y 8:30 lunes-jueves + 7:00
- *    viernes el resto del año) → 41:00 en invierno sin festivos, 35:00 en
- *    verano sin festivos, menos las horas de cualquier festivo de Ferrol
+ *    semana, 7:00 todos los días en verano, y 8:40 lunes-jueves + 7:00
+ *    viernes en horario de invierno) → 41:40 en invierno sin festivos, 35:00
+ *    en verano sin festivos, menos las horas de cualquier festivo de Ferrol
  *    que caiga esa semana.
  *  - Horas pendientes de trabajo el viernes = horas totales de la semana -
- *    horas REALMENTE trabajadas de lunes a jueves (si algún día se superan
- *    las 8:30 teóricas, ese exceso ya reduce lo pendiente del viernes).
+ *    horas trabajadas de lunes a jueves (si algún día se superan las 8:40
+ *    teóricas, ese exceso ya reduce lo pendiente del viernes). Un día de
+ *    lunes a jueves SIN NINGÚN registro cuenta como si se hubiera cumplido
+ *    su jornada teórica -no como 0-, para no penalizar el viernes por días
+ *    sin datos en la base de datos (ver minutosEfectivos en cargarSemana).
  *  - Hora de salida del viernes = hora de entrada del viernes (la primera
  *    tarea registrada ese día) + horas pendientes de trabajo.
  *

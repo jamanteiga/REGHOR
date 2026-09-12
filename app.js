@@ -1,13 +1,13 @@
 // SUPABASE_URL, SUPABASE_KEY, supabaseClient y TABLA ahora viven en config.js
 
-// Las 44 Tareas predefinidas
+// Las 46 Tareas predefinidas
 const TAREAS_DEFAULT = [
   "Análisis especificaciones cliente", "Anidado de ficheros 3000's", "AOYV", "Arranque sesión remota", "Ausencia no recuperable", "Ausencia recuperable", "Comida",
-  "Descanso 20'", "Descanso 30'", "Espera de nueva tarea", "Fuera escritorio", "Generación .e2", "Generación .e3",
+  "Consulta técnica", "Descanso 20'", "Descanso 30'", "Espera de nueva tarea", "Fuera escritorio", "Generación .e2", "Generación .e3",
   "Generación de lotes de planchas", "Generación de previas", "Generación de secuencias de corte",
   "Maquillaje .e2 1000's", "Maquillaje .e2 2000's", "Maquillaje .e2 3000's", "Maquillaje .e2 4000's",
   "Maquillaje .e2 6000's", "Maquillaje de previas", "Maquillaje de UA", "Maquillaje de UL", "Modificación planos GR",
-  "Modificaciones en planos", "Nueva tarea", "Plano previas", "Problemas red en servidores cliente",
+  "Modificaciones en planos", "Nueva tarea", "Píldora de ciberseguridad", "Plano previas", "Problemas red en servidores cliente",
   "Productos intermedios", "Programación", "Reunión por Teams", "Reinstalación software", "Revisión de comentarios", "Revisión de paneles",
   "Revisión de unidades abiertas UA", "Revisión de unidades lineales UL", "Revisión grupos", "Revisión maquillaje 1000's",
   "Revisión maquillaje 2000's", "Revisión maquillaje 3000's", "Revisión maquillaje 4000's",
@@ -54,7 +54,8 @@ function aplicarMigracionesLista(claveLista, migraciones) {
 const MIGRACIONES_TAREAS = [
   { clave: 'cfg_migracion_tareas_2026_09', valores: ["Fuera escritorio", "Varios", "Nueva tarea", "Revisión grupos", "Revisión previas", "Maquillaje de previas"] },
   { clave: 'cfg_migracion_tareas_2026_09_v2', valores: ["Ausencia no recuperable", "Ausencia recuperable"] },
-  { clave: 'cfg_migracion_tareas_2026_09_v3', valores: ["Arranque sesión remota"] }
+  { clave: 'cfg_migracion_tareas_2026_09_v3', valores: ["Arranque sesión remota"] },
+  { clave: 'cfg_migracion_tareas_2026_09_v4', valores: ["Píldora de ciberseguridad", "Consulta técnica"] }
 ];
 
 const MIGRACIONES_PROYECTOS = [
@@ -95,7 +96,93 @@ function actualizarTituloConDia() {
   document.getElementById('txt-titulo').textContent = fechaTexto;
 }
 
+// ------------------------------------------------------------
+// Columnas redimensionables (arrastrar el borde derecho de la cabecera).
+// Cada tirador fija en píxeles la variable CSS compartida de esa columna
+// (sustituyendo su minmax() original), lo que también ensancha/encoge la
+// misma columna en el formulario de arriba, ya que ambos comparten
+// variable. El scroll horizontal ya existente actúa de red de seguridad
+// si una columna crece más que el hueco disponible.
+// ------------------------------------------------------------
+const COLUMNAS_REDIMENSIONABLES = {
+  fecha:      { variable: '--w-fecha',       min: 70, max: 220 },
+  tarea:      { variable: '--fr-tarea',      min: 70, max: 420 },
+  proyecto:   { variable: '--fr-proyecto',   min: 55, max: 320 },
+  bloque:     { variable: '--fr-bloque',     min: 60, max: 320 },
+  hora:       { variable: '--w-hora',        min: 60, max: 160 },
+  comentario: { variable: '--fr-comentario', min: 80, max: 520 },
+  notas:      { variable: '--fr-notas',      min: 60, max: 420 }
+};
+const CLAVE_ANCHOS_COLUMNAS = 'reghor_anchos_columnas';
+
+/**
+ * Restaura, si las hay, las anchuras de columna que el usuario dejó
+ * guardadas en una sesión anterior.
+ */
+function aplicarAnchosColumnasGuardados() {
+  let anchos;
+  try {
+    anchos = JSON.parse(localStorage.getItem(CLAVE_ANCHOS_COLUMNAS));
+  } catch (e) {
+    anchos = null;
+  }
+  if (!anchos) return;
+
+  Object.keys(anchos).forEach(clave => {
+    const col = COLUMNAS_REDIMENSIONABLES[clave];
+    if (col && Number.isFinite(anchos[clave])) {
+      document.documentElement.style.setProperty(col.variable, `${anchos[clave]}px`);
+    }
+  });
+}
+
+function guardarAnchoColumna(clave, anchoPx) {
+  let anchos;
+  try {
+    anchos = JSON.parse(localStorage.getItem(CLAVE_ANCHOS_COLUMNAS)) || {};
+  } catch (e) {
+    anchos = {};
+  }
+  anchos[clave] = Math.round(anchoPx);
+  localStorage.setItem(CLAVE_ANCHOS_COLUMNAS, JSON.stringify(anchos));
+}
+
+function inicializarRedimensionColumnas() {
+  document.querySelectorAll('.col-resize-handle').forEach(handle => {
+    handle.addEventListener('mousedown', (event) => {
+      const clave = handle.dataset.col;
+      const col = COLUMNAS_REDIMENSIONABLES[clave];
+      if (!col) return;
+
+      event.preventDefault();
+      const celda = handle.parentElement;
+      const anchoInicial = celda ? celda.getBoundingClientRect().width : 100;
+      const xInicial = event.clientX;
+      handle.classList.add('redimensionando');
+
+      function alMover(e) {
+        const delta = e.clientX - xInicial;
+        const nuevoAncho = Math.max(col.min, Math.min(col.max, anchoInicial + delta));
+        document.documentElement.style.setProperty(col.variable, `${nuevoAncho}px`);
+      }
+      function alSoltar() {
+        document.removeEventListener('mousemove', alMover);
+        document.removeEventListener('mouseup', alSoltar);
+        handle.classList.remove('redimensionando');
+        const valorActual = getComputedStyle(document.documentElement).getPropertyValue(col.variable).trim();
+        const px = parseFloat(valorActual);
+        if (Number.isFinite(px)) guardarAnchoColumna(clave, px);
+      }
+      document.addEventListener('mousemove', alMover);
+      document.addEventListener('mouseup', alSoltar);
+    });
+  });
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
+  aplicarAnchosColumnasGuardados();
+  inicializarRedimensionColumnas();
+
   poblarSelects();
   actualizarTituloConDia();
 
@@ -164,6 +251,41 @@ function sincronizarComentario() {
   const inputComentario = document.getElementById('comentario');
   if (selTarea && inputComentario && selTarea.value) {
     inputComentario.value = selTarea.value;
+  }
+}
+
+// Tareas que, al seleccionarlas, se autocompletan y se guardan solas.
+const TAREAS_AUTOGUARDADO = ["Comida", "Descanso 30'"];
+
+/**
+ * Manejador del onchange del desplegable "Tarea". Además de sincronizar el
+ * comentario (como siempre), si se selecciona "Comida" o "Descanso 30'" y
+ * NO se está editando un registro ya existente, se autocompleta proyecto
+ * "COM", bloque "GENERAL", hora de inicio la hora actual y hora de fin esa
+ * misma hora + 30 minutos, y se guarda automáticamente sin necesidad de
+ * pulsar "Guardar". Si se está editando un registro (tarea-id con valor),
+ * solo se autocompletan los campos, para no sobrescribir sin querer una
+ * tarea ya guardada con un simple cambio de desplegable.
+ */
+async function manejarCambioTarea() {
+  sincronizarComentario();
+
+  const tareaSeleccionada = document.getElementById('tarea').value;
+  if (!TAREAS_AUTOGUARDADO.includes(tareaSeleccionada)) return;
+
+  const ahora = new Date();
+  const horaActual = `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`;
+  const finMinutos = (ahora.getHours() * 60 + ahora.getMinutes() + 30) % 1440;
+  const horaFinCalc = `${String(Math.floor(finMinutos / 60)).padStart(2, '0')}:${String(finMinutos % 60).padStart(2, '0')}`;
+
+  document.getElementById('proyecto').value = 'COM';
+  document.getElementById('bloque').value = 'GENERAL';
+  document.getElementById('horainicio').value = horaActual;
+  document.getElementById('horafin').value = horaFinCalc;
+
+  const editando = document.getElementById('tarea-id').value;
+  if (!editando) {
+    await guardarRegistroFormulario();
   }
 }
 
@@ -250,6 +372,8 @@ async function cargarTareas() {
     }
   }
 
+  actualizarEstadoDiaCerrado();
+
   try {
     const { data: tareas, error } = await supabaseClient
       .from(TABLA)
@@ -271,37 +395,24 @@ async function cargarTareas() {
       return;
     }
 
-    tareas.sort((a, b) => (a.id || 0) - (b.id || 0));
+    // De más temprano a más tarde según la hora de inicio (a igualdad de
+    // hora, se respeta el orden en que se dieron de alta).
+    tareas.sort((a, b) => {
+      const horaA = a.horainicio || '';
+      const horaB = b.horainicio || '';
+      if (horaA !== horaB) return horaA < horaB ? -1 : 1;
+      return (a.id || 0) - (b.id || 0);
+    });
     tareasCargadasCache = tareas;
     actualizarAvisoAbiertas(tareas);
 
-    // El índice (idx + 1) es un número de fila puramente visual, calculado
-    // en el navegador a partir de la posición en la lista ya ordenada por
-    // id: no se guarda en Supabase ni depende del id real del registro.
-    tablaBody.innerHTML = tareas.map((item, idx) => {
-      let rawF = String(item.fecha || '').trim();
-      let fDisplay = rawF.includes('T') ? rawF.split('T')[0] : rawF.split(' ')[0];
+    // Al recargar la fecha se limpia el filtro instantáneo, para no ocultar
+    // por sorpresa registros del nuevo día bajo un texto de filtro que ya
+    // no tiene sentido.
+    const inputFiltroListado = document.getElementById('filtro-listado');
+    if (inputFiltroListado) inputFiltroListado.value = '';
 
-      return `
-        <div class="tabla-grid-row tabla-row" ondblclick="cargarParaEditar(${item.id})" title="Doble clic para editar este registro">
-          <div class="celda-numero">${idx + 1}</div>
-          <div>${fDisplay}</div>
-          <div>${item.tarea || ''}</div>
-          <div>${item.proyecto || ''}</div>
-          <div>${item.bloque || ''}</div>
-          <div>${item.horainicio || ''}</div>
-          <div>${item.horafin || ''}</div>
-          <div>${item.comentario || ''}</div>
-          <div>${item.notas || ''}</div>
-          <div><strong>${calcularDuracion(item.horainicio, item.horafin)}</strong></div>
-          <div class="acciones-cell">
-            <button type="button" class="btn-mini" onclick="event.stopPropagation(); cargarParaEditar(${item.id})">✏️ Editar</button>
-            <button type="button" class="btn-mini" onclick="event.stopPropagation(); cargarParaDuplicar(${item.id})" title="Usa este registro como base para crear uno nuevo">📋 Duplicar</button>
-            <button type="button" class="btn-mini" onclick="event.stopPropagation(); borrarTarea(${item.id})">🗑️ Eliminar</button>
-          </div>
-        </div>
-      `;
-    }).join('');
+    renderFilasTabla(tareas);
 
     await actualizarResumenHoras(tareas, fechaFiltroStr);
 
@@ -311,6 +422,78 @@ async function cargarTareas() {
     actualizarAvisoAbiertas([]);
     await actualizarResumenHoras([], fechaFiltroStr);
   }
+}
+
+/**
+ * Pinta las filas del listado a partir de una lista de registros ya
+ * decidida por quien llama (el día completo, o el resultado de aplicar el
+ * filtro instantáneo). El índice (idx + 1) es un número de fila puramente
+ * visual, calculado en el navegador a partir de la posición en la lista
+ * recibida: no se guarda en Supabase ni depende del id real del registro.
+ */
+function renderFilasTabla(lista) {
+  const tablaBody = document.getElementById('tabla-body');
+  if (!tablaBody) return;
+
+  tablaBody.innerHTML = lista.map((item, idx) => {
+    let rawF = String(item.fecha || '').trim();
+    let fDisplay = rawF.includes('T') ? rawF.split('T')[0] : rawF.split(' ')[0];
+
+    return `
+      <div class="tabla-grid-row tabla-row" ondblclick="cargarParaEditar(${item.id})" oncontextmenu="mostrarMenuContextual(event, ${item.id})" title="Doble clic para editar · clic derecho para más opciones">
+        <div class="celda-numero">${idx + 1}</div>
+        <div>${fDisplay}</div>
+        <div>${item.tarea || ''}</div>
+        <div>${item.proyecto || ''}</div>
+        <div>${item.bloque || ''}</div>
+        <div>${item.horainicio || ''}</div>
+        <div>${item.horafin || ''}</div>
+        <div>${item.comentario || ''}</div>
+        <div>${item.notas || ''}</div>
+        <div><strong>${calcularDuracion(item.horainicio, item.horafin)}</strong></div>
+      </div>
+    `;
+  }).join('');
+}
+
+const TEXTOS_FILTRO_SIN_RESULTADOS = {
+  es: 'Ningún registro coincide con el filtro.',
+  gl: 'Ningún rexistro coincide co filtro.',
+  en: 'No records match the filter.'
+};
+
+/**
+ * Filtro instantáneo sobre el listado ya cargado del día (no vuelve a
+ * consultar Supabase): busca el texto escrito en tarea, proyecto, bloque,
+ * comentario y notas, sin distinguir mayúsculas/minúsculas ni acentos vs
+ * no acentos exactos (comparación simple en minúsculas). Con el campo
+ * vacío se restaura el listado completo del día.
+ */
+function aplicarFiltroInstantaneo() {
+  const input = document.getElementById('filtro-listado');
+  const tablaBody = document.getElementById('tabla-body');
+  if (!input || !tablaBody) return;
+
+  const texto = input.value.trim().toLowerCase();
+
+  if (!texto) {
+    renderFilasTabla(tareasCargadasCache);
+    return;
+  }
+
+  const contiene = (campo) => String(campo || '').toLowerCase().includes(texto);
+  const filtradas = tareasCargadasCache.filter(item =>
+    contiene(item.tarea) || contiene(item.proyecto) || contiene(item.bloque) ||
+    contiene(item.comentario) || contiene(item.notas)
+  );
+
+  if (filtradas.length === 0) {
+    const texto_msg = TEXTOS_FILTRO_SIN_RESULTADOS[idiomaActual] || TEXTOS_FILTRO_SIN_RESULTADOS.es;
+    tablaBody.innerHTML = `<div class="tabla-msg">${texto_msg}</div>`;
+    return;
+  }
+
+  renderFilasTabla(filtradas);
 }
 
 const TEXTOS_AVISO_ABIERTA = {
@@ -456,11 +639,87 @@ async function existeSolapeHorario(fechaStr, horaInicio, horaFin, idExcluir) {
  * false si hubo algún error o si la validación de horas no pasa. Se usa
  * tanto desde el submit del formulario como desde iniciarFueraEscritorio().
  */
+const CLAVE_DIAS_CERRADOS = 'reghor_dias_cerrados';
+
+function obtenerDiasCerrados() {
+  try {
+    return JSON.parse(localStorage.getItem(CLAVE_DIAS_CERRADOS)) || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function esDiaCerrado(fechaStr) {
+  return obtenerDiasCerrados().includes(fechaStr);
+}
+
+const TEXTOS_DIA_CERRADO = {
+  es: '🔒 Este día está cerrado (jornada finalizada). No se pueden añadir nuevas tareas, pero sí editar o eliminar las ya guardadas.',
+  gl: '🔒 Este día está pechado (xornada finalizada). Non se poden engadir novas tarefas, pero si editar ou eliminar as xa gardadas.',
+  en: '🔒 This day is closed (end of day). No new tasks can be added, but existing ones can still be edited or deleted.'
+};
+const TEXTOS_BOTON_FINALIZAR = { es: '🔒 Finalizar jornada', gl: '🔒 Rematar xornada', en: '🔒 End day' };
+const TEXTOS_BOTON_REABRIR = { es: '🔓 Reabrir jornada', gl: '🔓 Reabrir xornada', en: '🔓 Reopen day' };
+const TEXTOS_CONFIRMAR_FINALIZAR = {
+  es: '¿Finalizar la jornada de este día? A partir de ahora no se podrán añadir nuevas tareas para esta fecha (sí se podrán seguir editando o eliminando las ya guardadas).',
+  gl: '¿Rematar a xornada deste día? A partir de agora non se poderán engadir novas tarefas para esta data (sí se poderán seguir editando ou eliminando as xa gardadas).',
+  en: 'End the day for this date? From now on no new tasks can be added for this date (existing ones can still be edited or deleted).'
+};
+
+/**
+ * Refleja en la UI si la fecha actualmente seleccionada en el formulario
+ * está cerrada: muestra/oculta el aviso y cambia el texto/acción del botón
+ * Finalizar/Reabrir jornada.
+ */
+function actualizarEstadoDiaCerrado() {
+  const fechaStr = document.getElementById('fecha').value.trim();
+  const aviso = document.getElementById('aviso-dia-cerrado');
+  const btn = document.getElementById('btn-finalizar-jornada');
+  if (!aviso || !btn) return;
+
+  const cerrado = esDiaCerrado(fechaStr);
+  aviso.style.display = cerrado ? 'block' : 'none';
+  aviso.textContent = TEXTOS_DIA_CERRADO[idiomaActual] || TEXTOS_DIA_CERRADO.es;
+  btn.textContent = cerrado
+    ? (TEXTOS_BOTON_REABRIR[idiomaActual] || TEXTOS_BOTON_REABRIR.es)
+    : (TEXTOS_BOTON_FINALIZAR[idiomaActual] || TEXTOS_BOTON_FINALIZAR.es);
+  btn.classList.toggle('btn-dia-cerrado', cerrado);
+}
+
+/**
+ * Alterna el cierre/reapertura de la jornada de la fecha seleccionada en el
+ * formulario. Cerrar el día no borra ni bloquea los registros ya guardados:
+ * solo impide crear NUEVOS registros para esa fecha (ver guardarRegistroFormulario).
+ */
+function alternarFinalizarJornada() {
+  const fechaStr = document.getElementById('fecha').value.trim();
+  if (!fechaStr) return;
+
+  const dias = obtenerDiasCerrados();
+  const idx = dias.indexOf(fechaStr);
+
+  if (idx >= 0) {
+    dias.splice(idx, 1);
+  } else {
+    const texto = TEXTOS_CONFIRMAR_FINALIZAR[idiomaActual] || TEXTOS_CONFIRMAR_FINALIZAR.es;
+    if (!confirm(texto)) return;
+    dias.push(fechaStr);
+  }
+
+  localStorage.setItem(CLAVE_DIAS_CERRADOS, JSON.stringify(dias));
+  actualizarEstadoDiaCerrado();
+}
+
 async function guardarRegistroFormulario() {
   const id = document.getElementById('tarea-id').value;
   const fechaStr = document.getElementById('fecha').value.trim();
   const horaInicio = document.getElementById('horainicio').value;
   const horaFin = document.getElementById('horafin').value;
+
+  if (!id && esDiaCerrado(fechaStr)) {
+    alert('❌ ' + (TEXTOS_DIA_CERRADO[idiomaActual] || TEXTOS_DIA_CERRADO.es));
+    return false;
+  }
 
   if (horaInicio && horaFin && horaFin < horaInicio) {
     alert('❌ Error: La Hora Fin no puede ser anterior a la Hora Inicio.');
@@ -520,8 +779,8 @@ document.getElementById('tarea-form').addEventListener('submit', async (e) => {
  * hora de fin con la hora actual y se guarda (igual que pulsar
  * Guardar/Actualizar), para no perder ese registro. Si el formulario ya
  * tenía hora de fin puesta a mano, se respeta tal cual. A continuación se
- * prepara en el formulario un registro nuevo con fecha de hoy, tarea "Fuera
- * escritorio", proyecto "FES" y hora de inicio la misma hora actual (para
+ * prepara en el formulario un registro nuevo con fecha de hoy, tarea
+ * "Varios", proyecto "FES" y hora de inicio la misma hora actual (para
  * que no quede hueco entre el final de la tarea anterior y el comienzo de
  * la ausencia); la hora de fin se deja en blanco para indicarla a mano al
  * volver, y solo entonces (al pulsar Guardar) se crea el registro en
@@ -545,7 +804,7 @@ async function iniciarAusencia() {
 
   document.getElementById('tarea-id').value = '';
   document.getElementById('fecha').value = obtenerFechaHoyISO();
-  document.getElementById('tarea').value = 'Fuera escritorio';
+  document.getElementById('tarea').value = 'Varios';
   document.getElementById('proyecto').value = 'FES';
   document.getElementById('bloque').value = 'GENERAL';
   document.getElementById('horainicio').value = horaActual;
@@ -568,6 +827,57 @@ async function borrarTarea(id) {
     cargarTareas();
   }
 }
+
+// ------------------------------------------------------------
+// Menú contextual (clic derecho) de cada fila: sustituye a los antiguos
+// botones Editar/Duplicar/Eliminar de cada registro, para dejar la
+// pantalla más limpia.
+// ------------------------------------------------------------
+let idMenuContextual = null;
+
+function mostrarMenuContextual(event, id) {
+  event.preventDefault();
+  event.stopPropagation();
+  idMenuContextual = id;
+
+  const menu = document.getElementById('menu-contextual');
+  if (!menu) return;
+
+  menu.style.display = 'block';
+  const anchoMenu = menu.offsetWidth || 160;
+  const altoMenu = menu.offsetHeight || 120;
+  const x = Math.max(4, Math.min(event.clientX, window.innerWidth - anchoMenu - 8));
+  const y = Math.max(4, Math.min(event.clientY, window.innerHeight - altoMenu - 8));
+  menu.style.left = `${x}px`;
+  menu.style.top = `${y}px`;
+}
+
+function ocultarMenuContextual() {
+  const menu = document.getElementById('menu-contextual');
+  if (menu) menu.style.display = 'none';
+  idMenuContextual = null;
+}
+
+function accionMenuContextual(accion) {
+  const id = idMenuContextual;
+  ocultarMenuContextual();
+  if (id == null) return;
+
+  if (accion === 'editar') cargarParaEditar(id);
+  else if (accion === 'duplicar') cargarParaDuplicar(id);
+  else if (accion === 'eliminar') borrarTarea(id);
+}
+
+document.addEventListener('click', (e) => {
+  const menu = document.getElementById('menu-contextual');
+  if (menu && menu.style.display === 'block' && !menu.contains(e.target)) {
+    ocultarMenuContextual();
+  }
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') ocultarMenuContextual();
+});
+document.addEventListener('scroll', () => ocultarMenuContextual(), true);
 
 async function actualizarResumenHoras(listaTareas, fechaStr) {
   let totalMinutosReales = 0;
@@ -608,7 +918,9 @@ const TEXTOS_INDEX = {
     acciones: 'Acciones', listado: 'Listado de tareas', informes: '📊 Informes', graficos: '📈 Gráficos', semana: '📅 Registro Semana',
     ausencia: '🚶 Ausencia',
     guardar: 'Guardar', actualizar: 'Actualizar', cancelar: 'Cancelar',
-    teorica: 'Jornada Teórica del Día:', total: 'Total Horas Trabajadas:', balance: 'Balance / Horas Extra:'
+    teorica: 'Jornada Teórica del Día:', total: 'Total Horas Trabajadas:', balance: 'Balance / Horas Extra:',
+    menuEditar: '✏️ Editar', menuDuplicar: '📋 Duplicar', menuEliminar: '🗑️ Eliminar',
+    filtroPlaceholder: '🔎 Filtrar por tarea, proyecto, bloque, comentario o notas...'
   },
   gl: {
     titulo: 'REGHOR', fecha: 'Data', tarea: 'Tarefa', proyecto: 'Proxecto', bloque: 'Bloque',
@@ -616,7 +928,9 @@ const TEXTOS_INDEX = {
     acciones: 'Accións', listado: 'Listaxe de tarefas', informes: '📊 Informes', graficos: '📈 Gráficas', semana: '📅 Rexistro Semana',
     ausencia: '🚶 Ausencia',
     guardar: 'Gardar', actualizar: 'Actualizar', cancelar: 'Cancelar',
-    teorica: 'Xornada Teórica do Día:', total: 'Total Horas Traballadas:', balance: 'Balance / Horas Extra:'
+    teorica: 'Xornada Teórica do Día:', total: 'Total Horas Traballadas:', balance: 'Balance / Horas Extra:',
+    menuEditar: '✏️ Editar', menuDuplicar: '📋 Duplicar', menuEliminar: '🗑️ Eliminar',
+    filtroPlaceholder: '🔎 Filtrar por tarefa, proxecto, bloque, comentario ou notas...'
   },
   en: {
     titulo: 'REGHOR', fecha: 'Date', tarea: 'Task', proyecto: 'Project', bloque: 'Block',
@@ -624,7 +938,9 @@ const TEXTOS_INDEX = {
     acciones: 'Actions', listado: 'Task list', informes: '📊 Reports', graficos: '📈 Charts', semana: '📅 Week Log',
     ausencia: '🚶 Absence',
     guardar: 'Save', actualizar: 'Update', cancelar: 'Cancel',
-    teorica: 'Theoretical Day Hours:', total: 'Total Hours Worked:', balance: 'Balance / Overtime:'
+    teorica: 'Theoretical Day Hours:', total: 'Total Hours Worked:', balance: 'Balance / Overtime:',
+    menuEditar: '✏️ Edit', menuDuplicar: '📋 Duplicate', menuEliminar: '🗑️ Delete',
+    filtroPlaceholder: '🔎 Filter by task, project, block, comment or notes...'
   }
 };
 
@@ -664,7 +980,18 @@ function cambiarIdioma(lang) {
   document.getElementById('th-duracion').textContent = (lang === 'en') ? 'Duration' : 'Duración';
   document.getElementById('th-comentario').textContent = t.comentario;
   document.getElementById('th-notas').textContent = t.notas;
-  document.getElementById('th-acciones').textContent = t.acciones;
+
+  const btnMenuEditar = document.getElementById('menu-opcion-editar');
+  const btnMenuDuplicar = document.getElementById('menu-opcion-duplicar');
+  const btnMenuEliminar = document.getElementById('menu-opcion-eliminar');
+  if (btnMenuEditar) btnMenuEditar.textContent = t.menuEditar;
+  if (btnMenuDuplicar) btnMenuDuplicar.textContent = t.menuDuplicar;
+  if (btnMenuEliminar) btnMenuEliminar.textContent = t.menuEliminar;
+
+  const inputFiltro = document.getElementById('filtro-listado');
+  if (inputFiltro) inputFiltro.placeholder = t.filtroPlaceholder;
+
+  actualizarEstadoDiaCerrado();
 
   poblarSelects();
   actualizarAvisoAbiertas(tareasCargadasCache);

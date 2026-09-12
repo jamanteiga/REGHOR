@@ -32,7 +32,7 @@
       --fr-notas: minmax(70px, 1.1fr);
 
       /* Altura máxima del listado antes de mostrar scroll interno */
-      --altura-listado: 45vh;
+      --altura-listado: 60vh;
     }
 
     body.dark-mode {
@@ -175,10 +175,12 @@
     }
 
     /* Mismo orden que el formulario (Fecha…Notas) y con los mismos anchos,
-       para que ambos bloques queden alineados en vertical; Duración y
-       Acciones son columnas adicionales que el formulario no tiene. */
+       para que ambos bloques queden alineados en vertical; Duración es la
+       única columna adicional que el formulario no tiene (las acciones
+       de cada fila ahora se hacen con el menú contextual del clic derecho,
+       no ocupan columna). */
     .tabla-grid-row {
-      min-width: 990px;
+      min-width: 850px;
       display: grid;
       grid-template-columns:
         var(--w-numero)
@@ -190,8 +192,7 @@
         var(--w-hora)
         var(--fr-comentario)
         var(--fr-notas)
-        var(--w-duracion)
-        var(--w-acciones);
+        var(--w-duracion);
       gap: 8px;
       align-items: center;
     }
@@ -207,10 +208,30 @@
       border-radius: 6px;
     }
     .tabla-header-row > div {
+      position: relative;
       padding: 8px 6px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+
+    /* Tirador para arrastrar y ajustar el ancho de una columna del listado
+       (y, al compartir variables CSS con el formulario, también del
+       formulario). El scroll horizontal ya existente actúa como red de
+       seguridad cuando se ensancha una columna más allá del hueco disponible. */
+    .col-resize-handle {
+      position: absolute;
+      top: 0;
+      right: -4px;
+      bottom: 0;
+      width: 10px;
+      cursor: col-resize;
+      z-index: 5;
+      touch-action: none;
+    }
+    .col-resize-handle:hover,
+    .col-resize-handle.redimensionando {
+      background-color: rgba(255, 255, 255, 0.35);
     }
 
     /* Solo esta zona hace scroll vertical: el resto de la página
@@ -233,7 +254,47 @@
     .tabla-row:nth-child(even) { background-color: var(--card-bg); }
     .tabla-row:hover { background-color: rgba(0, 123, 255, 0.25); }
 
-    .acciones-cell { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; white-space: nowrap; }
+    .filtro-listado-input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 8px 10px;
+      margin-bottom: 8px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background-color: var(--card-bg);
+      color: var(--text-color);
+      font-size: 13px;
+    }
+
+    /* Menú contextual (clic derecho) que sustituye a los antiguos botones
+       Editar/Duplicar/Eliminar de cada fila. */
+    #menu-contextual {
+      display: none;
+      position: fixed;
+      z-index: 2000;
+      min-width: 150px;
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+      padding: 4px;
+      font-size: 13px;
+    }
+    #menu-contextual button {
+      display: block;
+      width: 100%;
+      text-align: left;
+      background: none;
+      border: none;
+      padding: 8px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      color: var(--text-color);
+      font-size: 13px;
+    }
+    #menu-contextual button:hover { background-color: rgba(0, 123, 255, 0.15); }
+    #menu-contextual button.opcion-eliminar:hover { background-color: rgba(220, 53, 69, 0.15); color: #dc3545; }
+    #menu-contextual hr { border: none; border-top: 1px solid var(--border-color); margin: 4px 0; }
 
     .tabla-msg { padding: 12px; color: var(--text-color); }
 
@@ -261,6 +322,27 @@
       color: #ffe69c;
       border-color: #6b5300;
     }
+
+    .btn-finalizar-jornada { background-color: #6c757d; color: #fff; border: none; }
+    .btn-finalizar-jornada:hover { background-color: #565e64; }
+    .btn-finalizar-jornada.btn-dia-cerrado { background-color: #198754; }
+    .btn-finalizar-jornada.btn-dia-cerrado:hover { background-color: #146c43; }
+
+    .aviso-dia-cerrado {
+      background: #e2e3e5;
+      color: #41464b;
+      border: 1px solid #c4c8cb;
+      padding: 10px 14px;
+      border-radius: 6px;
+      margin-bottom: 14px;
+      font-size: 13px;
+      font-weight: bold;
+    }
+    body.dark-mode .aviso-dia-cerrado {
+      background: #2b2f33;
+      color: #d3d6d8;
+      border-color: #495057;
+    }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -275,6 +357,7 @@
       <a href="graficos.html" target="_blank" class="icon-btn" id="btn-graficos">📈 Gráficos</a>
       <a href="Semana.html" target="_blank" class="icon-btn" id="btn-semana">📅 Registro Semana</a>
       <button type="button" class="icon-btn btn-ausencia" onclick="iniciarAusencia()" id="btn-ausencia" title="Guarda la tarea actual (si la hay) y abre un registro nuevo de ausencia con la hora de inicio actual">🚶 Ausencia</button>
+      <button type="button" class="icon-btn btn-finalizar-jornada" onclick="alternarFinalizarJornada()" id="btn-finalizar-jornada" title="Impide añadir nuevas tareas para la fecha seleccionada. Las ya guardadas se pueden seguir editando o eliminando.">🔒 Finalizar jornada</button>
 
       <!-- Bandera España SVG -->
       <button class="flag-btn" onclick="cambiarIdioma('es')" title="Español">
@@ -327,7 +410,7 @@
           <label for="tarea" id="lbl-tarea">Tarea</label>
           <button type="button" class="btn-mini" onclick="abrirConfig('tareas')">+config</button>
         </div>
-        <select id="tarea" onchange="sincronizarComentario()" required>
+        <select id="tarea" onchange="manejarCambioTarea()" required>
           <option value="PREVIAS">PREVIAS</option>
           <option value="AOYV">AOYV</option>
           <option value="Revisión de unidades abiertas UA">Revisión de unidades abiertas UA</option>
@@ -390,22 +473,26 @@
   </form>
 
   <div id="aviso-abiertas" class="aviso-abiertas" style="display:none;"></div>
+  <div id="aviso-dia-cerrado" class="aviso-dia-cerrado" style="display:none;"></div>
 
   <h2 id="txt-listado">Listado de tareas</h2>
+
+  <input type="text" id="filtro-listado" class="filtro-listado-input"
+         placeholder="🔎 Filtrar por tarea, proyecto, bloque, comentario o notas..."
+         oninput="aplicarFiltroInstantaneo()" autocomplete="off">
 
   <div class="tabla-container">
     <div class="tabla-grid-row tabla-header-row">
       <div class="celda-numero" id="th-numero">Nº</div>
-      <div id="th-fecha">Fecha</div>
-      <div id="th-tarea">Tarea</div>
-      <div id="th-proyecto">Proyecto</div>
-      <div id="th-bloque">Bloque</div>
+      <div id="th-fecha">Fecha<span class="col-resize-handle" data-col="fecha"></span></div>
+      <div id="th-tarea">Tarea<span class="col-resize-handle" data-col="tarea"></span></div>
+      <div id="th-proyecto">Proyecto<span class="col-resize-handle" data-col="proyecto"></span></div>
+      <div id="th-bloque">Bloque<span class="col-resize-handle" data-col="bloque"></span></div>
       <div id="th-inicio">Hora inicio</div>
-      <div id="th-fin">Hora fin</div>
-      <div id="th-comentario">Comentario</div>
-      <div id="th-notas">Notas</div>
+      <div id="th-fin">Hora fin<span class="col-resize-handle" data-col="hora"></span></div>
+      <div id="th-comentario">Comentario<span class="col-resize-handle" data-col="comentario"></span></div>
+      <div id="th-notas">Notas<span class="col-resize-handle" data-col="notas"></span></div>
       <div id="th-duracion">Duración</div>
-      <div id="th-acciones">Acciones</div>
     </div>
 
     <!-- Único bloque con scroll vertical propio: el resto de la página
@@ -439,6 +526,14 @@
       </div>
       <ul id="lista-config" style="list-style:none; padding:0;"></ul>
     </div>
+  </div>
+
+  <!-- Menú contextual (clic derecho) de cada fila del listado -->
+  <div id="menu-contextual">
+    <button type="button" id="menu-opcion-editar" onclick="accionMenuContextual('editar')">✏️ Editar</button>
+    <button type="button" id="menu-opcion-duplicar" onclick="accionMenuContextual('duplicar')">📋 Duplicar</button>
+    <hr>
+    <button type="button" id="menu-opcion-eliminar" class="opcion-eliminar" onclick="accionMenuContextual('eliminar')">🗑️ Eliminar</button>
   </div>
 
   <script src="config.js"></script>
