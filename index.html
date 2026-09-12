@@ -43,16 +43,38 @@
       --header-bg: #0b5ed7;
     }
 
+    html, body {
+      height: 100%;
+      margin: 0;
+    }
+
     body {
       font-family: Arial, sans-serif;
-      margin: 20px;
       background-color: var(--bg-color);
       color: var(--text-color);
       transition: background 0.3s, color 0.3s;
+      overflow: hidden;
     }
 
-    .header-container { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    /* Contenedor de toda la página en columna: cada bloque ocupa solo su
+       altura natural salvo el listado de tareas, que se reparte el espacio
+       restante y es el único con scroll vertical propio (ver .tabla-body-scroll
+       más abajo). Así la página nunca necesita scroll vertical general. */
+    .page-wrap {
+      height: 100vh;
+      padding: 10px 20px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .header-container { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex: 0 0 auto; }
     .controls-right { display: flex; gap: 10px; align-items: center; }
+
+    #txt-titulo { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; margin: 0; }
+    #txt-semana { font-size: 0.45em; font-weight: normal; opacity: 0.7; white-space: nowrap; }
+    #reloj-actual { font-variant-numeric: tabular-nums; font-weight: bold; white-space: nowrap; }
 
     /* Banderas SVG */
     .flag-btn { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 4px; padding: 4px 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
@@ -65,7 +87,7 @@
     .btn-ausencia:hover { background-color: #b0007e; }
 
     /* Formulario: grid con los mismos anchos de columna que el listado de tareas */
-    form, .modal-content { background: var(--card-bg); padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    form, .modal-content { background: var(--card-bg); padding: 12px 20px; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); flex: 0 0 auto; }
 
     /* Por debajo de este ancho, en vez de dejar que las columnas se
        aplasten y se solapen (pantallas o ventanas estrechas), el
@@ -169,10 +191,15 @@
       background: var(--card-bg);
       border-radius: 8px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      padding: 16px 20px;
+      padding: 12px 20px;
       box-sizing: border-box;
       overflow-x: auto;
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 auto;
+      min-height: 0;
     }
+    .tabla-container .tabla-grid-row { flex: 0 0 auto; }
 
     /* Mismo orden que el formulario (Fecha…Notas) y con los mismos anchos,
        para que ambos bloques queden alineados en vertical; Duración es la
@@ -235,9 +262,15 @@
     }
 
     /* Solo esta zona hace scroll vertical: el resto de la página
-       (formulario, cabecera del listado y pie con los totales) permanece siempre visible. */
+       (formulario, cabecera del listado y pie con los totales) permanece siempre
+       visible. Ocupa todo el espacio vertical restante de .tabla-container
+       (flex:1) en vez de una altura fija, para que la página completa quepa
+       siempre sin scroll general. min-height:0 es necesario para que el
+       flex-item pueda encogerse por debajo de su contenido y active el
+       scroll interno en vez de desbordar la página. */
     .tabla-body-scroll {
-      max-height: var(--altura-listado);
+      flex: 1 1 auto;
+      min-height: 0;
       overflow-y: auto;
     }
 
@@ -264,6 +297,7 @@
       background-color: var(--card-bg);
       color: var(--text-color);
       font-size: 13px;
+      flex: 0 0 auto;
     }
 
     /* Filtros rápidos de fecha sobre el propio listado (Hoy/Ayer/Semana/Mes),
@@ -273,6 +307,7 @@
       flex-wrap: wrap;
       gap: 6px;
       margin-bottom: 8px;
+      flex: 0 0 auto;
     }
     .btn-filtro-rapido {
       padding: 6px 12px;
@@ -293,6 +328,7 @@
       gap: 6px;
       margin-bottom: 8px;
       font-size: 12px;
+      flex: 0 0 auto;
     }
     .filtro-rango-personalizado-fila .rango-campo {
       display: flex;
@@ -326,6 +362,7 @@
       margin-bottom: 8px;
       font-size: 13px;
       font-weight: bold;
+      flex: 0 0 auto;
     }
     body.dark-mode .aviso-rango-activo {
       background: #002855;
@@ -377,6 +414,8 @@
 
     .tabla-msg { padding: 12px; color: var(--text-color); }
 
+    #txt-listado { margin: 4px 0; font-size: 18px; flex: 0 0 auto; }
+
     .tabla-footer-row { font-weight: bold; background-color: rgba(0, 123, 255, 0.08); }
     .tabla-footer-row.row-extra { background-color: rgba(40, 167, 69, 0.12); }
     .tabla-footer-row .footer-label { grid-column: 2 / 10; text-align: right; }
@@ -390,11 +429,12 @@
       background: #fff3cd;
       color: #856404;
       border: 1px solid #ffe69c;
-      padding: 10px 14px;
+      padding: 8px 14px;
       border-radius: 6px;
-      margin-bottom: 14px;
+      margin-bottom: 8px;
       font-size: 13px;
       font-weight: bold;
+      flex: 0 0 auto;
     }
     body.dark-mode .aviso-abiertas {
       background: #4d3800;
@@ -411,11 +451,12 @@
       background: #e2e3e5;
       color: #41464b;
       border: 1px solid #c4c8cb;
-      padding: 10px 14px;
+      padding: 8px 14px;
       border-radius: 6px;
-      margin-bottom: 14px;
+      margin-bottom: 8px;
       font-size: 13px;
       font-weight: bold;
+      flex: 0 0 auto;
     }
     body.dark-mode .aviso-dia-cerrado {
       background: #2b2f33;
@@ -426,9 +467,14 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+<div class="page-wrap">
 
   <div class="header-container">
-    <h1 id="txt-titulo"></h1>
+    <h1 id="txt-titulo">
+      <span id="txt-semana"></span>
+      <span id="txt-fecha-dia"></span>
+      <span id="reloj-actual"></span>
+    </h1>
 
     <div class="controls-right">
       <!-- Botones de navegación externa -->
@@ -616,6 +662,9 @@
       <div class="footer-value" id="total-balance">00:00</div>
     </div>
   </div>
+
+</div>
+<!-- /.page-wrap -->
 
   <!-- Modal Config -->
   <div id="modal-config" class="modal">

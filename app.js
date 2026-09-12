@@ -82,8 +82,23 @@ let rangoActivo = null;
 // desincronicen entre páginas).
 
 /**
- * Muestra en la cabecera solo el día y la fecha de hoy (sin el nombre
- * "REGHOR"), con la primera letra del día en mayúscula.
+ * Número de semana ISO-8601 (lunes como primer día, la semana 1 es la que
+ * contiene el primer jueves del año) del día indicado.
+ */
+function obtenerNumeroSemanaISO(fecha) {
+  const d = new Date(Date.UTC(fecha.getFullYear(), fecha.getMonth(), fecha.getDate()));
+  const diaSemanaISO = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - diaSemanaISO);
+  const inicioAnio = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d - inicioAnio) / 86400000) + 1) / 7);
+}
+
+const TEXTOS_SEMANA_NUM = { es: 'Semana', gl: 'Semana', en: 'Week' };
+
+/**
+ * Muestra en la cabecera la semana del año en curso, el día y la fecha de
+ * hoy (sin el nombre "REGHOR"), con la primera letra del día en mayúscula,
+ * y deja preparado el hueco del reloj en vivo (ver iniciarRelojEnVivo).
  */
 function actualizarTituloConDia() {
   const hoy = new Date();
@@ -92,12 +107,47 @@ function actualizarTituloConDia() {
   const nombreMes = MESES[idiomaActual][hoy.getMonth()];
   const dia = hoy.getDate();
   const anio = hoy.getFullYear();
+  const numSemana = obtenerNumeroSemanaISO(hoy);
+  const textoSemana = TEXTOS_SEMANA_NUM[idiomaActual] || TEXTOS_SEMANA_NUM.es;
 
   const fechaTexto = (idiomaActual === 'en')
     ? `${nombreDiaCap}, ${nombreMes} ${dia}, ${anio}`
     : `${nombreDiaCap} ${dia} de ${nombreMes} de ${anio}`;
 
-  document.getElementById('txt-titulo').textContent = fechaTexto;
+  const elSemana = document.getElementById('txt-semana');
+  const elFecha = document.getElementById('txt-fecha-dia');
+  if (elSemana) elSemana.textContent = `${textoSemana} ${numSemana} ·`;
+  if (elFecha) elFecha.textContent = fechaTexto;
+}
+
+/**
+ * Color del reloj en vivo de la cabecera según la hora: rojo desde el
+ * arranque de la jornada (aprox. 06:30) hasta las 12:00, naranja de 12:00 a
+ * 16:00 y verde a partir de las 16:00.
+ */
+function colorRelojSegunHora(fecha) {
+  const minutosDelDia = fecha.getHours() * 60 + fecha.getMinutes();
+  if (minutosDelDia >= 16 * 60) return '#28a745';
+  if (minutosDelDia >= 12 * 60) return '#fd7e14';
+  return '#dc3545';
+}
+
+/** Actualiza el texto (h:mm:ss) y el color del reloj en vivo de la cabecera. */
+function actualizarRelojEnVivo() {
+  const el = document.getElementById('reloj-actual');
+  if (!el) return;
+  const ahora = new Date();
+  const horas = ahora.getHours();
+  const minutos = String(ahora.getMinutes()).padStart(2, '0');
+  const segundos = String(ahora.getSeconds()).padStart(2, '0');
+  el.textContent = `${horas}:${minutos}:${segundos}`;
+  el.style.color = colorRelojSegunHora(ahora);
+}
+
+/** Pone en marcha el reloj en vivo de la cabecera (arranque inmediato + cada segundo). */
+function iniciarRelojEnVivo() {
+  actualizarRelojEnVivo();
+  setInterval(actualizarRelojEnVivo, 1000);
 }
 
 // ------------------------------------------------------------
@@ -189,6 +239,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   poblarSelects();
   actualizarTituloConDia();
+  iniciarRelojEnVivo();
 
   const inputFecha = document.getElementById('fecha');
   if (inputFecha) {
@@ -1265,4 +1316,4 @@ function cambiarIdioma(lang) {
 
   poblarSelects();
   actualizarAvisoAbiertas(tareasCargadasCache);
-}
+}g

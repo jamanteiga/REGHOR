@@ -43,19 +43,30 @@
       --header-bg: #0b5ed7;
     }
 
+    html, body {
+      height: 100%;
+      margin: 0;
+    }
+
     body {
       font-family: Arial, sans-serif;
-      margin: 20px;
       background-color: var(--bg-color);
       color: var(--text-color);
       transition: background 0.3s, color 0.3s;
+      overflow: hidden;
     }
 
     /* ================= Layout: riel estrecho + contenido ================= */
+    /* Toda la app cabe en la altura de la ventana; el único bloque con scroll
+       vertical propio es el listado de tareas (.tabla-body-scroll). */
     .app-layout {
       display: flex;
       align-items: flex-start;
       gap: 14px;
+      height: 100vh;
+      padding: 10px 20px;
+      box-sizing: border-box;
+      overflow: hidden;
     }
 
     /* Riel siempre visible, muy estrecho: solo el botón INICIO, que es el
@@ -188,20 +199,32 @@
     .sidebar-footer { border-top: 1px solid var(--border-color); margin-top: auto; }
     .menu-item-danger { color: #dc3545; font-weight: bold; }
 
-    .main-content { flex: 1; min-width: 0; }
+    .main-content {
+      flex: 1;
+      min-width: 0;
+      height: 100%;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
 
     .main-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 20px;
+      margin-bottom: 10px;
       flex-wrap: wrap;
       gap: 10px;
+      flex: 0 0 auto;
     }
+    #txt-titulo { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; margin: 0; }
+    #txt-semana { font-size: 0.45em; font-weight: normal; opacity: 0.7; white-space: nowrap; }
+    #reloj-actual { font-variant-numeric: tabular-nums; font-weight: bold; white-space: nowrap; }
     /* ================================================================ */
 
     /* Formulario: grid con los mismos anchos de columna que el listado de tareas */
-    form, .modal-content { background: var(--card-bg); padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    form, .modal-content { background: var(--card-bg); padding: 12px 20px; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); flex: 0 0 auto; }
 
     /* Con el menú lateral hay menos ancho disponible: en vez de dejar que
        las columnas se aplasten y se solapen, por debajo de este ancho el
@@ -303,10 +326,15 @@
       background: var(--card-bg);
       border-radius: 8px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      padding: 16px 20px;
+      padding: 12px 20px;
       box-sizing: border-box;
       overflow-x: auto;
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 auto;
+      min-height: 0;
     }
+    .tabla-container .tabla-grid-row { flex: 0 0 auto; }
 
     /* La columna Acciones se elimina: editar/duplicar/eliminar de cada fila
        ahora se hacen con el menú contextual del clic derecho, no ocupan columna. */
@@ -366,7 +394,8 @@
     }
 
     .tabla-body-scroll {
-      max-height: var(--altura-listado);
+      flex: 1 1 auto;
+      min-height: 0;
       overflow-y: auto;
     }
 
@@ -393,6 +422,7 @@
       background-color: var(--card-bg);
       color: var(--text-color);
       font-size: 13px;
+      flex: 0 0 auto;
     }
 
     /* Filtros rápidos de fecha sobre el propio listado (Hoy/Ayer/Semana/Mes),
@@ -402,6 +432,7 @@
       flex-wrap: wrap;
       gap: 6px;
       margin-bottom: 8px;
+      flex: 0 0 auto;
     }
     .btn-filtro-rapido {
       padding: 6px 12px;
@@ -422,6 +453,7 @@
       gap: 6px;
       margin-bottom: 8px;
       font-size: 12px;
+      flex: 0 0 auto;
     }
     .filtro-rango-personalizado-fila .rango-campo {
       display: flex;
@@ -455,6 +487,7 @@
       margin-bottom: 8px;
       font-size: 13px;
       font-weight: bold;
+      flex: 0 0 auto;
     }
     body.dark-mode .aviso-rango-activo {
       background: #002855;
@@ -506,6 +539,8 @@
 
     .tabla-msg { padding: 12px; color: var(--text-color); }
 
+    #txt-listado { margin: 4px 0; font-size: 18px; flex: 0 0 auto; }
+
     .tabla-footer-row { font-weight: bold; background-color: rgba(0, 123, 255, 0.08); }
     .tabla-footer-row.row-extra { background-color: rgba(40, 167, 69, 0.12); }
     .tabla-footer-row .footer-label { grid-column: 2 / 10; text-align: right; }
@@ -519,11 +554,12 @@
       background: #fff3cd;
       color: #856404;
       border: 1px solid #ffe69c;
-      padding: 10px 14px;
+      padding: 8px 14px;
       border-radius: 6px;
-      margin-bottom: 14px;
+      margin-bottom: 8px;
       font-size: 13px;
       font-weight: bold;
+      flex: 0 0 auto;
     }
     body.dark-mode .aviso-abiertas {
       background: #4d3800;
@@ -535,11 +571,12 @@
       background: #e2e3e5;
       color: #41464b;
       border: 1px solid #c4c8cb;
-      padding: 10px 14px;
+      padding: 8px 14px;
       border-radius: 6px;
-      margin-bottom: 14px;
+      margin-bottom: 8px;
       font-size: 13px;
       font-weight: bold;
+      flex: 0 0 auto;
     }
     body.dark-mode .aviso-dia-cerrado {
       background: #2b2f33;
@@ -577,15 +614,15 @@
       <button type="button" class="menu-item btn-finalizar-jornada" onclick="alternarFinalizarJornada()" id="btn-finalizar-jornada" title="Impide añadir nuevas tareas para la fecha seleccionada. Las ya guardadas se pueden seguir editando o eliminando.">🔒 Finalizar jornada</button>
 
       <div class="menu-section-label" id="txt-menu-idioma">IDIOMA</div>
-      <button type="button" class="menu-item idioma-fila activo" onclick="cambiarIdioma('es'); actualizarTextosMenuLateral('es'); actualizarTituloConSemana(); marcarIdiomaActivo(this)">
+      <button type="button" class="menu-item idioma-fila activo" onclick="cambiarIdioma('es'); actualizarTextosMenuLateral('es'); marcarIdiomaActivo(this)">
         <svg class="flag-icon-mini" viewBox="0 0 750 500"><rect width="750" height="500" fill="#c60b1e"/><rect y="125" width="750" height="250" fill="#ffc400"/></svg>
         Español
       </button>
-      <button type="button" class="menu-item idioma-fila" onclick="cambiarIdioma('gl'); actualizarTextosMenuLateral('gl'); actualizarTituloConSemana(); marcarIdiomaActivo(this)">
+      <button type="button" class="menu-item idioma-fila" onclick="cambiarIdioma('gl'); actualizarTextosMenuLateral('gl'); marcarIdiomaActivo(this)">
         <svg class="flag-icon-mini" viewBox="0 0 3 2"><rect width="3" height="2" fill="#fff"/><path d="M0 0 L3 2" stroke="#009ac6" stroke-width="0.4"/></svg>
         Galego
       </button>
-      <button type="button" class="menu-item idioma-fila" onclick="cambiarIdioma('en'); actualizarTextosMenuLateral('en'); actualizarTituloConSemana(); marcarIdiomaActivo(this)">
+      <button type="button" class="menu-item idioma-fila" onclick="cambiarIdioma('en'); actualizarTextosMenuLateral('en'); marcarIdiomaActivo(this)">
         <svg class="flag-icon-mini" viewBox="0 0 60 30"><rect width="60" height="30" fill="#00247d"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#cf142b" stroke-width="2"/><path d="M30,0 V30 M0,15 H60" stroke="#fff" stroke-width="10"/><path d="M30,0 V30 M0,15 H60" stroke="#cf142b" stroke-width="6"/></svg>
         English
       </button>
@@ -600,7 +637,11 @@
     <main class="main-content">
 
       <div class="main-header">
-        <h1 id="txt-titulo"></h1>
+        <h1 id="txt-titulo">
+          <span id="txt-semana"></span>
+          <span id="txt-fecha-dia"></span>
+          <span id="reloj-actual"></span>
+        </h1>
       </div>
 
       <form id="tarea-form">
@@ -819,33 +860,11 @@
       document.getElementById('txt-menu-idioma').textContent = t.idioma;
     }
 
-    // ----- Cabecera: "Semana N — Día fecha de mes de año", a la derecha del menú -----
-
-    /** Número de semana ISO-8601 (la semana pertenece al año de su jueves). */
-    function obtenerNumeroSemanaISO(fecha) {
-      const d = new Date(Date.UTC(fecha.getFullYear(), fecha.getMonth(), fecha.getDate()));
-      const dayNum = d.getUTCDay() || 7;
-      d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-      return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-    }
-
-    const TEXTOS_SEMANA_TITULO = { es: 'Semana', gl: 'Semana', en: 'Week' };
-
-    /**
-     * app.js ya deja en #txt-titulo el día (con inicial en mayúscula) y la
-     * fecha, p.ej. "Jueves 3 de septiembre de 2026"; aquí solo se le añade
-     * delante el número de semana del año, sin tocar app.js.
-     */
-    function actualizarTituloConSemana() {
-      const elTitulo = document.getElementById('txt-titulo');
-      const diaYFecha = elTitulo.textContent.replace(/^Semana \d+ — /, '').replace(/^Week \d+ — /, '');
-      const numSemana = obtenerNumeroSemanaISO(new Date());
-      const etiqueta = TEXTOS_SEMANA_TITULO[idiomaActual] || 'Semana';
-      elTitulo.textContent = `${etiqueta} ${numSemana} — ${diaYFecha}`;
-    }
-
-    document.addEventListener('DOMContentLoaded', actualizarTituloConSemana);
+    // La semana ISO del año y el reloj en vivo de la cabecera ahora los
+    // gestiona app.js directamente (mismas funciones que index.html:
+    // obtenerNumeroSemanaISO/actualizarTituloConDia/iniciarRelojEnVivo),
+    // rellenando los spans #txt-semana/#txt-fecha-dia/#reloj-actual del
+    // <h1 id="txt-titulo"> de arriba.
   </script>
 </body>
 </html>
