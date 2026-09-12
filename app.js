@@ -72,6 +72,10 @@ let tipoConfigActual = '';
 let idiomaActual = 'es';
 let tareasCargadasCache = [];
 
+// null en la vista normal de un solo día; {desde, hasta, tipo} cuando el
+// listado está mostrando un rango de fechas (filtros rápidos Semana/Mes).
+let rangoActivo = null;
+
 // DIAS_SEMANA, MESES, formatearFechaISO, obtenerFechaHoyISO,
 // obtenerJornadaTeoricaMinutos y obtenerDescansoMinutos viven ahora en
 // config.js (compartidos con informes.js y Semana.js, para que no se
@@ -359,6 +363,12 @@ async function copiarHoraFinAnterior() {
 }
 
 async function cargarTareas() {
+  rangoActivo = null;
+  actualizarEtiquetaRangoActivo();
+  actualizarEtiquetaTeoricaSegunModo();
+  const btnFinalizarJornada = document.getElementById('btn-finalizar-jornada');
+  if (btnFinalizarJornada) btnFinalizarJornada.disabled = false;
+
   const tablaBody = document.getElementById('tabla-body');
   tablaBody.innerHTML = '<div class="tabla-msg">Cargando datos desde Supabase...</div>';
 
@@ -474,17 +484,31 @@ function aplicarFiltroInstantaneo() {
   const tablaBody = document.getElementById('tabla-body');
   if (!input || !tablaBody) return;
 
-  const texto = input.value.trim().toLowerCase();
+  const textoOriginal = input.value.trim();
 
-  if (!texto) {
+  if (!textoOriginal) {
     renderFilasTabla(tareasCargadasCache);
     return;
   }
 
-  const contiene = (campo) => String(campo || '').toLowerCase().includes(texto);
+  // Si el texto incluye '*' se activa el comodín (igual que en Informes,
+  // vía crearRegexFiltro de config.js): '*' equivale a "cualquier texto" y
+  // la coincidencia es con el campo COMPLETO, no con una parte cualquiera
+  // -p.ej. "factura*" solo casa con lo que EMPIEZA por "factura"; para "en
+  // cualquier posición" hay que escribir "*factura*"-. Sin '*' se mantiene
+  // la búsqueda de siempre: contiene el texto en cualquier posición.
+  let coincide;
+  if (textoOriginal.includes('*')) {
+    const regexComodin = crearRegexFiltro(textoOriginal);
+    coincide = (campo) => regexComodin.test(String(campo || ''));
+  } else {
+    const texto = textoOriginal.toLowerCase();
+    coincide = (campo) => String(campo || '').toLowerCase().includes(texto);
+  }
+
   const filtradas = tareasCargadasCache.filter(item =>
-    contiene(item.tarea) || contiene(item.proyecto) || contiene(item.bloque) ||
-    contiene(item.comentario) || contiene(item.notas)
+    coincide(item.tarea) || coincide(item.proyecto) || coincide(item.bloque) ||
+    coincide(item.comentario) || coincide(item.notas)
   );
 
   if (filtradas.length === 0) {
@@ -710,6 +734,190 @@ function alternarFinalizarJornada() {
   actualizarEstadoDiaCerrado();
 }
 
+// ------------------------------------------------------------
+// Filtros rápidos de fecha sobre el propio listado (Hoy/Ayer/Semana
+// actual/Semana anterior/Mes actual/Mes pasado), para consultar periodos
+// anteriores sin tener que abrir Informes. Hoy y Ayer reutilizan la vista
+// normal de un solo día (cargarTareas); el resto carga un rango de varios
+// días con totales agregados del periodo.
+// ------------------------------------------------------------
+const TEXTOS_ETIQUETA_RANGO = {
+  semana: { es: 'Semana actual', gl: 'Semana actual', en: 'This week' },
+  semana_anterior: { es: 'Semana anterior', gl: 'Semana anterior', en: 'Last week' },
+  mes: { es: 'Mes actual', gl: 'Mes actual', en: 'This month' },
+  mes_anterior: { es: 'Mes pasado', gl: 'Mes pasado', en: 'Last month' }
+};
+const TEXTOS_VOLVER_HOY = { es: '✕ Volver a hoy', gl: '✕ Volver a hoxe', en: '✕ Back to today' };
+const TEXTOS_TEORICA_MODO = {
+  dia: { es: 'Jornada Teórica del Día:', gl: 'Xornada Teórica do Día:', en: 'Theoretical Day Hours:' },
+  periodo: { es: 'Jornada Teórica del Periodo:', gl: 'Xornada Teórica do Período:', en: 'Theoretical Period Hours:' }
+};
+
+/** 'YYYY-MM-DD' → 'DD/MM/YYYY', solo para mostrar (sin depender de otras páginas). */
+function formatearFechaCorta(fechaISO) {
+  const partes = String(fechaISO || '').split('-');
+  return partes.length === 3 ? `${partes[2]}/${partes[1]}/${partes[0]}` : (fechaISO || '');
+}
+
+function aplicarFiltroRapido(tipo) {
+  const { desde, hasta } = calcularRangoFechas(tipo);
+
+  if (tipo === 'hoy' || tipo === 'ayer') {
+    document.getElementById('fecha').value = desde;
+    cargarTareas();
+    return;
+  }
+
+  cargarTareasRango(desde, hasta, tipo);
+}
+
+/** Cambia el rótulo "Jornada Teórica del..." según se esté en vista de un solo día o de un rango. */
+function actualizarEtiquetaTeoricaSegunModo() {
+  const el = document.getElementById('txt-teorica-label');
+  if (!el) return;
+  const modo = rangoActivo ? 'periodo' : 'dia';
+  el.textContent = (TEXTOS_TEORICA_MODO[modo][idiomaActual] || TEXTOS_TEORICA_MODO[modo].es);
+}
+
+/** Muestra u oculta el aviso de rango activo con su etiqueta y el botón para volver a la vista diaria. */
+function actualizarEtiquetaRangoActivo() {
+  const aviso = document.getElementById('aviso-rango-activo');
+  if (!aviso) return;
+
+  if (!rangoActivo) {
+    aviso.style.display = 'none';
+    aviso.innerHTML = '';
+    return;
+  }
+
+  const etiquetaObj = TEXTOS_ETIQUETA_RANGO[rangoActivo.tipo];
+  const etiqueta = etiquetaObj ? (etiquetaObj[idiomaActual] || etiquetaObj.es) : rangoActivo.tipo;
+  const volverTexto = TEXTOS_VOLVER_HOY[idiomaActual] || TEXTOS_VOLVER_HOY.es;
+
+  aviso.style.display = 'flex';
+  aviso.innerHTML = `<span>📆 ${etiqueta}: ${formatearFechaCorta(rangoActivo.desde)} – ${formatearFechaCorta(rangoActivo.hasta)}</span><button type="button" class="btn-volver-hoy" onclick="aplicarFiltroRapido('hoy')">${volverTexto}</button>`;
+}
+
+/**
+ * Carga en el listado todos los registros entre desdeStr y hastaStr (ambos
+ * incluidos), sustituyendo la vista normal de un solo día. Pagina con
+ * .range() igual que informes.js, por si el periodo (p.ej. un mes) tuviera
+ * más de 1000 registros.
+ */
+async function cargarTareasRango(desdeStr, hastaStr, tipo) {
+  rangoActivo = { desde: desdeStr, hasta: hastaStr, tipo };
+  actualizarEtiquetaRangoActivo();
+  actualizarEtiquetaTeoricaSegunModo();
+
+  const btnFinalizarJornada = document.getElementById('btn-finalizar-jornada');
+  if (btnFinalizarJornada) btnFinalizarJornada.disabled = true;
+  const avisoDiaCerrado = document.getElementById('aviso-dia-cerrado');
+  if (avisoDiaCerrado) avisoDiaCerrado.style.display = 'none';
+
+  const inputFiltroListado = document.getElementById('filtro-listado');
+  if (inputFiltroListado) inputFiltroListado.value = '';
+
+  const tablaBody = document.getElementById('tabla-body');
+  tablaBody.innerHTML = '<div class="tabla-msg">Cargando datos desde Supabase...</div>';
+
+  try {
+    const TAMANO_PAGINA = 1000;
+    let tareas = [];
+    let desdeIndice = 0;
+
+    while (true) {
+      const { data: pagina, error } = await supabaseClient
+        .from(TABLA)
+        .select('*')
+        .gte('fecha', desdeStr)
+        .lte('fecha', hastaStr)
+        .range(desdeIndice, desdeIndice + TAMANO_PAGINA - 1);
+
+      if (error) {
+        console.error('Error al cargar el rango de fechas:', error);
+        tablaBody.innerHTML = `<div class="tabla-msg" style="color:red;">Error Supabase: ${error.message}</div>`;
+        actualizarAvisoAbiertas([]);
+        return;
+      }
+
+      tareas = tareas.concat(pagina || []);
+      if (!pagina || pagina.length < TAMANO_PAGINA) break;
+      desdeIndice += TAMANO_PAGINA;
+    }
+
+    // Orden cronológico por fecha y, dentro de cada fecha, por hora de inicio.
+    tareas.sort((a, b) => {
+      const fechaA = String(a.fecha || '');
+      const fechaB = String(b.fecha || '');
+      if (fechaA !== fechaB) return fechaA < fechaB ? -1 : 1;
+      const horaA = a.horainicio || '';
+      const horaB = b.horainicio || '';
+      if (horaA !== horaB) return horaA < horaB ? -1 : 1;
+      return (a.id || 0) - (b.id || 0);
+    });
+
+    tareasCargadasCache = tareas;
+    actualizarAvisoAbiertas(tareas);
+
+    if (tareas.length === 0) {
+      tablaBody.innerHTML = `<div class="tabla-msg">No existen registros guardados entre ${desdeStr} y ${hastaStr}.</div>`;
+    } else {
+      renderFilasTabla(tareas);
+    }
+
+    actualizarResumenRango(tareas, desdeStr, hastaStr);
+
+  } catch (err) {
+    console.error('Error inesperado al cargar el rango de fechas:', err);
+    tablaBody.innerHTML = `<div class="tabla-msg" style="color:red;">Error al procesar la solicitud.</div>`;
+  }
+}
+
+/**
+ * Totales agregados de un rango de varios días: jornada teórica = suma de
+ * la jornada teórica de cada día natural del periodo (festivos/fines de
+ * semana ya cuentan 0 automáticamente, tengan o no registros); horas
+ * trabajadas = suma por día de las horas brutas menos el descanso de ese
+ * día (igual criterio que informes.js), sumado luego entre todos los días
+ * con datos; balance = trabajadas - teórica.
+ */
+function actualizarResumenRango(tareas, desdeStr, hastaStr) {
+  let teoricoTotal = 0;
+  let cursor = parsearFechaLocal(desdeStr);
+  const fin = parsearFechaLocal(hastaStr);
+  while (cursor && fin && cursor <= fin) {
+    teoricoTotal += obtenerJornadaTeoricaMinutos(formatearFechaISO(cursor));
+    cursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 1);
+  }
+
+  const minutosPorDia = {};
+  tareas.forEach(item => {
+    let fechaKey = String(item.fecha || '').trim();
+    if (fechaKey.includes('T')) fechaKey = fechaKey.split('T')[0];
+    if (fechaKey.includes(' ')) fechaKey = fechaKey.split(' ')[0];
+    minutosPorDia[fechaKey] = (minutosPorDia[fechaKey] || 0) + obtenerMinutosDuracion(item.horainicio, item.horafin);
+  });
+
+  let totalTrabajado = 0;
+  Object.keys(minutosPorDia).forEach(fechaKey => {
+    let minutosDia = minutosPorDia[fechaKey];
+    if (minutosDia > 0) {
+      minutosDia = Math.max(0, minutosDia - obtenerDescansoMinutos(fechaKey));
+    }
+    totalTrabajado += minutosDia;
+  });
+
+  const balanceMinutos = totalTrabajado - teoricoTotal;
+
+  document.getElementById('total-teorica').textContent = formatearMinutosAHoras(teoricoTotal);
+  document.getElementById('total-duracion').textContent = formatearMinutosAHoras(totalTrabajado);
+
+  const elBalance = document.getElementById('total-balance');
+  const signoStr = balanceMinutos > 0 ? '+' : '';
+  elBalance.textContent = `${signoStr}${formatearMinutosAHoras(balanceMinutos)}`;
+  elBalance.className = balanceMinutos > 0 ? 'saldo-positivo' : (balanceMinutos < 0 ? 'saldo-negativo' : 'saldo-neutro');
+}
+
 async function guardarRegistroFormulario() {
   const id = document.getElementById('tarea-id').value;
   const fechaStr = document.getElementById('fecha').value.trim();
@@ -758,7 +966,14 @@ async function guardarRegistroFormulario() {
       return false;
     } else {
       resetearFormulario();
-      await cargarTareas();
+      // Si se estaba viendo un rango (Semana/Mes), se recarga ese mismo
+      // rango en vez de volver a la vista de un solo día, para no perder
+      // de vista el resto de registros del periodo tras guardar/editar uno.
+      if (rangoActivo) {
+        await cargarTareasRango(rangoActivo.desde, rangoActivo.hasta, rangoActivo.tipo);
+      } else {
+        await cargarTareas();
+      }
       return true;
     }
   } catch (err) {
@@ -824,7 +1039,11 @@ async function iniciarAusencia() {
 async function borrarTarea(id) {
   if (confirm('¿Eliminar este registro?')) {
     await supabaseClient.from(TABLA).delete().eq('id', id);
-    cargarTareas();
+    if (rangoActivo) {
+      await cargarTareasRango(rangoActivo.desde, rangoActivo.hasta, rangoActivo.tipo);
+    } else {
+      cargarTareas();
+    }
   }
 }
 
@@ -920,7 +1139,9 @@ const TEXTOS_INDEX = {
     guardar: 'Guardar', actualizar: 'Actualizar', cancelar: 'Cancelar',
     teorica: 'Jornada Teórica del Día:', total: 'Total Horas Trabajadas:', balance: 'Balance / Horas Extra:',
     menuEditar: '✏️ Editar', menuDuplicar: '📋 Duplicar', menuEliminar: '🗑️ Eliminar',
-    filtroPlaceholder: '🔎 Filtrar por tarea, proyecto, bloque, comentario o notas...'
+    filtroPlaceholder: '🔎 Filtrar por tarea, proyecto, bloque, comentario o notas... (usa * como comodín)',
+    filtroHoy: 'Hoy', filtroAyer: 'Ayer', filtroSemana: 'Esta semana', filtroSemanaAnterior: 'Semana pasada',
+    filtroMes: 'Este mes', filtroMesAnterior: 'Mes pasado'
   },
   gl: {
     titulo: 'REGHOR', fecha: 'Data', tarea: 'Tarefa', proyecto: 'Proxecto', bloque: 'Bloque',
@@ -930,7 +1151,9 @@ const TEXTOS_INDEX = {
     guardar: 'Gardar', actualizar: 'Actualizar', cancelar: 'Cancelar',
     teorica: 'Xornada Teórica do Día:', total: 'Total Horas Traballadas:', balance: 'Balance / Horas Extra:',
     menuEditar: '✏️ Editar', menuDuplicar: '📋 Duplicar', menuEliminar: '🗑️ Eliminar',
-    filtroPlaceholder: '🔎 Filtrar por tarefa, proxecto, bloque, comentario ou notas...'
+    filtroPlaceholder: '🔎 Filtrar por tarefa, proxecto, bloque, comentario ou notas... (usa * como comodín)',
+    filtroHoy: 'Hoxe', filtroAyer: 'Onte', filtroSemana: 'Esta semana', filtroSemanaAnterior: 'Semana pasada',
+    filtroMes: 'Este mes', filtroMesAnterior: 'Mes pasado'
   },
   en: {
     titulo: 'REGHOR', fecha: 'Date', tarea: 'Task', proyecto: 'Project', bloque: 'Block',
@@ -940,7 +1163,9 @@ const TEXTOS_INDEX = {
     guardar: 'Save', actualizar: 'Update', cancelar: 'Cancel',
     teorica: 'Theoretical Day Hours:', total: 'Total Hours Worked:', balance: 'Balance / Overtime:',
     menuEditar: '✏️ Edit', menuDuplicar: '📋 Duplicate', menuEliminar: '🗑️ Delete',
-    filtroPlaceholder: '🔎 Filter by task, project, block, comment or notes...'
+    filtroPlaceholder: '🔎 Filter by task, project, block, comment or notes... (use * as wildcard)',
+    filtroHoy: 'Today', filtroAyer: 'Yesterday', filtroSemana: 'This week', filtroSemanaAnterior: 'Last week',
+    filtroMes: 'This month', filtroMesAnterior: 'Last month'
   }
 };
 
@@ -991,7 +1216,22 @@ function cambiarIdioma(lang) {
   const inputFiltro = document.getElementById('filtro-listado');
   if (inputFiltro) inputFiltro.placeholder = t.filtroPlaceholder;
 
+  const btnFiltroHoy = document.getElementById('btn-filtro-hoy');
+  const btnFiltroAyer = document.getElementById('btn-filtro-ayer');
+  const btnFiltroSemana = document.getElementById('btn-filtro-semana');
+  const btnFiltroSemanaAnterior = document.getElementById('btn-filtro-semana-anterior');
+  const btnFiltroMes = document.getElementById('btn-filtro-mes');
+  const btnFiltroMesAnterior = document.getElementById('btn-filtro-mes-anterior');
+  if (btnFiltroHoy) btnFiltroHoy.textContent = t.filtroHoy;
+  if (btnFiltroAyer) btnFiltroAyer.textContent = t.filtroAyer;
+  if (btnFiltroSemana) btnFiltroSemana.textContent = t.filtroSemana;
+  if (btnFiltroSemanaAnterior) btnFiltroSemanaAnterior.textContent = t.filtroSemanaAnterior;
+  if (btnFiltroMes) btnFiltroMes.textContent = t.filtroMes;
+  if (btnFiltroMesAnterior) btnFiltroMesAnterior.textContent = t.filtroMesAnterior;
+
   actualizarEstadoDiaCerrado();
+  actualizarEtiquetaTeoricaSegunModo();
+  actualizarEtiquetaRangoActivo();
 
   poblarSelects();
   actualizarAvisoAbiertas(tareasCargadasCache);

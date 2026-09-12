@@ -266,6 +266,57 @@
       font-size: 13px;
     }
 
+    /* Filtros rápidos de fecha sobre el propio listado (Hoy/Ayer/Semana/Mes),
+       para consultar periodos anteriores sin tener que abrir Informes. */
+    .filtros-rapidos-fila {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .btn-filtro-rapido {
+      padding: 6px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background-color: var(--card-bg);
+      color: var(--text-color);
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .btn-filtro-rapido:hover { background-color: rgba(0, 123, 255, 0.15); }
+
+    .aviso-rango-activo {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background: #cfe2ff;
+      color: #084298;
+      border: 1px solid #9ec5fe;
+      padding: 8px 14px;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      font-size: 13px;
+      font-weight: bold;
+    }
+    body.dark-mode .aviso-rango-activo {
+      background: #002855;
+      color: #9ec5fe;
+      border-color: #0a3f7a;
+    }
+    .btn-volver-hoy {
+      padding: 4px 10px;
+      border: 1px solid #9ec5fe;
+      border-radius: 6px;
+      background-color: transparent;
+      color: inherit;
+      font-size: 12px;
+      font-weight: bold;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-volver-hoy:hover { background-color: rgba(255, 255, 255, 0.25); }
+
     /* Menú contextual (clic derecho) que sustituye a los antiguos botones
        Editar/Duplicar/Eliminar de cada fila. */
     #menu-contextual {
@@ -477,8 +528,19 @@
 
   <h2 id="txt-listado">Listado de tareas</h2>
 
+  <div class="filtros-rapidos-fila">
+    <button type="button" class="btn-filtro-rapido" id="btn-filtro-hoy" onclick="aplicarFiltroRapido('hoy')">Hoy</button>
+    <button type="button" class="btn-filtro-rapido" id="btn-filtro-ayer" onclick="aplicarFiltroRapido('ayer')">Ayer</button>
+    <button type="button" class="btn-filtro-rapido" id="btn-filtro-semana" onclick="aplicarFiltroRapido('semana')">Esta semana</button>
+    <button type="button" class="btn-filtro-rapido" id="btn-filtro-semana-anterior" onclick="aplicarFiltroRapido('semana_anterior')">Semana pasada</button>
+    <button type="button" class="btn-filtro-rapido" id="btn-filtro-mes" onclick="aplicarFiltroRapido('mes')">Este mes</button>
+    <button type="button" class="btn-filtro-rapido" id="btn-filtro-mes-anterior" onclick="aplicarFiltroRapido('mes_anterior')">Mes pasado</button>
+  </div>
+
+  <div id="aviso-rango-activo" class="aviso-rango-activo" style="display:none;"></div>
+
   <input type="text" id="filtro-listado" class="filtro-listado-input"
-         placeholder="🔎 Filtrar por tarea, proyecto, bloque, comentario o notas..."
+         placeholder="🔎 Filtrar por tarea, proyecto, bloque, comentario o notas... (usa * como comodín)"
          oninput="aplicarFiltroInstantaneo()" autocomplete="off">
 
   <div class="tabla-container">

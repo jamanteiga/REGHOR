@@ -86,29 +86,13 @@ function establecerValoresPorDefecto() {
 }
 
 function establecerRango(tipo) {
-  const hoy = new Date();
-  let desde = new Date();
-  let hasta = new Date();
+  // El cálculo del rango (hoy/semana/semana_anterior/mes, y también
+  // ayer/mes_anterior) vive ahora en config.js, compartido con los
+  // filtros rápidos del propio index.html.
+  const { desde, hasta } = calcularRangoFechas(tipo);
 
-  if (tipo === 'hoy') {
-    desde = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
-    hasta = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
-  } else if (tipo === 'semana') {
-    const diaSemana = hoy.getDay() === 0 ? 7 : hoy.getDay();
-    desde = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - (diaSemana - 1));
-    hasta = new Date(desde.getFullYear(), desde.getMonth(), desde.getDate() + 6);
-  } else if (tipo === 'semana_anterior') {
-    const diaSemana = hoy.getDay() === 0 ? 7 : hoy.getDay();
-    const inicioSemanaActual = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - (diaSemana - 1));
-    desde = new Date(inicioSemanaActual.getFullYear(), inicioSemanaActual.getMonth(), inicioSemanaActual.getDate() - 7);
-    hasta = new Date(desde.getFullYear(), desde.getMonth(), desde.getDate() + 6);
-  } else if (tipo === 'mes') {
-    desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-    hasta = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
-  }
-
-  document.getElementById('filtro-desde').value = formatearFechaISO(desde);
-  document.getElementById('filtro-hasta').value = formatearFechaISO(hasta);
+  document.getElementById('filtro-desde').value = desde;
+  document.getElementById('filtro-hasta').value = hasta;
 
   cargarInforme();
 }

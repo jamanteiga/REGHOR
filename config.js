@@ -93,6 +93,43 @@ function parsearFechaLocal(fechaStr) {
   return new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
 }
 
+/**
+ * Calcula el rango [desde, hasta] ('YYYY-MM-DD') de un filtro rápido de
+ * fechas, tomando como referencia la fecha de hoy. La semana se considera
+ * de lunes a domingo. Compartido por informes.html (filtros de rango) y
+ * por index.html (filtros rápidos sobre el propio listado, para no tener
+ * que ir a Informes).
+ * Tipos soportados: 'hoy', 'ayer', 'semana', 'semana_anterior', 'mes', 'mes_anterior'.
+ */
+function calcularRangoFechas(tipo) {
+  const hoy = new Date();
+  let desde = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+  let hasta = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+
+  if (tipo === 'ayer') {
+    desde = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - 1);
+    hasta = new Date(desde);
+  } else if (tipo === 'semana') {
+    const diaSemana = hoy.getDay() === 0 ? 7 : hoy.getDay();
+    desde = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - (diaSemana - 1));
+    hasta = new Date(desde.getFullYear(), desde.getMonth(), desde.getDate() + 6);
+  } else if (tipo === 'semana_anterior') {
+    const diaSemana = hoy.getDay() === 0 ? 7 : hoy.getDay();
+    const inicioSemanaActual = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - (diaSemana - 1));
+    desde = new Date(inicioSemanaActual.getFullYear(), inicioSemanaActual.getMonth(), inicioSemanaActual.getDate() - 7);
+    hasta = new Date(desde.getFullYear(), desde.getMonth(), desde.getDate() + 6);
+  } else if (tipo === 'mes') {
+    desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    hasta = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+  } else if (tipo === 'mes_anterior') {
+    desde = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
+    hasta = new Date(hoy.getFullYear(), hoy.getMonth(), 0);
+  }
+  // 'hoy' (o cualquier tipo no reconocido): desde = hasta = hoy, ya inicializado arriba.
+
+  return { desde: formatearFechaISO(desde), hasta: formatearFechaISO(hasta) };
+}
+
 const DIAS_SEMANA = {
   es: ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'],
   gl: ['domingo', 'luns', 'martes', 'mércores', 'xoves', 'venres', 'sábado'],
