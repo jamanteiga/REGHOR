@@ -285,6 +285,34 @@
     }
     .btn-filtro-rapido:hover { background-color: rgba(0, 123, 255, 0.15); }
 
+    /* Filtro de rango personalizado (Desde/Hasta) sobre el propio listado. */
+    .filtro-rango-personalizado-fila {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 8px;
+      font-size: 12px;
+    }
+    .filtro-rango-personalizado-fila .rango-campo {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex: 0 0 auto;
+    }
+    .filtro-rango-personalizado-fila label { color: var(--text-color); white-space: nowrap; }
+    .filtro-rango-personalizado-fila input[type="date"] {
+      width: 150px;
+      flex: 0 0 auto;
+      padding: 5px 8px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background-color: var(--card-bg);
+      color: var(--text-color);
+      font-size: 12px;
+    }
+    .btn-filtrar-rango { font-weight: bold; }
+
     .aviso-rango-activo {
       display: flex;
       align-items: center;
@@ -535,6 +563,18 @@
     <button type="button" class="btn-filtro-rapido" id="btn-filtro-semana-anterior" onclick="aplicarFiltroRapido('semana_anterior')">Semana pasada</button>
     <button type="button" class="btn-filtro-rapido" id="btn-filtro-mes" onclick="aplicarFiltroRapido('mes')">Este mes</button>
     <button type="button" class="btn-filtro-rapido" id="btn-filtro-mes-anterior" onclick="aplicarFiltroRapido('mes_anterior')">Mes pasado</button>
+  </div>
+
+  <div class="filtro-rango-personalizado-fila">
+    <span class="rango-campo">
+      <label id="lbl-rango-desde" for="filtro-rango-desde">Desde</label>
+      <input type="date" id="filtro-rango-desde">
+    </span>
+    <span class="rango-campo">
+      <label id="lbl-rango-hasta" for="filtro-rango-hasta">Hasta</label>
+      <input type="date" id="filtro-rango-hasta">
+    </span>
+    <button type="button" class="btn-filtro-rapido btn-filtrar-rango" id="btn-filtrar-rango" onclick="aplicarFiltroRangoPersonalizado()">🔍 Filtrar</button>
   </div>
 
   <div id="aviso-rango-activo" class="aviso-rango-activo" style="display:none;"></div>

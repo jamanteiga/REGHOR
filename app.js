@@ -745,7 +745,8 @@ const TEXTOS_ETIQUETA_RANGO = {
   semana: { es: 'Semana actual', gl: 'Semana actual', en: 'This week' },
   semana_anterior: { es: 'Semana anterior', gl: 'Semana anterior', en: 'Last week' },
   mes: { es: 'Mes actual', gl: 'Mes actual', en: 'This month' },
-  mes_anterior: { es: 'Mes pasado', gl: 'Mes pasado', en: 'Last month' }
+  mes_anterior: { es: 'Mes pasado', gl: 'Mes pasado', en: 'Last month' },
+  personalizado: { es: 'Rango personalizado', gl: 'Intervalo personalizado', en: 'Custom range' }
 };
 const TEXTOS_VOLVER_HOY = { es: '✕ Volver a hoy', gl: '✕ Volver a hoxe', en: '✕ Back to today' };
 const TEXTOS_TEORICA_MODO = {
@@ -769,6 +770,25 @@ function aplicarFiltroRapido(tipo) {
   }
 
   cargarTareasRango(desde, hasta, tipo);
+}
+
+const TEXTOS_RANGO_INVALIDO = {
+  es: '❌ Introduce una fecha "Desde" y una fecha "Hasta" válidas, con "Desde" igual o anterior a "Hasta".',
+  gl: '❌ Introduce unha data "Desde" e unha data "Ata" válidas, con "Desde" igual ou anterior a "Ata".',
+  en: '❌ Enter a valid "From" and "To" date, with "From" on or before "To".'
+};
+
+/** Filtro de rango personalizado (Desde/Hasta) del listado, para consultar cualquier periodo sin ir a Informes. */
+function aplicarFiltroRangoPersonalizado() {
+  const desde = document.getElementById('filtro-rango-desde').value.trim();
+  const hasta = document.getElementById('filtro-rango-hasta').value.trim();
+
+  if (!desde || !hasta || desde > hasta) {
+    alert(TEXTOS_RANGO_INVALIDO[idiomaActual] || TEXTOS_RANGO_INVALIDO.es);
+    return;
+  }
+
+  cargarTareasRango(desde, hasta, 'personalizado');
 }
 
 /** Cambia el rótulo "Jornada Teórica del..." según se esté en vista de un solo día o de un rango. */
@@ -1141,7 +1161,8 @@ const TEXTOS_INDEX = {
     menuEditar: '✏️ Editar', menuDuplicar: '📋 Duplicar', menuEliminar: '🗑️ Eliminar',
     filtroPlaceholder: '🔎 Filtrar por tarea, proyecto, bloque, comentario o notas... (usa * como comodín)',
     filtroHoy: 'Hoy', filtroAyer: 'Ayer', filtroSemana: 'Esta semana', filtroSemanaAnterior: 'Semana pasada',
-    filtroMes: 'Este mes', filtroMesAnterior: 'Mes pasado'
+    filtroMes: 'Este mes', filtroMesAnterior: 'Mes pasado',
+    rangoDesde: 'Desde', rangoHasta: 'Hasta', rangoFiltrar: '🔍 Filtrar'
   },
   gl: {
     titulo: 'REGHOR', fecha: 'Data', tarea: 'Tarefa', proyecto: 'Proxecto', bloque: 'Bloque',
@@ -1153,7 +1174,8 @@ const TEXTOS_INDEX = {
     menuEditar: '✏️ Editar', menuDuplicar: '📋 Duplicar', menuEliminar: '🗑️ Eliminar',
     filtroPlaceholder: '🔎 Filtrar por tarefa, proxecto, bloque, comentario ou notas... (usa * como comodín)',
     filtroHoy: 'Hoxe', filtroAyer: 'Onte', filtroSemana: 'Esta semana', filtroSemanaAnterior: 'Semana pasada',
-    filtroMes: 'Este mes', filtroMesAnterior: 'Mes pasado'
+    filtroMes: 'Este mes', filtroMesAnterior: 'Mes pasado',
+    rangoDesde: 'Desde', rangoHasta: 'Ata', rangoFiltrar: '🔍 Filtrar'
   },
   en: {
     titulo: 'REGHOR', fecha: 'Date', tarea: 'Task', proyecto: 'Project', bloque: 'Block',
@@ -1165,7 +1187,8 @@ const TEXTOS_INDEX = {
     menuEditar: '✏️ Edit', menuDuplicar: '📋 Duplicate', menuEliminar: '🗑️ Delete',
     filtroPlaceholder: '🔎 Filter by task, project, block, comment or notes... (use * as wildcard)',
     filtroHoy: 'Today', filtroAyer: 'Yesterday', filtroSemana: 'This week', filtroSemanaAnterior: 'Last week',
-    filtroMes: 'This month', filtroMesAnterior: 'Last month'
+    filtroMes: 'This month', filtroMesAnterior: 'Last month',
+    rangoDesde: 'From', rangoHasta: 'To', rangoFiltrar: '🔍 Filter'
   }
 };
 
@@ -1228,6 +1251,13 @@ function cambiarIdioma(lang) {
   if (btnFiltroSemanaAnterior) btnFiltroSemanaAnterior.textContent = t.filtroSemanaAnterior;
   if (btnFiltroMes) btnFiltroMes.textContent = t.filtroMes;
   if (btnFiltroMesAnterior) btnFiltroMesAnterior.textContent = t.filtroMesAnterior;
+
+  const lblRangoDesde = document.getElementById('lbl-rango-desde');
+  const lblRangoHasta = document.getElementById('lbl-rango-hasta');
+  const btnFiltrarRango = document.getElementById('btn-filtrar-rango');
+  if (lblRangoDesde) lblRangoDesde.textContent = t.rangoDesde;
+  if (lblRangoHasta) lblRangoHasta.textContent = t.rangoHasta;
+  if (btnFiltrarRango) btnFiltrarRango.textContent = t.rangoFiltrar;
 
   actualizarEstadoDiaCerrado();
   actualizarEtiquetaTeoricaSegunModo();
