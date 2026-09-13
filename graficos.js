@@ -170,6 +170,15 @@ function formatearFechaCorta(fechaISO) {
 async function generarGraficoRendimiento() {
   if (!supabaseClient) return;
 
+  // Este botón depende de PROYECTO_RENDIMIENTO/calcularPorcentajeRendimiento,
+  // añadidos a config.js. Si ese fichero no se actualizó junto con graficos.js
+  // (reemplazo parcial de ficheros), avisamos claramente en vez de romper con
+  // un ReferenceError poco comprensible.
+  if (typeof PROYECTO_RENDIMIENTO === 'undefined' || typeof calcularPorcentajeRendimiento !== 'function') {
+    alert('⚠️ No se puede calcular el rendimiento: falta actualizar config.js (parece una versión antigua). Comprueba que todos los ficheros de la app se han reemplazado juntos.');
+    return;
+  }
+
   const desde = document.getElementById('filtro-desde').value;
   const hasta = document.getElementById('filtro-hasta').value;
   const tipoGrafico = document.getElementById('tipo-grafico').value;

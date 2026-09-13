@@ -171,8 +171,11 @@ function actualizarRelojEnVivo() {
   el.textContent = `${horas}:${minutos}:${segundos}`;
   el.style.color = colorRelojSegunHora(ahora);
 
-  actualizarContadorEfectivoYRendimiento(ahora);
-  actualizarContadorExtra(ahora);
+  // Cada bloque envuelto por separado: un fallo en uno (p.ej. el contador
+  // de rendimiento) nunca debe impedir que el resto de la cabecera se seguir
+  // actualizando cada segundo.
+  try { actualizarContadorEfectivoYRendimiento(ahora); } catch (e) { console.error('Error en el contador de tiempo efectivo/% rendimiento:', e); }
+  try { actualizarContadorExtra(ahora); } catch (e) { console.error('Error en el contador de tiempo extra:', e); }
 }
 
 /** Pone en marcha el reloj en vivo de la cabecera (arranque inmediato + cada segundo). */
@@ -260,6 +263,10 @@ function calcularTiempoEfectivoSegundos(ahora) {
 function calcularMinutosRendimientoHoy(ahora) {
   const registros = registrosHoyContadorCache;
   if (!registros || registros.length === 0) return 0;
+  // PROYECTO_RENDIMIENTO vive en config.js; si por error se ha sustituido
+  // app.js sin sustituir también config.js a la vez, esto evita un
+  // ReferenceError que rompería el reloj de la cabecera entero.
+  if (typeof PROYECTO_RENDIMIENTO === 'undefined') return 0;
 
   let minutos = 0;
   registros.forEach((reg, idx) => {
@@ -294,10 +301,15 @@ function actualizarContadorEfectivoYRendimiento(ahora) {
   }
 
   if (elPorcentaje) {
-    const hoyStr = obtenerFechaHoyISO();
-    const minutosRendimiento = calcularMinutosRendimientoHoy(ahora);
-    const pct = calcularPorcentajeRendimiento(minutosRendimiento, hoyStr);
-    elPorcentaje.textContent = (pct === null) ? '' : `${Math.round(pct)}%`;
+    // calcularPorcentajeRendimiento vive en config.js; mismo motivo que arriba.
+    if (typeof calcularPorcentajeRendimiento !== 'function') {
+      elPorcentaje.textContent = '';
+    } else {
+      const hoyStr = obtenerFechaHoyISO();
+      const minutosRendimiento = calcularMinutosRendimientoHoy(ahora);
+      const pct = calcularPorcentajeRendimiento(minutosRendimiento, hoyStr);
+      elPorcentaje.textContent = (pct === null) ? '' : `${Math.round(pct)}%`;
+    }
   }
 }
 
@@ -390,18 +402,29 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   poblarSelects();
   actualizarTituloConDia();
-  await refrescarRegistrosHoyContador();
-  iniciarRelojEnVivo();
 
   const inputFecha = document.getElementById('fecha');
   if (inputFecha) {
     inputFecha.addEventListener('change', () => cargarTareas());
   }
 
+  // Cargar el listado de tareas ya guardadas es lo prioritario: se hace
+  // ANTES que cualquier función añadida más adelante (reloj en vivo,
+  // contador de tiempo efectivo/% de rendimiento...), para que un fallo en
+  // una de esas funciones más nuevas (por ejemplo, por tener mezclados
+  // ficheros de versiones distintas) nunca pueda impedir que se vean las
+  // tareas ya guardadas: NO se han borrado, solo no se cargarían en pantalla.
   if (supabaseClient) {
     await cargarTareas();
   } else {
     document.getElementById('tabla-body').innerHTML = '<div class="tabla-msg" style="color:red;">⚠️ Error al inicializar Supabase.</div>';
+  }
+
+  try {
+    await refrescarRegistrosHoyContador();
+    iniciarRelojEnVivo();
+  } catch (e) {
+    console.error('Error al iniciar el reloj/contador de la cabecera (no afecta al listado de tareas, ya cargado arriba):', e);
   }
 });
 
@@ -1467,4 +1490,4 @@ function cambiarIdioma(lang) {
 
   poblarSelects();
   actualizarAvisoAbiertas(tareasCargadasCache);
-}
+}g
