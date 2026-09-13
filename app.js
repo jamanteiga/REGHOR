@@ -123,16 +123,44 @@ function actualizarTituloConDia() {
 /**
  * Color del reloj en vivo de la cabecera según la hora: rojo desde el
  * arranque de la jornada (aprox. 06:30) hasta las 12:00, naranja de 12:00 a
- * 16:00 y verde a partir de las 16:00.
+ * 16:00, verde de 16:00 a 17:00 y rojo de nuevo a partir de las 17:00.
  */
 function colorRelojSegunHora(fecha) {
   const minutosDelDia = fecha.getHours() * 60 + fecha.getMinutes();
+  if (minutosDelDia >= 17 * 60) return '#dc3545';
   if (minutosDelDia >= 16 * 60) return '#28a745';
   if (minutosDelDia >= 12 * 60) return '#fd7e14';
   return '#dc3545';
 }
 
-/** Actualiza el texto (h:mm:ss) y el color del reloj en vivo de la cabecera. */
+/**
+ * Contador de tiempo extra (hh:mm:ss, siempre en verde) transcurrido desde
+ * las 16:00 de hoy. Solo se muestra a partir de esa hora; antes queda
+ * vacío y oculto.
+ */
+function actualizarContadorExtra(ahora) {
+  const el = document.getElementById('contador-extra');
+  if (!el) return;
+
+  const minutosDelDia = ahora.getHours() * 60 + ahora.getMinutes();
+  if (minutosDelDia < 16 * 60) {
+    el.textContent = '';
+    el.style.display = 'none';
+    return;
+  }
+
+  const inicioExtra = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 16, 0, 0, 0);
+  const totalSegundos = Math.max(0, Math.floor((ahora - inicioExtra) / 1000));
+  const hh = String(Math.floor(totalSegundos / 3600)).padStart(2, '0');
+  const mm = String(Math.floor((totalSegundos % 3600) / 60)).padStart(2, '0');
+  const ss = String(totalSegundos % 60).padStart(2, '0');
+
+  el.textContent = `+${hh}:${mm}:${ss}`;
+  el.style.color = '#28a745';
+  el.style.display = '';
+}
+
+/** Actualiza el texto (h:mm:ss) y el color del reloj en vivo de la cabecera, y el contador de tiempo extra desde las 16:00. */
 function actualizarRelojEnVivo() {
   const el = document.getElementById('reloj-actual');
   if (!el) return;
@@ -142,6 +170,8 @@ function actualizarRelojEnVivo() {
   const segundos = String(ahora.getSeconds()).padStart(2, '0');
   el.textContent = `${horas}:${minutos}:${segundos}`;
   el.style.color = colorRelojSegunHora(ahora);
+
+  actualizarContadorExtra(ahora);
 }
 
 /** Pone en marcha el reloj en vivo de la cabecera (arranque inmediato + cada segundo). */
