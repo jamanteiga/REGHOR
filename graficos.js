@@ -12,7 +12,7 @@ const TEXTOS_GRAFICOS = {
     proyecto: 'Proyecto (*)', tarea: 'Tarea (*)', bloque: 'Bloque (*)', comentarios: 'Comentarios (*)',
     agruparPor: 'Agrupar por', optProyecto: 'Proyecto', optTarea: 'Tarea', optBloque: 'Bloque', optFecha: 'Fecha',
     tipoGrafico: 'Tipo de Gráfico', optBar: 'Barras', optLine: 'Línea', optArea: 'Área', optPie: 'Tarta', optDoughnut: 'Rosco',
-    actualizar: 'Actualizar Gráfico'
+    actualizar: 'Actualizar Gráfico', rendimiento: '📊 Rendimiento de Jornada'
   },
   gl: {
     titulo: '📈 Análise Gráfica de Tempos', cerrar: '❌ Pechar', rangoRapido: 'Intervalo Rápido',
@@ -20,7 +20,7 @@ const TEXTOS_GRAFICOS = {
     proyecto: 'Proxecto (*)', tarea: 'Tarefa (*)', bloque: 'Bloque (*)', comentarios: 'Comentarios (*)',
     agruparPor: 'Agrupar por', optProyecto: 'Proxecto', optTarea: 'Tarefa', optBloque: 'Bloque', optFecha: 'Data',
     tipoGrafico: 'Tipo de Gráfico', optBar: 'Barras', optLine: 'Liña', optArea: 'Área', optPie: 'Torta', optDoughnut: 'Rosca',
-    actualizar: 'Actualizar Gráfico'
+    actualizar: 'Actualizar Gráfico', rendimiento: '📊 Rendemento da Xornada'
   },
   en: {
     titulo: '📈 Time Chart Analysis', cerrar: '❌ Close', rangoRapido: 'Quick Range',
@@ -28,7 +28,7 @@ const TEXTOS_GRAFICOS = {
     proyecto: 'Project (*)', tarea: 'Task (*)', bloque: 'Block (*)', comentarios: 'Comments (*)',
     agruparPor: 'Group by', optProyecto: 'Project', optTarea: 'Task', optBloque: 'Block', optFecha: 'Date',
     tipoGrafico: 'Chart Type', optBar: 'Bar', optLine: 'Line', optArea: 'Area', optPie: 'Pie', optDoughnut: 'Doughnut',
-    actualizar: 'Update Chart'
+    actualizar: 'Update Chart', rendimiento: '📊 Workday Performance'
   }
 };
 
@@ -60,6 +60,7 @@ function cambiarIdioma(lang) {
   document.getElementById('opt-tipo-pie').textContent = t.optPie;
   document.getElementById('opt-tipo-doughnut').textContent = t.optDoughnut;
   document.getElementById('btn-actualizar').textContent = t.actualizar;
+  document.getElementById('btn-rendimiento').textContent = t.rendimiento;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -149,6 +150,74 @@ async function generarGrafico() {
   renderizarChart(etiquetas, valores, tipoGrafico, agruparPor);
 }
 
+/** 'YYYY-MM-DD' -> 'DD/MM' (etiquetas cortas del gráfico de rendimiento). */
+function formatearFechaCorta(fechaISO) {
+  const partes = String(fechaISO).split('-');
+  return partes.length === 3 ? `${partes[2]}/${partes[1]}` : fechaISO;
+}
+
+/**
+ * % de rendimiento (horas en el proyecto BAC2 entre la jornada teórica de
+ * cada día, ver calcularPorcentajeRendimiento en config.js) por cada día
+ * laborable del rango Desde/Hasta seleccionado -sirve tanto para un único
+ * día como para una semana, un mes o cualquier rango de fechas a medida,
+ * ya que el rango se controla con los mismos campos Desde/Hasta y los
+ * botones rápidos Hoy/Semana/Mes de más arriba-. Los fines de semana y
+ * festivos (sin jornada teórica) no generan punto en el gráfico. No tiene
+ * en cuenta los filtros de texto (Proyecto/Tarea/Bloque/Comentarios): el
+ * rendimiento se define siempre igual (BAC2 frente al resto).
+ */
+async function generarGraficoRendimiento() {
+  if (!supabaseClient) return;
+
+  const desde = document.getElementById('filtro-desde').value;
+  const hasta = document.getElementById('filtro-hasta').value;
+  const tipoGrafico = document.getElementById('tipo-grafico').value;
+
+  if (!desde || !hasta) {
+    alert('❌ Selecciona una fecha "Desde" y una fecha "Hasta" para calcular el rendimiento.');
+    return;
+  }
+
+  const { data, error } = await supabaseClient
+    .from(TABLA)
+    .select('fecha,proyecto,horainicio,horafin')
+    .gte('fecha', desde)
+    .lte('fecha', hasta);
+
+  if (error) {
+    console.error('Error al recuperar datos para el rendimiento:', error);
+    return;
+  }
+
+  const minutosBACPorFecha = {};
+  (data || []).forEach(item => {
+    if (item.proyecto !== PROYECTO_RENDIMIENTO) return;
+    let f = String(item.fecha || '').trim();
+    if (f.includes('T')) f = f.split('T')[0];
+    if (f.includes(' ')) f = f.split(' ')[0];
+    minutosBACPorFecha[f] = (minutosBACPorFecha[f] || 0) + obtenerMinutosDuracion(item.horainicio, item.horafin);
+  });
+
+  const etiquetas = [];
+  const valores = [];
+  const inicio = parsearFechaLocal(desde);
+  const fin = parsearFechaLocal(hasta);
+  for (let d = new Date(inicio); d <= fin; d.setDate(d.getDate() + 1)) {
+    const fStr = formatearFechaISO(d);
+    const pct = calcularPorcentajeRendimiento(minutosBACPorFecha[fStr] || 0, fStr);
+    if (pct === null) continue; // Fin de semana/festivo: no aplica.
+    etiquetas.push(formatearFechaCorta(fStr));
+    valores.push(parseFloat(pct.toFixed(1)));
+  }
+
+  renderizarChart(etiquetas, valores, tipoGrafico, 'fecha', {
+    datasetLabel: '% Rendimiento (BAC2)',
+    yTitle: '% Rendimiento',
+    formatoTooltip: (valor) => `${valor}%`
+  });
+}
+
 /** Convierte horas en decimal (p.ej. 1.5) al formato h:mm (p.ej. "1:30"). */
 function formatearHorasComoHMM(horasDecimal) {
   const totalMin = Math.round((horasDecimal || 0) * 60);
@@ -157,7 +226,20 @@ function formatearHorasComoHMM(horasDecimal) {
   return `${h}:${String(m).padStart(2, '0')}`;
 }
 
-function renderizarChart(labels, data, tipo, criterio) {
+/**
+ * Dibuja el gráfico. `opciones` permite reutilizar esta misma función para
+ * series que no son "horas por criterio" (p.ej. el % de rendimiento por
+ * fecha): datasetLabel (leyenda), yTitle (título eje Y) y formatoTooltip
+ * (cómo formatear cada valor en el tooltip). Si se omite, se comporta
+ * exactamente igual que antes (horas totales, formateadas como h:mm).
+ */
+function renderizarChart(labels, data, tipo, criterio, opciones) {
+  const cfg = Object.assign({
+    datasetLabel: `Horas por ${criterio.toUpperCase()}`,
+    yTitle: 'Horas Totales',
+    formatoTooltip: (valor) => formatearHorasComoHMM(valor)
+  }, opciones || {});
+
   const canvas = document.getElementById('miGrafico');
   const ctx = canvas.getContext('2d');
 
@@ -172,7 +254,7 @@ function renderizarChart(labels, data, tipo, criterio) {
 
   let chartType = tipo;
   let datasetConfig = {
-    label: `Horas por ${criterio.toUpperCase()}`,
+    label: cfg.datasetLabel,
     data: data,
     backgroundColor: coloresBase,
     borderColor: coloresBase,
@@ -208,9 +290,8 @@ function renderizarChart(labels, data, tipo, criterio) {
         },
         tooltip: {
           callbacks: {
-            // Duración con formato h:mm (p.ej. "1:30") en vez de horas en decimal.
             label: function(context) {
-              return ` ${context.label || ''}: ${formatearHorasComoHMM(context.raw)}`;
+              return ` ${context.label || ''}: ${cfg.formatoTooltip(context.raw)}`;
             }
           }
         }
@@ -218,7 +299,7 @@ function renderizarChart(labels, data, tipo, criterio) {
       scales: ['pie', 'doughnut'].includes(tipo) ? {} : {
         y: {
           beginAtZero: true,
-          title: { display: true, text: 'Horas Totales' }
+          title: { display: true, text: cfg.yTitle }
         },
         x: {
           title: { display: true, text: criterio.toUpperCase() }

@@ -171,6 +171,7 @@ function actualizarRelojEnVivo() {
   el.textContent = `${horas}:${minutos}:${segundos}`;
   el.style.color = colorRelojSegunHora(ahora);
 
+  actualizarContadorEfectivoYRendimiento(ahora);
   actualizarContadorExtra(ahora);
 }
 
@@ -178,6 +179,126 @@ function actualizarRelojEnVivo() {
 function iniciarRelojEnVivo() {
   actualizarRelojEnVivo();
   setInterval(actualizarRelojEnVivo, 1000);
+}
+
+// ------------------------------------------------------------
+// Contador de tiempo efectivo de la jornada + % de rendimiento (cabecera).
+// Ambos se recalculan cada segundo (iniciarRelojEnVivo) a partir de una
+// caché de los registros de HOY (independiente de lo que se esté viendo en
+// el listado, que puede estar mostrando otro día u otro rango), que se
+// refresca cada vez que se guarda o borra un registro.
+// ------------------------------------------------------------
+
+// Tareas que pausan el contador de tiempo efectivo (no cuentan como trabajo).
+const TAREAS_PAUSA_CONTADOR = ["Fuera escritorio", "Comida", "Descanso 20'", "Descanso 30'", "Espera de nueva tarea"];
+
+// PROYECTO_RENDIMIENTO y calcularPorcentajeRendimiento() viven en config.js
+// (compartidos con graficos.js).
+
+let registrosHoyContadorCache = [];
+
+/** Refresca la caché de registros de HOY usada por el contador de tiempo efectivo y el % de rendimiento. */
+async function refrescarRegistrosHoyContador() {
+  if (!supabaseClient) return;
+  const hoyStr = obtenerFechaHoyISO();
+  try {
+    const { data, error } = await supabaseClient
+      .from(TABLA)
+      .select('tarea,proyecto,horainicio,horafin')
+      .ilike('fecha', `%${hoyStr}%`);
+    if (error || !data) return;
+    registrosHoyContadorCache = data
+      .filter(r => r.horainicio)
+      .sort((a, b) => String(a.horainicio).localeCompare(String(b.horainicio)));
+  } catch (e) {
+    console.error('Error al refrescar los registros de hoy para el contador:', e);
+  }
+}
+
+/** Minutos transcurridos entre 'HH:MM' y el instante "ahora" (mismo día). */
+function minutosHastaAhora(horaStr, ahora) {
+  if (!horaStr) return 0;
+  const [h, m] = horaStr.split(':').map(Number);
+  const minutosAhora = ahora.getHours() * 60 + ahora.getMinutes() + ahora.getSeconds() / 60;
+  return Math.max(0, minutosAhora - (h * 60 + m));
+}
+
+/**
+ * Segundos de tiempo efectivo transcurridos desde que empezó la jornada de
+ * hoy (hora de inicio del primer registro), descontando los intervalos en
+ * tareas de pausa (TAREAS_PAUSA_CONTADOR) -incluido el tramo en curso, si la
+ * última tarea registrada es una pausa y todavía no tiene hora de fin-.
+ * Devuelve null si hoy todavía no hay ningún registro (la jornada no ha empezado).
+ */
+function calcularTiempoEfectivoSegundos(ahora) {
+  const registros = registrosHoyContadorCache;
+  if (!registros || registros.length === 0) return null;
+
+  const inicioJornadaMin = (() => {
+    const [h, m] = registros[0].horainicio.split(':').map(Number);
+    return h * 60 + m;
+  })();
+  const minutosAhora = ahora.getHours() * 60 + ahora.getMinutes() + ahora.getSeconds() / 60;
+  if (minutosAhora <= inicioJornadaMin) return 0;
+
+  let minutosPausa = 0;
+  registros.forEach((reg, idx) => {
+    if (!TAREAS_PAUSA_CONTADOR.includes(reg.tarea)) return;
+    if (reg.horafin) {
+      minutosPausa += obtenerMinutosDuracion(reg.horainicio, reg.horafin);
+    } else if (idx === registros.length - 1) {
+      // Pausa en curso (todavía sin hora de fin): sigue acumulando en tiempo real.
+      minutosPausa += minutosHastaAhora(reg.horainicio, ahora);
+    }
+  });
+
+  const minutosEfectivos = Math.max(0, (minutosAhora - inicioJornadaMin) - minutosPausa);
+  return Math.floor(minutosEfectivos * 60);
+}
+
+/** Minutos de hoy registrados en el proyecto de rendimiento (BAC2), incluido el tramo en curso si la última tarea es de ese proyecto y aún no tiene hora de fin. */
+function calcularMinutosRendimientoHoy(ahora) {
+  const registros = registrosHoyContadorCache;
+  if (!registros || registros.length === 0) return 0;
+
+  let minutos = 0;
+  registros.forEach((reg, idx) => {
+    if (reg.proyecto !== PROYECTO_RENDIMIENTO) return;
+    if (reg.horafin) {
+      minutos += obtenerMinutosDuracion(reg.horainicio, reg.horafin);
+    } else if (idx === registros.length - 1) {
+      minutos += minutosHastaAhora(reg.horainicio, ahora);
+    }
+  });
+  return minutos;
+}
+
+/** Formatea segundos totales como 'hh:mm:ss' (con las horas a 2 cifras). */
+function formatearSegundosComoHHMMSS(totalSegundos) {
+  const segundos = Math.max(0, Math.floor(totalSegundos || 0));
+  const hh = String(Math.floor(segundos / 3600)).padStart(2, '0');
+  const mm = String(Math.floor((segundos % 3600) / 60)).padStart(2, '0');
+  const ss = String(segundos % 60).padStart(2, '0');
+  return `${hh}:${mm}:${ss}`;
+}
+
+/** Actualiza el contador de tiempo efectivo (hh:mm:ss) y el % de rendimiento de hoy, en la cabecera. */
+function actualizarContadorEfectivoYRendimiento(ahora) {
+  const elContador = document.getElementById('contador-efectivo');
+  const elPorcentaje = document.getElementById('pct-rendimiento');
+  if (!elContador && !elPorcentaje) return;
+
+  const segundosEfectivos = calcularTiempoEfectivoSegundos(ahora);
+  if (elContador) {
+    elContador.textContent = formatearSegundosComoHHMMSS(segundosEfectivos || 0);
+  }
+
+  if (elPorcentaje) {
+    const hoyStr = obtenerFechaHoyISO();
+    const minutosRendimiento = calcularMinutosRendimientoHoy(ahora);
+    const pct = calcularPorcentajeRendimiento(minutosRendimiento, hoyStr);
+    elPorcentaje.textContent = (pct === null) ? '' : `${Math.round(pct)}%`;
+  }
 }
 
 // ------------------------------------------------------------
@@ -269,6 +390,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   poblarSelects();
   actualizarTituloConDia();
+  await refrescarRegistrosHoyContador();
   iniciarRelojEnVivo();
 
   const inputFecha = document.getElementById('fecha');
@@ -1075,6 +1197,9 @@ async function guardarRegistroFormulario() {
       } else {
         await cargarTareas();
       }
+      // El contador de tiempo efectivo y el % de rendimiento de la cabecera
+      // siempre reflejan HOY, sea cual sea el día/rango que se esté viendo.
+      await refrescarRegistrosHoyContador();
       return true;
     }
   } catch (err) {
@@ -1095,12 +1220,12 @@ document.getElementById('tarea-form').addEventListener('submit', async (e) => {
  * hora de fin con la hora actual y se guarda (igual que pulsar
  * Guardar/Actualizar), para no perder ese registro. Si el formulario ya
  * tenía hora de fin puesta a mano, se respeta tal cual. A continuación se
- * prepara en el formulario un registro nuevo con fecha de hoy, tarea
- * "Varios", proyecto "FES" y hora de inicio la misma hora actual (para
- * que no quede hueco entre el final de la tarea anterior y el comienzo de
- * la ausencia); la hora de fin se deja en blanco para indicarla a mano al
- * volver, y solo entonces (al pulsar Guardar) se crea el registro en
- * Supabase.
+ * crea y guarda automáticamente (sin esperar a que el usuario pulse
+ * Guardar) un nuevo registro de ausencia con fecha de hoy, tarea "Fuera
+ * escritorio", proyecto "FES" y tanto la hora de inicio como la hora de
+ * fin puestas a la hora actual (marcador de que la ausencia empieza ahora
+ * mismo); más tarde, al volver, se corrige a mano la hora de fin real
+ * editando ese mismo registro (doble clic sobre la fila).
  */
 async function iniciarAusencia() {
   const form = document.getElementById('tarea-form');
@@ -1120,21 +1245,16 @@ async function iniciarAusencia() {
 
   document.getElementById('tarea-id').value = '';
   document.getElementById('fecha').value = obtenerFechaHoyISO();
-  document.getElementById('tarea').value = 'Varios';
+  document.getElementById('tarea').value = 'Fuera escritorio';
   document.getElementById('proyecto').value = 'FES';
   document.getElementById('bloque').value = 'GENERAL';
   document.getElementById('horainicio').value = horaActual;
-  document.getElementById('horafin').value = '';
+  document.getElementById('horafin').value = horaActual;
   document.getElementById('comentario').value = 'Ausencia';
   document.getElementById('notas').value = '';
 
-  const btnGuardar = document.getElementById('btn-guardar');
-  btnGuardar.textContent = TEXTOS_INDEX[idiomaActual].guardar;
-  btnGuardar.style.backgroundColor = '#28a745';
-  btnGuardar.style.color = '#fff';
-  document.getElementById('btn-cancelar').style.display = 'inline-block';
-
-  document.getElementById('horafin').focus();
+  // Se guarda de inmediato: no se deja pendiente de que el usuario pulse Guardar.
+  await guardarRegistroFormulario();
 }
 
 async function borrarTarea(id) {
@@ -1145,6 +1265,7 @@ async function borrarTarea(id) {
     } else {
       cargarTareas();
     }
+    await refrescarRegistrosHoyContador();
   }
 }
 

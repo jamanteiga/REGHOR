@@ -211,6 +211,23 @@ function obtenerDescansoMinutos(fechaStr) {
 }
 
 /**
+ * % de "rendimiento" de una jornada: proporción de la jornada teórica de
+ * ese día (obtenerJornadaTeoricaMinutos) empleada en el proyecto de
+ * rendimiento (BAC2) -el resto de proyectos y tareas, incluidas pausas y
+ * ausencias, son "paja" y no cuentan-. Devuelve null si ese día no tiene
+ * jornada teórica (fin de semana/festivo). Usado tanto por el contador en
+ * vivo de la cabecera de index.html como por el gráfico de rendimiento de
+ * graficos.html.
+ */
+const PROYECTO_RENDIMIENTO = 'BAC2';
+
+function calcularPorcentajeRendimiento(minutosProyectoRendimiento, fechaStr) {
+  const teoricaMin = obtenerJornadaTeoricaMinutos(fechaStr);
+  if (!teoricaMin) return null;
+  return (minutosProyectoRendimiento / teoricaMin) * 100;
+}
+
+/**
  * Jornada teórica "ajustada" de un día, pensada para el balance de horas
  * extra que se muestra en index.html. Para cualquier día que no sea viernes
  * devuelve exactamente lo mismo que obtenerJornadaTeoricaMinutos().
