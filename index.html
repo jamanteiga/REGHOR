@@ -340,7 +340,8 @@
       flex: 0 0 auto;
     }
     .filtro-rango-personalizado-fila label { color: var(--text-color); white-space: nowrap; }
-    .filtro-rango-personalizado-fila input[type="date"] {
+    .filtro-rango-personalizado-fila input[type="date"],
+    .filtro-rango-personalizado-fila select#filtro-mes {
       width: 150px;
       flex: 0 0 auto;
       padding: 5px 8px;
@@ -351,6 +352,8 @@
       font-size: 12px;
     }
     .btn-filtrar-rango { font-weight: bold; }
+    .btn-limpiar-filtro { background-color: #6c757d; color: #fff; }
+    .btn-limpiar-filtro:hover { background-color: #565e64; }
 
     .aviso-rango-activo {
       display: flex;
@@ -619,6 +622,12 @@
 
   <div class="filtro-rango-personalizado-fila">
     <span class="rango-campo">
+      <label id="lbl-rango-mes" for="filtro-mes">Mes</label>
+      <select id="filtro-mes" onchange="aplicarFiltroMes()">
+        <option value="" id="opt-filtro-mes-vacio">--</option>
+      </select>
+    </span>
+    <span class="rango-campo">
       <label id="lbl-rango-desde" for="filtro-rango-desde">Desde</label>
       <input type="date" id="filtro-rango-desde">
     </span>
@@ -627,6 +636,7 @@
       <input type="date" id="filtro-rango-hasta">
     </span>
     <button type="button" class="btn-filtro-rapido btn-filtrar-rango" id="btn-filtrar-rango" onclick="aplicarFiltroRangoPersonalizado()">🔍 Filtrar</button>
+    <button type="button" class="btn-filtro-rapido btn-limpiar-filtro" id="btn-limpiar-filtro" onclick="limpiarFiltroRango()">🧹 Limpiar filtro</button>
   </div>
 
   <div id="aviso-rango-activo" class="aviso-rango-activo" style="display:none;"></div>

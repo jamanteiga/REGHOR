@@ -301,14 +301,17 @@ function actualizarContadorEfectivoYRendimiento(ahora) {
   }
 
   if (elPorcentaje) {
-    // calcularPorcentajeRendimiento vive en config.js; mismo motivo que arriba.
+    // Se muestra siempre con el prefijo "Rto=", aunque no haya valor calculable
+    // (fin de semana/festivo, o config.js desfasado sin las funciones nuevas),
+    // para que quede claro que el indicador existe y solo falta dato ("--%")
+    // en vez de dejar el hueco en blanco, que parece "no implementado".
     if (typeof calcularPorcentajeRendimiento !== 'function') {
-      elPorcentaje.textContent = '';
+      elPorcentaje.textContent = 'Rto=--%';
     } else {
       const hoyStr = obtenerFechaHoyISO();
       const minutosRendimiento = calcularMinutosRendimientoHoy(ahora);
       const pct = calcularPorcentajeRendimiento(minutosRendimiento, hoyStr);
-      elPorcentaje.textContent = (pct === null) ? '' : `${Math.round(pct)}%`;
+      elPorcentaje.textContent = (pct === null) ? 'Rto=--%' : `Rto=${Math.round(pct)}%`;
     }
   }
 }
