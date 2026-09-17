@@ -8,7 +8,7 @@ let idiomaActual = 'es';
 const TEXTOS_GRAFICOS = {
   es: {
     titulo: '📈 Análisis Gráfico de Tiempos', cerrar: '❌ Cerrar', rangoRapido: 'Rango Rápido',
-    hoy: 'Hoy', semana: 'Semana', mes: 'Mes', desde: 'Desde Fecha', hasta: 'Hasta Fecha',
+    hoy: 'Hoy', semana: 'Semana', semanaAnterior: 'Semana anterior', mes: 'Mes', mesSelector: 'Mes', desde: 'Desde Fecha', hasta: 'Hasta Fecha',
     proyecto: 'Proyecto (*)', tarea: 'Tarea (*)', bloque: 'Bloque (*)', comentarios: 'Comentarios (*)',
     agruparPor: 'Agrupar por', optProyecto: 'Proyecto', optTarea: 'Tarea', optBloque: 'Bloque', optFecha: 'Fecha',
     tipoGrafico: 'Tipo de Gráfico', optBar: 'Barras', optLine: 'Línea', optArea: 'Área', optPie: 'Tarta', optDoughnut: 'Rosco',
@@ -16,7 +16,7 @@ const TEXTOS_GRAFICOS = {
   },
   gl: {
     titulo: '📈 Análise Gráfica de Tempos', cerrar: '❌ Pechar', rangoRapido: 'Intervalo Rápido',
-    hoy: 'Hoxe', semana: 'Semana', mes: 'Mes', desde: 'Desde Data', hasta: 'Ata Data',
+    hoy: 'Hoxe', semana: 'Semana', semanaAnterior: 'Semana anterior', mes: 'Mes', mesSelector: 'Mes', desde: 'Desde Data', hasta: 'Ata Data',
     proyecto: 'Proxecto (*)', tarea: 'Tarefa (*)', bloque: 'Bloque (*)', comentarios: 'Comentarios (*)',
     agruparPor: 'Agrupar por', optProyecto: 'Proxecto', optTarea: 'Tarefa', optBloque: 'Bloque', optFecha: 'Data',
     tipoGrafico: 'Tipo de Gráfico', optBar: 'Barras', optLine: 'Liña', optArea: 'Área', optPie: 'Torta', optDoughnut: 'Rosca',
@@ -24,7 +24,7 @@ const TEXTOS_GRAFICOS = {
   },
   en: {
     titulo: '📈 Time Chart Analysis', cerrar: '❌ Close', rangoRapido: 'Quick Range',
-    hoy: 'Today', semana: 'Week', mes: 'Month', desde: 'From Date', hasta: 'To Date',
+    hoy: 'Today', semana: 'Week', semanaAnterior: 'Last week', mes: 'Month', mesSelector: 'Month', desde: 'From Date', hasta: 'To Date',
     proyecto: 'Project (*)', tarea: 'Task (*)', bloque: 'Block (*)', comentarios: 'Comments (*)',
     agruparPor: 'Group by', optProyecto: 'Project', optTarea: 'Task', optBloque: 'Block', optFecha: 'Date',
     tipoGrafico: 'Chart Type', optBar: 'Bar', optLine: 'Line', optArea: 'Area', optPie: 'Pie', optDoughnut: 'Doughnut',
@@ -41,7 +41,9 @@ function cambiarIdioma(lang) {
   document.getElementById('lbl-rango-rapido').textContent = t.rangoRapido;
   document.getElementById('btn-hoy').textContent = t.hoy;
   document.getElementById('btn-semana').textContent = t.semana;
+  document.getElementById('btn-semana-anterior').textContent = t.semanaAnterior;
   document.getElementById('btn-mes').textContent = t.mes;
+  document.getElementById('lbl-mes-graficos').textContent = t.mesSelector;
   document.getElementById('lbl-desde').textContent = t.desde;
   document.getElementById('lbl-hasta').textContent = t.hasta;
   document.getElementById('lbl-proyecto').textContent = t.proyecto;
@@ -61,31 +63,58 @@ function cambiarIdioma(lang) {
   document.getElementById('opt-tipo-doughnut').textContent = t.optDoughnut;
   document.getElementById('btn-actualizar').textContent = t.actualizar;
   document.getElementById('btn-rendimiento').textContent = t.rendimiento;
+
+  poblarSelectorMesesGraficos();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  poblarSelectorMesesGraficos();
   establecerRango('mes');
 });
 
-function establecerRango(tipo) {
+/**
+ * Rellena el desplegable "Mes" con todos los meses de enero al mes actual
+ * (ambos incluidos) del año en curso, en el idioma activo -igual que en
+ * index.html-, para poder fijar el rango a un mes cualquiera de este año
+ * sin tener que teclear Desde/Hasta a mano.
+ */
+function poblarSelectorMesesGraficos() {
+  const sel = document.getElementById('filtro-mes-graficos');
+  if (!sel) return;
+
   const hoy = new Date();
-  let desde = new Date();
-  let hasta = new Date();
+  const anio = hoy.getFullYear();
+  const mesActual = hoy.getMonth(); // 0-indexado
+  const meses = MESES[idiomaActual] || MESES.es;
 
-  if (tipo === 'hoy') {
-    desde = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
-    hasta = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
-  } else if (tipo === 'semana') {
-    const diaSemana = hoy.getDay() === 0 ? 7 : hoy.getDay();
-    desde = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - (diaSemana - 1));
-    hasta = new Date(desde.getFullYear(), desde.getMonth(), desde.getDate() + 6);
-  } else if (tipo === 'mes') {
-    desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-    hasta = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+  const valorPrevio = sel.value;
+  let opciones = '<option value="">--</option>';
+  for (let m = 0; m <= mesActual; m++) {
+    const valor = `${anio}-${String(m + 1).padStart(2, '0')}`;
+    const etiqueta = meses[m].charAt(0).toUpperCase() + meses[m].slice(1);
+    opciones += `<option value="${valor}">${etiqueta}</option>`;
   }
+  sel.innerHTML = opciones;
+  if (valorPrevio) sel.value = valorPrevio;
+}
 
-  document.getElementById('filtro-desde').value = formatearFechaISO(desde);
-  document.getElementById('filtro-hasta').value = formatearFechaISO(hasta);
+/** Fija Desde/Hasta al mes elegido en el desplegable (del 1 al último día de ese mes) y refresca el gráfico normal. */
+function aplicarFiltroMesGraficos() {
+  const valor = document.getElementById('filtro-mes-graficos').value; // 'YYYY-MM'
+  if (!valor) return;
+  const [anio, mes] = valor.split('-').map(Number);
+  document.getElementById('filtro-desde').value = formatearFechaISO(new Date(anio, mes - 1, 1));
+  document.getElementById('filtro-hasta').value = formatearFechaISO(new Date(anio, mes, 0));
+  generarGrafico();
+}
+
+// tipo: 'hoy' | 'semana' | 'semana_anterior' | 'mes' (calcularRangoFechas vive en config.js).
+function establecerRango(tipo) {
+  const { desde, hasta } = calcularRangoFechas(tipo);
+  document.getElementById('filtro-desde').value = desde;
+  document.getElementById('filtro-hasta').value = hasta;
+  const selMes = document.getElementById('filtro-mes-graficos');
+  if (selMes) selMes.value = '';
 
   generarGrafico();
 }
@@ -157,24 +186,28 @@ function formatearFechaCorta(fechaISO) {
 }
 
 /**
- * % de rendimiento (horas en el proyecto BAC2 entre la jornada teórica de
- * cada día, ver calcularPorcentajeRendimiento en config.js) por cada día
- * laborable del rango Desde/Hasta seleccionado -sirve tanto para un único
- * día como para una semana, un mes o cualquier rango de fechas a medida,
- * ya que el rango se controla con los mismos campos Desde/Hasta y los
- * botones rápidos Hoy/Semana/Mes de más arriba-. Los fines de semana y
- * festivos (sin jornada teórica) no generan punto en el gráfico. No tiene
- * en cuenta los filtros de texto (Proyecto/Tarea/Bloque/Comentarios): el
- * rendimiento se define siempre igual (BAC2 frente al resto).
+ * % de rendimiento (horas en los proyectos de buque -BLOR o BAC2, ver
+ * PROYECTOS_RENDIMIENTO en config.js- entre la jornada teórica de cada día,
+ * ver calcularPorcentajeRendimiento en config.js) por cada día laborable
+ * del rango Desde/Hasta seleccionado -sirve tanto para un único día como
+ * para una semana (actual o anterior), un mes (actual o cualquier otro del
+ * año en curso, con el selector "Mes") o cualquier rango de fechas a
+ * medida, ya que el rango lo fijan los mismos campos Desde/Hasta que usan
+ * los botones rápidos y el selector de mes de más arriba-. Los fines de
+ * semana y festivos (sin jornada teórica) no generan punto en el gráfico.
+ * No tiene en cuenta los filtros de texto (Proyecto/Tarea/Bloque/
+ * Comentarios): el rendimiento se define siempre igual (BLOR+BAC2 frente
+ * al resto). Se dibuja con el mismo "Tipo de Gráfico" (barras/línea/área/
+ * tarta/rosco) que el gráfico normal.
  */
 async function generarGraficoRendimiento() {
   if (!supabaseClient) return;
 
-  // Este botón depende de PROYECTO_RENDIMIENTO/calcularPorcentajeRendimiento,
+  // Este botón depende de PROYECTOS_RENDIMIENTO/calcularPorcentajeRendimiento,
   // añadidos a config.js. Si ese fichero no se actualizó junto con graficos.js
   // (reemplazo parcial de ficheros), avisamos claramente en vez de romper con
   // un ReferenceError poco comprensible.
-  if (typeof PROYECTO_RENDIMIENTO === 'undefined' || typeof calcularPorcentajeRendimiento !== 'function') {
+  if (typeof PROYECTOS_RENDIMIENTO === 'undefined' || typeof calcularPorcentajeRendimiento !== 'function') {
     alert('⚠️ No se puede calcular el rendimiento: falta actualizar config.js (parece una versión antigua). Comprueba que todos los ficheros de la app se han reemplazado juntos.');
     return;
   }
@@ -199,13 +232,13 @@ async function generarGraficoRendimiento() {
     return;
   }
 
-  const minutosBACPorFecha = {};
+  const minutosRendimientoPorFecha = {};
   (data || []).forEach(item => {
-    if (item.proyecto !== PROYECTO_RENDIMIENTO) return;
+    if (!PROYECTOS_RENDIMIENTO.includes(item.proyecto)) return;
     let f = String(item.fecha || '').trim();
     if (f.includes('T')) f = f.split('T')[0];
     if (f.includes(' ')) f = f.split(' ')[0];
-    minutosBACPorFecha[f] = (minutosBACPorFecha[f] || 0) + obtenerMinutosDuracion(item.horainicio, item.horafin);
+    minutosRendimientoPorFecha[f] = (minutosRendimientoPorFecha[f] || 0) + obtenerMinutosDuracion(item.horainicio, item.horafin);
   });
 
   const etiquetas = [];
@@ -214,14 +247,14 @@ async function generarGraficoRendimiento() {
   const fin = parsearFechaLocal(hasta);
   for (let d = new Date(inicio); d <= fin; d.setDate(d.getDate() + 1)) {
     const fStr = formatearFechaISO(d);
-    const pct = calcularPorcentajeRendimiento(minutosBACPorFecha[fStr] || 0, fStr);
+    const pct = calcularPorcentajeRendimiento(minutosRendimientoPorFecha[fStr] || 0, fStr);
     if (pct === null) continue; // Fin de semana/festivo: no aplica.
     etiquetas.push(formatearFechaCorta(fStr));
     valores.push(parseFloat(pct.toFixed(1)));
   }
 
   renderizarChart(etiquetas, valores, tipoGrafico, 'fecha', {
-    datasetLabel: '% Rendimiento (BAC2)',
+    datasetLabel: '% Rendimiento (BLOR+BAC2)',
     yTitle: '% Rendimiento',
     formatoTooltip: (valor) => `${valor}%`
   });

@@ -221,7 +221,7 @@ function iniciarRelojEnVivo() {
 // Tareas que pausan el contador de tiempo efectivo (no cuentan como trabajo).
 const TAREAS_PAUSA_CONTADOR = ["Fuera escritorio", "Comida", "Descanso 20'", "Descanso 30'", "Espera de nueva tarea"];
 
-// PROYECTO_RENDIMIENTO y calcularPorcentajeRendimiento() viven en config.js
+// PROYECTOS_RENDIMIENTO y calcularPorcentajeRendimiento() viven en config.js
 // (compartidos con graficos.js).
 
 let registrosHoyContadorCache = [];
@@ -285,18 +285,18 @@ function calcularTiempoEfectivoSegundos(ahora) {
   return Math.floor(minutosEfectivos * 60);
 }
 
-/** Minutos de hoy registrados en el proyecto de rendimiento (BAC2), incluido el tramo en curso si la última tarea es de ese proyecto y aún no tiene hora de fin. */
+/** Minutos de hoy registrados en los proyectos de rendimiento (BLOR o BAC2), incluido el tramo en curso si la última tarea es de uno de esos proyectos y aún no tiene hora de fin. */
 function calcularMinutosRendimientoHoy(ahora) {
   const registros = registrosHoyContadorCache;
   if (!registros || registros.length === 0) return 0;
-  // PROYECTO_RENDIMIENTO vive en config.js; si por error se ha sustituido
+  // PROYECTOS_RENDIMIENTO vive en config.js; si por error se ha sustituido
   // app.js sin sustituir también config.js a la vez, esto evita un
   // ReferenceError que rompería el reloj de la cabecera entero.
-  if (typeof PROYECTO_RENDIMIENTO === 'undefined') return 0;
+  if (typeof PROYECTOS_RENDIMIENTO === 'undefined') return 0;
 
   let minutos = 0;
   registros.forEach((reg, idx) => {
-    if (reg.proyecto !== PROYECTO_RENDIMIENTO) return;
+    if (!PROYECTOS_RENDIMIENTO.includes(reg.proyecto)) return;
     if (reg.horafin) {
       minutos += obtenerMinutosDuracion(reg.horainicio, reg.horafin);
     } else if (idx === registros.length - 1) {

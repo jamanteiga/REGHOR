@@ -71,6 +71,7 @@
 
     .grupo-rapido {
       display: flex;
+      flex-wrap: wrap;
       gap: 4px;
     }
 
@@ -162,8 +163,15 @@
       <div class="grupo-rapido">
         <button class="btn-rapido" id="btn-hoy" onclick="establecerRango('hoy')">Hoy</button>
         <button class="btn-rapido" id="btn-semana" onclick="establecerRango('semana')">Semana</button>
+        <button class="btn-rapido" id="btn-semana-anterior" onclick="establecerRango('semana_anterior')">Semana anterior</button>
         <button class="btn-rapido" id="btn-mes" onclick="establecerRango('mes')">Mes</button>
       </div>
+    </div>
+    <div class="grupo-filtro">
+      <label id="lbl-mes-graficos" for="filtro-mes-graficos">Mes</label>
+      <select id="filtro-mes-graficos" onchange="aplicarFiltroMesGraficos()">
+        <option value="">--</option>
+      </select>
     </div>
     <div class="grupo-filtro">
       <label id="lbl-desde">Desde Fecha</label>

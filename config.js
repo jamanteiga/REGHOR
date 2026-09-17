@@ -61,9 +61,15 @@ function toggleTheme() {
   if (btn) btn.textContent = isDark ? '☀️ Claro' : '🌙 Oscuro';
 }
 
-/** Cierra la pestaña actual (usado en informes.html, graficos.html y Semana.html). */
+/**
+ * Vuelve a index.html (usado en informes.html, graficos.html y Semana.html).
+ * Estas páginas se abren en la MISMA pestaña que index.html (no en una
+ * nueva), así que "cerrar" aquí significa navegar de vuelta, no
+ * window.close() -que además el navegador bloquea en una pestaña que no se
+ * abrió por script-.
+ */
 function cerrarPestana() {
-  window.close();
+  window.location.href = 'index.html';
 }
 
 // ------------------------------------------------------------
@@ -212,14 +218,14 @@ function obtenerDescansoMinutos(fechaStr) {
 
 /**
  * % de "rendimiento" de una jornada: proporción de la jornada teórica de
- * ese día (obtenerJornadaTeoricaMinutos) empleada en el proyecto de
- * rendimiento (BAC2) -el resto de proyectos y tareas, incluidas pausas y
- * ausencias, son "paja" y no cuentan-. Devuelve null si ese día no tiene
- * jornada teórica (fin de semana/festivo). Usado tanto por el contador en
- * vivo de la cabecera de index.html como por el gráfico de rendimiento de
- * graficos.html.
+ * ese día (obtenerJornadaTeoricaMinutos) empleada en los proyectos de buque
+ * (BLOR o BAC2, ver PROYECTOS_RENDIMIENTO) -el resto de proyectos y tareas,
+ * incluidas pausas y ausencias, son "paja" y no cuentan-. Devuelve null si
+ * ese día no tiene jornada teórica (fin de semana/festivo). Usado tanto por
+ * el contador en vivo de la cabecera de index.html como por el gráfico de
+ * rendimiento de graficos.html.
  */
-const PROYECTO_RENDIMIENTO = 'BAC2';
+const PROYECTOS_RENDIMIENTO = ['BAC2', 'BLOR'];
 
 function calcularPorcentajeRendimiento(minutosProyectoRendimiento, fechaStr) {
   const teoricaMin = obtenerJornadaTeoricaMinutos(fechaStr);
