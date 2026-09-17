@@ -456,30 +456,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
-/**
- * Consulta la última fecha registrada en Supabase si el input está vacío
- */
-async function obtenerUltimaFechaDesdeSupabase() {
-  try {
-    const { data, error } = await supabaseClient
-      .from(TABLA)
-      .select('fecha')
-      .order('id', { ascending: false })
-      .limit(1);
-
-    if (!error && data && data.length > 0 && data[0].fecha) {
-      let raw = String(data[0].fecha).trim();
-      if (raw.includes('T')) raw = raw.split('T')[0];
-      if (raw.includes(' ')) raw = raw.split(' ')[0];
-      return raw;
-    }
-  } catch (e) {
-    console.error("Error al obtener la última fecha de Supabase:", e);
-  }
-
-  return obtenerFechaHoyISO();
-}
-
 function ordenarLista(array) {
   return array.sort((a, b) => a.localeCompare(b, idiomaActual, { sensitivity: 'base' }));
 }
@@ -629,8 +605,11 @@ async function cargarTareas() {
   const inputFecha = document.getElementById('fecha');
   let fechaFiltroStr = inputFecha ? inputFecha.value.trim() : '';
 
+  // Si al entrar en la app el campo Fecha está vacío, se pone SIEMPRE la
+  // fecha de hoy (nunca la del último registro guardado, que podía ser de
+  // un día anterior si hoy todavía no se ha apuntado nada).
   if (!fechaFiltroStr) {
-    fechaFiltroStr = await obtenerUltimaFechaDesdeSupabase();
+    fechaFiltroStr = obtenerFechaHoyISO();
     if (inputFecha) {
       inputFecha.value = fechaFiltroStr;
     }
@@ -871,8 +850,6 @@ function resetearFormulario() {
   btnGuardar.style.backgroundColor = '#28a745';
   btnGuardar.style.color = '#fff';
   document.getElementById('btn-cancelar').style.display = 'none';
-
-  sincronizarComentario();
 }
 
 /**
