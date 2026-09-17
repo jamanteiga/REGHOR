@@ -136,50 +136,52 @@ function colorRelojSegunHora(fecha) {
   return '#dc3545';
 }
 
-// Guarda, por fecha, los segundos de tiempo extra "congelados" al pulsar
-// Finalizar jornada (ver alternarFinalizarJornada). Mientras el día de HOY
-// esté cerrado, el contador de tiempo extra deja de avanzar y muestra este
-// valor fijo en vez de seguir calculando en vivo.
-const CLAVE_EXTRA_CONGELADO = 'reghor_extra_congelado';
+/**
+ * Segundos transcurridos EN BRUTO (sin descontar pausas) desde que empezó
+ * la jornada de hoy -hora de inicio del primer registro- hasta "ahora".
+ * Devuelve null si hoy todavía no hay ningún registro (la jornada no ha
+ * empezado). A diferencia de calcularTiempoEfectivoSegundos, aquí no se
+ * descuentan las pausas: es el tiempo total transcurrido desde que se
+ * empezó a trabajar, use en lo que se use ese tiempo.
+ */
+function calcularSegundosDesdeInicioJornada(ahora) {
+  const registros = registrosHoyContadorCache;
+  if (!registros || registros.length === 0) return null;
 
-function obtenerExtraCongelado() {
-  try {
-    return JSON.parse(localStorage.getItem(CLAVE_EXTRA_CONGELADO)) || {};
-  } catch (e) {
-    return {};
-  }
-}
-
-/** Segundos de tiempo extra transcurridos desde las 16:00 hasta el instante "ahora" (sin congelar). */
-function calcularSegundosExtra(ahora) {
-  const inicioExtra = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 16, 0, 0, 0);
-  return Math.max(0, Math.floor((ahora - inicioExtra) / 1000));
+  const [h, m] = registros[0].horainicio.split(':').map(Number);
+  const inicioJornadaMin = h * 60 + m;
+  const minutosAhora = ahora.getHours() * 60 + ahora.getMinutes() + ahora.getSeconds() / 60;
+  const minutos = Math.max(0, minutosAhora - inicioJornadaMin);
+  return Math.floor(minutos * 60);
 }
 
 /**
- * Contador de tiempo extra (hh:mm:ss, siempre en verde) transcurrido desde
- * las 16:00 de hoy. Solo se muestra a partir de esa hora; antes queda
- * vacío y oculto. Si hoy está finalizada (Finalizar jornada), se congela en
- * el valor guardado en ese momento y deja de avanzar hasta que se reabra.
+ * Contador (hh:mm:ss, siempre en verde) del tiempo transcurrido desde que
+ * empezó la jornada de hoy. Se para y queda a "+00:00:00" en cuanto se
+ * pulsa "Finalizar jornada"; al Reabrir jornada vuelve a contar en vivo
+ * desde el inicio real de la jornada (no desde cero). Antes de que haya
+ * ningún registro hoy, queda vacío y oculto.
  */
 function actualizarContadorExtra(ahora) {
   const el = document.getElementById('contador-extra');
   if (!el) return;
 
-  const minutosDelDia = ahora.getHours() * 60 + ahora.getMinutes();
-  if (minutosDelDia < 16 * 60) {
+  const hoyStr = obtenerFechaHoyISO();
+  if (esDiaCerrado(hoyStr)) {
+    el.textContent = '+00:00:00';
+    el.style.color = '#28a745';
+    el.style.display = '';
+    return;
+  }
+
+  const segundos = calcularSegundosDesdeInicioJornada(ahora);
+  if (segundos === null) {
     el.textContent = '';
     el.style.display = 'none';
     return;
   }
 
-  const hoyStr = obtenerFechaHoyISO();
-  const congelados = obtenerExtraCongelado();
-  const totalSegundos = (esDiaCerrado(hoyStr) && typeof congelados[hoyStr] === 'number')
-    ? congelados[hoyStr]
-    : calcularSegundosExtra(ahora);
-
-  el.textContent = `+${formatearSegundosComoHHMMSS(totalSegundos)}`;
+  el.textContent = `+${formatearSegundosComoHHMMSS(segundos)}`;
   el.style.color = '#28a745';
   el.style.display = '';
 }
@@ -953,27 +955,17 @@ function alternarFinalizarJornada() {
 
   const dias = obtenerDiasCerrados();
   const idx = dias.indexOf(fechaStr);
-  const esHoy = fechaStr === obtenerFechaHoyISO();
 
   if (idx >= 0) {
     dias.splice(idx, 1);
-    // Reabrir hoy: el contador de tiempo extra vuelve a avanzar en vivo.
-    if (esHoy) {
-      const congelados = obtenerExtraCongelado();
-      delete congelados[fechaStr];
-      localStorage.setItem(CLAVE_EXTRA_CONGELADO, JSON.stringify(congelados));
-    }
   } else {
     const texto = TEXTOS_CONFIRMAR_FINALIZAR[idiomaActual] || TEXTOS_CONFIRMAR_FINALIZAR.es;
     if (!confirm(texto)) return;
     dias.push(fechaStr);
-    // Finalizar hoy: se congela el contador de tiempo extra en su valor actual.
-    if (esHoy) {
-      const congelados = obtenerExtraCongelado();
-      congelados[fechaStr] = calcularSegundosExtra(new Date());
-      localStorage.setItem(CLAVE_EXTRA_CONGELADO, JSON.stringify(congelados));
-    }
   }
+  // Si la fecha finalizada/reabierta es la de hoy, actualizarContadorExtra
+  // (llamado cada segundo desde iniciarRelojEnVivo) recalcula solo con
+  // mirar esDiaCerrado(hoy): a "+00:00:00" al finalizar, en vivo al reabrir.
 
   localStorage.setItem(CLAVE_DIAS_CERRADOS, JSON.stringify(dias));
   actualizarEstadoDiaCerrado();
