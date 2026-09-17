@@ -2,7 +2,9 @@
 
 // Las 46 Tareas predefinidas
 const TAREAS_DEFAULT = [
-  "Análisis especificaciones cliente", "Anidado de ficheros 3000's", "AOYV", "Arranque sesión remota", "Ausencia no recuperable", "Ausencia recuperable", "Comida",
+  "Actualización de planos realizados", "Análisis especificaciones cliente",
+  "Anidado de ficheros 1000's", "Anidado de ficheros 2000's", "Anidado de ficheros 3000's", "Anidado de ficheros 4000's", "Anidado de ficheros 6000's",
+  "AOYV", "Arranque sesión remota", "Ausencia no recuperable", "Ausencia recuperable", "Comida",
   "Consulta técnica", "Descanso 20'", "Descanso 30'", "Espera de nueva tarea", "Fuera escritorio", "Generación .e2", "Generación .e3",
   "Generación de lotes de planchas", "Generación de previas", "Generación de secuencias de corte",
   "Maquillaje .e2 1000's", "Maquillaje .e2 2000's", "Maquillaje .e2 3000's", "Maquillaje .e2 4000's",
@@ -55,7 +57,8 @@ const MIGRACIONES_TAREAS = [
   { clave: 'cfg_migracion_tareas_2026_09', valores: ["Fuera escritorio", "Varios", "Nueva tarea", "Revisión grupos", "Revisión previas", "Maquillaje de previas"] },
   { clave: 'cfg_migracion_tareas_2026_09_v2', valores: ["Ausencia no recuperable", "Ausencia recuperable"] },
   { clave: 'cfg_migracion_tareas_2026_09_v3', valores: ["Arranque sesión remota"] },
-  { clave: 'cfg_migracion_tareas_2026_09_v4', valores: ["Píldora de ciberseguridad", "Consulta técnica"] }
+  { clave: 'cfg_migracion_tareas_2026_09_v4', valores: ["Píldora de ciberseguridad", "Consulta técnica"] },
+  { clave: 'cfg_migracion_tareas_2026_09_v5', valores: ["Anidado de ficheros 1000's", "Anidado de ficheros 2000's", "Anidado de ficheros 4000's", "Anidado de ficheros 6000's", "Actualización de planos realizados"] }
 ];
 
 const MIGRACIONES_PROYECTOS = [
@@ -121,22 +124,43 @@ function actualizarTituloConDia() {
 }
 
 /**
- * Color del reloj en vivo de la cabecera según la hora: rojo desde el
- * arranque de la jornada (aprox. 06:30) hasta las 12:00, naranja de 12:00 a
- * 16:00, verde de 16:00 a 17:00 y rojo de nuevo a partir de las 17:00.
+ * Color del reloj en vivo de la cabecera según la hora: rojo hasta las
+ * 10:00 (cubre también la entrada, aprox. 06:30), naranja de 10:00 a 14:00,
+ * verde de 14:00 a 17:00 y rojo de nuevo a partir de las 17:00.
  */
 function colorRelojSegunHora(fecha) {
   const minutosDelDia = fecha.getHours() * 60 + fecha.getMinutes();
   if (minutosDelDia >= 17 * 60) return '#dc3545';
-  if (minutosDelDia >= 16 * 60) return '#28a745';
-  if (minutosDelDia >= 12 * 60) return '#fd7e14';
+  if (minutosDelDia >= 14 * 60) return '#28a745';
+  if (minutosDelDia >= 10 * 60) return '#fd7e14';
   return '#dc3545';
+}
+
+// Guarda, por fecha, los segundos de tiempo extra "congelados" al pulsar
+// Finalizar jornada (ver alternarFinalizarJornada). Mientras el día de HOY
+// esté cerrado, el contador de tiempo extra deja de avanzar y muestra este
+// valor fijo en vez de seguir calculando en vivo.
+const CLAVE_EXTRA_CONGELADO = 'reghor_extra_congelado';
+
+function obtenerExtraCongelado() {
+  try {
+    return JSON.parse(localStorage.getItem(CLAVE_EXTRA_CONGELADO)) || {};
+  } catch (e) {
+    return {};
+  }
+}
+
+/** Segundos de tiempo extra transcurridos desde las 16:00 hasta el instante "ahora" (sin congelar). */
+function calcularSegundosExtra(ahora) {
+  const inicioExtra = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 16, 0, 0, 0);
+  return Math.max(0, Math.floor((ahora - inicioExtra) / 1000));
 }
 
 /**
  * Contador de tiempo extra (hh:mm:ss, siempre en verde) transcurrido desde
  * las 16:00 de hoy. Solo se muestra a partir de esa hora; antes queda
- * vacío y oculto.
+ * vacío y oculto. Si hoy está finalizada (Finalizar jornada), se congela en
+ * el valor guardado en ese momento y deja de avanzar hasta que se reabra.
  */
 function actualizarContadorExtra(ahora) {
   const el = document.getElementById('contador-extra');
@@ -149,13 +173,13 @@ function actualizarContadorExtra(ahora) {
     return;
   }
 
-  const inicioExtra = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 16, 0, 0, 0);
-  const totalSegundos = Math.max(0, Math.floor((ahora - inicioExtra) / 1000));
-  const hh = String(Math.floor(totalSegundos / 3600)).padStart(2, '0');
-  const mm = String(Math.floor((totalSegundos % 3600) / 60)).padStart(2, '0');
-  const ss = String(totalSegundos % 60).padStart(2, '0');
+  const hoyStr = obtenerFechaHoyISO();
+  const congelados = obtenerExtraCongelado();
+  const totalSegundos = (esDiaCerrado(hoyStr) && typeof congelados[hoyStr] === 'number')
+    ? congelados[hoyStr]
+    : calcularSegundosExtra(ahora);
 
-  el.textContent = `+${hh}:${mm}:${ss}`;
+  el.textContent = `+${formatearSegundosComoHHMMSS(totalSegundos)}`;
   el.style.color = '#28a745';
   el.style.display = '';
 }
@@ -404,6 +428,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   inicializarRedimensionColumnas();
 
   poblarSelects();
+  poblarSelectorMeses();
   actualizarTituloConDia();
 
   const inputFecha = document.getElementById('fecha');
@@ -634,13 +659,14 @@ async function cargarTareas() {
       return;
     }
 
-    // De más temprano a más tarde según la hora de inicio (a igualdad de
-    // hora, se respeta el orden en que se dieron de alta).
+    // De más tarde a más temprano según la hora de inicio -la última tarea
+    // registrada aparece arriba del todo- (a igualdad de hora, la más
+    // reciente, con id más alto, también va primero).
     tareas.sort((a, b) => {
       const horaA = a.horainicio || '';
       const horaB = b.horainicio || '';
-      if (horaA !== horaB) return horaA < horaB ? -1 : 1;
-      return (a.id || 0) - (b.id || 0);
+      if (horaA !== horaB) return horaA > horaB ? -1 : 1;
+      return (b.id || 0) - (a.id || 0);
     });
     tareasCargadasCache = tareas;
     actualizarAvisoAbiertas(tareas);
@@ -950,13 +976,26 @@ function alternarFinalizarJornada() {
 
   const dias = obtenerDiasCerrados();
   const idx = dias.indexOf(fechaStr);
+  const esHoy = fechaStr === obtenerFechaHoyISO();
 
   if (idx >= 0) {
     dias.splice(idx, 1);
+    // Reabrir hoy: el contador de tiempo extra vuelve a avanzar en vivo.
+    if (esHoy) {
+      const congelados = obtenerExtraCongelado();
+      delete congelados[fechaStr];
+      localStorage.setItem(CLAVE_EXTRA_CONGELADO, JSON.stringify(congelados));
+    }
   } else {
     const texto = TEXTOS_CONFIRMAR_FINALIZAR[idiomaActual] || TEXTOS_CONFIRMAR_FINALIZAR.es;
     if (!confirm(texto)) return;
     dias.push(fechaStr);
+    // Finalizar hoy: se congela el contador de tiempo extra en su valor actual.
+    if (esHoy) {
+      const congelados = obtenerExtraCongelado();
+      congelados[fechaStr] = calcularSegundosExtra(new Date());
+      localStorage.setItem(CLAVE_EXTRA_CONGELADO, JSON.stringify(congelados));
+    }
   }
 
   localStorage.setItem(CLAVE_DIAS_CERRADOS, JSON.stringify(dias));
@@ -1018,6 +1057,61 @@ function aplicarFiltroRangoPersonalizado() {
   }
 
   cargarTareasRango(desde, hasta, 'personalizado');
+}
+
+/**
+ * Rellena el desplegable "Mes" con todos los meses de enero al mes actual
+ * (ambos incluidos) del año en curso, en el idioma activo. Se vuelve a
+ * llamar al cambiar de idioma para traducir las etiquetas.
+ */
+function poblarSelectorMeses() {
+  const sel = document.getElementById('filtro-mes');
+  if (!sel) return;
+
+  const hoy = new Date();
+  const anio = hoy.getFullYear();
+  const mesActual = hoy.getMonth(); // 0-indexado
+  const meses = MESES[idiomaActual] || MESES.es;
+
+  const valorPrevio = sel.value;
+  let opciones = '<option value="" id="opt-filtro-mes-vacio">--</option>';
+  for (let m = 0; m <= mesActual; m++) {
+    const valor = `${anio}-${String(m + 1).padStart(2, '0')}`;
+    const etiqueta = meses[m].charAt(0).toUpperCase() + meses[m].slice(1);
+    opciones += `<option value="${valor}">${etiqueta}</option>`;
+  }
+  sel.innerHTML = opciones;
+  if (valorPrevio) sel.value = valorPrevio;
+}
+
+/** Filtra el listado al mes elegido en el desplegable "Mes" (del 1 al último día de ese mes). */
+function aplicarFiltroMes() {
+  const valor = document.getElementById('filtro-mes').value; // 'YYYY-MM'
+  if (!valor) return;
+  const [anio, mes] = valor.split('-').map(Number);
+  const desde = formatearFechaISO(new Date(anio, mes - 1, 1));
+  const hasta = formatearFechaISO(new Date(anio, mes, 0));
+  cargarTareasRango(desde, hasta, 'personalizado');
+}
+
+/**
+ * Deja el formulario de filtro (Desde/Hasta/Mes y el texto de búsqueda) como
+ * al principio -vacío, solo el formato-, sin tocar qué periodo está viendo
+ * ahora mismo el listado (a diferencia de "✕ Volver a hoy", que sí cambia la
+ * vista a la jornada de hoy).
+ */
+function limpiarFiltroRango() {
+  const inputDesde = document.getElementById('filtro-rango-desde');
+  const inputHasta = document.getElementById('filtro-rango-hasta');
+  const selMes = document.getElementById('filtro-mes');
+  const inputTexto = document.getElementById('filtro-listado');
+  if (inputDesde) inputDesde.value = '';
+  if (inputHasta) inputHasta.value = '';
+  if (selMes) selMes.value = '';
+  if (inputTexto) {
+    inputTexto.value = '';
+    aplicarFiltroInstantaneo();
+  }
 }
 
 /** Cambia el rótulo "Jornada Teórica del..." según se esté en vista de un solo día o de un rango. */
@@ -1094,15 +1188,18 @@ async function cargarTareasRango(desdeStr, hastaStr, tipo) {
       desdeIndice += TAMANO_PAGINA;
     }
 
-    // Orden cronológico por fecha y, dentro de cada fecha, por hora de inicio.
+    // Orden cronológico inverso: la fecha más reciente primero y, dentro de
+    // cada fecha, de más tarde a más temprano por hora de inicio -la última
+    // tarea registrada aparece arriba del todo-, igual que en la vista de un
+    // solo día (cargarTareas).
     tareas.sort((a, b) => {
       const fechaA = String(a.fecha || '');
       const fechaB = String(b.fecha || '');
-      if (fechaA !== fechaB) return fechaA < fechaB ? -1 : 1;
+      if (fechaA !== fechaB) return fechaA > fechaB ? -1 : 1;
       const horaA = a.horainicio || '';
       const horaB = b.horainicio || '';
-      if (horaA !== horaB) return horaA < horaB ? -1 : 1;
-      return (a.id || 0) - (b.id || 0);
+      if (horaA !== horaB) return horaA > horaB ? -1 : 1;
+      return (b.id || 0) - (a.id || 0);
     });
 
     tareasCargadasCache = tareas;
@@ -1390,7 +1487,8 @@ const TEXTOS_INDEX = {
     filtroPlaceholder: '🔎 Filtrar por tarea, proyecto, bloque, comentario o notas... (usa * como comodín)',
     filtroHoy: 'Hoy', filtroAyer: 'Ayer', filtroSemana: 'Esta semana', filtroSemanaAnterior: 'Semana pasada',
     filtroMes: 'Este mes', filtroMesAnterior: 'Mes pasado',
-    rangoDesde: 'Desde', rangoHasta: 'Hasta', rangoFiltrar: '🔍 Filtrar'
+    rangoDesde: 'Desde', rangoHasta: 'Hasta', rangoFiltrar: '🔍 Filtrar',
+    rangoMes: 'Mes', rangoLimpiar: '🧹 Limpiar filtro'
   },
   gl: {
     titulo: 'REGHOR', fecha: 'Data', tarea: 'Tarefa', proyecto: 'Proxecto', bloque: 'Bloque',
@@ -1403,7 +1501,8 @@ const TEXTOS_INDEX = {
     filtroPlaceholder: '🔎 Filtrar por tarefa, proxecto, bloque, comentario ou notas... (usa * como comodín)',
     filtroHoy: 'Hoxe', filtroAyer: 'Onte', filtroSemana: 'Esta semana', filtroSemanaAnterior: 'Semana pasada',
     filtroMes: 'Este mes', filtroMesAnterior: 'Mes pasado',
-    rangoDesde: 'Desde', rangoHasta: 'Ata', rangoFiltrar: '🔍 Filtrar'
+    rangoDesde: 'Desde', rangoHasta: 'Ata', rangoFiltrar: '🔍 Filtrar',
+    rangoMes: 'Mes', rangoLimpiar: '🧹 Limpar filtro'
   },
   en: {
     titulo: 'REGHOR', fecha: 'Date', tarea: 'Task', proyecto: 'Project', bloque: 'Block',
@@ -1416,7 +1515,8 @@ const TEXTOS_INDEX = {
     filtroPlaceholder: '🔎 Filter by task, project, block, comment or notes... (use * as wildcard)',
     filtroHoy: 'Today', filtroAyer: 'Yesterday', filtroSemana: 'This week', filtroSemanaAnterior: 'Last week',
     filtroMes: 'This month', filtroMesAnterior: 'Last month',
-    rangoDesde: 'From', rangoHasta: 'To', rangoFiltrar: '🔍 Filter'
+    rangoDesde: 'From', rangoHasta: 'To', rangoFiltrar: '🔍 Filter',
+    rangoMes: 'Month', rangoLimpiar: '🧹 Clear filter'
   }
 };
 
@@ -1446,6 +1546,8 @@ function cambiarIdioma(lang) {
   document.getElementById('txt-teorica-label').textContent = t.teorica;
   document.getElementById('txt-total-label').textContent = t.total;
   document.getElementById('txt-balance-label').textContent = t.balance;
+
+  poblarSelectorMeses();
 
   document.getElementById('th-fecha').textContent = t.fecha;
   document.getElementById('th-tarea').textContent = t.tarea;
@@ -1480,12 +1582,16 @@ function cambiarIdioma(lang) {
   if (btnFiltroMes) btnFiltroMes.textContent = t.filtroMes;
   if (btnFiltroMesAnterior) btnFiltroMesAnterior.textContent = t.filtroMesAnterior;
 
+  const lblRangoMes = document.getElementById('lbl-rango-mes');
   const lblRangoDesde = document.getElementById('lbl-rango-desde');
   const lblRangoHasta = document.getElementById('lbl-rango-hasta');
   const btnFiltrarRango = document.getElementById('btn-filtrar-rango');
+  const btnLimpiarFiltro = document.getElementById('btn-limpiar-filtro');
+  if (lblRangoMes) lblRangoMes.textContent = t.rangoMes;
   if (lblRangoDesde) lblRangoDesde.textContent = t.rangoDesde;
   if (lblRangoHasta) lblRangoHasta.textContent = t.rangoHasta;
   if (btnFiltrarRango) btnFiltrarRango.textContent = t.rangoFiltrar;
+  if (btnLimpiarFiltro) btnLimpiarFiltro.textContent = t.rangoLimpiar;
 
   actualizarEstadoDiaCerrado();
   actualizarEtiquetaTeoricaSegunModo();
