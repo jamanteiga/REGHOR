@@ -306,6 +306,25 @@ function calcularMinutosRendimientoHoy(ahora) {
   return minutos;
 }
 
+/**
+ * Minutos registrados en los proyectos de rendimiento (BLOR o BAC2) dentro
+ * de una lista de registros YA CERRADA de un día que no es hoy (por eso no
+ * hay "tramo en curso" que sumar en vivo: ese día no está pasando ahora
+ * mismo). Se usa para recalcular el Rto de la cabecera cuando se navega a
+ * un día distinto del actual con el selector de fecha.
+ */
+function calcularMinutosRendimientoDeLista(lista) {
+  if (!lista || lista.length === 0) return 0;
+  if (typeof PROYECTOS_RENDIMIENTO === 'undefined') return 0;
+
+  let minutos = 0;
+  lista.forEach(reg => {
+    if (!PROYECTOS_RENDIMIENTO.includes(reg.proyecto)) return;
+    minutos += obtenerMinutosDuracion(reg.horainicio, reg.horafin);
+  });
+  return minutos;
+}
+
 /** Formatea segundos totales como 'hh:mm:ss' (con las horas a 2 cifras). */
 function formatearSegundosComoHHMMSS(totalSegundos) {
   const segundos = Math.max(0, Math.floor(totalSegundos || 0));
@@ -315,7 +334,20 @@ function formatearSegundosComoHHMMSS(totalSegundos) {
   return `${hh}:${mm}:${ss}`;
 }
 
-/** Actualiza el contador de tiempo efectivo (hh:mm:ss) y el % de rendimiento de hoy, en la cabecera. */
+/**
+ * Devuelve la fecha (YYYY-MM-DD) del día actualmente activo en el listado de
+ * abajo -el que se ve en el selector de Fecha-, o null si en vez de un solo
+ * día hay un rango de varios días activo (rangoActivo), caso en el que no
+ * hay un único día para el que calcular el Rto de la cabecera.
+ */
+function obtenerFechaDiaActivo() {
+  if (rangoActivo) return null;
+  const inputFecha = document.getElementById('fecha');
+  const valor = inputFecha ? inputFecha.value.trim() : '';
+  return valor || obtenerFechaHoyISO();
+}
+
+/** Actualiza el contador de tiempo efectivo (hh:mm:ss, siempre de HOY) y el % de rendimiento de la cabecera. */
 function actualizarContadorEfectivoYRendimiento(ahora) {
   const elContador = document.getElementById('contador-efectivo');
   const elPorcentaje = document.getElementById('pct-rendimiento');
@@ -335,8 +367,31 @@ function actualizarContadorEfectivoYRendimiento(ahora) {
       elPorcentaje.textContent = 'Rto=--%';
     } else {
       const hoyStr = obtenerFechaHoyISO();
-      const minutosRendimiento = calcularMinutosRendimientoHoy(ahora);
-      const pct = calcularPorcentajeRendimiento(minutosRendimiento, hoyStr);
+      const diaActivo = obtenerFechaDiaActivo();
+
+      let minutosRendimiento;
+      let fechaParaCalculo;
+      if (diaActivo === null) {
+        // Hay un rango de varios días activo (Esta semana, Este mes...): el
+        // Rto de la cabecera es un indicador de UN día, no tiene un valor
+        // único que mostrar para un periodo completo (para eso está el
+        // gráfico de Rendimiento en graficos.html).
+        elPorcentaje.textContent = 'Rto=--%';
+        return;
+      } else if (diaActivo === hoyStr) {
+        // Viendo hoy: en vivo, incluyendo el tramo en curso si la última
+        // tarea todavía no tiene hora de fin.
+        minutosRendimiento = calcularMinutosRendimientoHoy(ahora);
+        fechaParaCalculo = hoyStr;
+      } else {
+        // Viendo un día distinto de hoy: recalculado a partir de los
+        // registros de ESE día, ya cargados en el listado de abajo (no está
+        // "en curso", así que no hay tramo en vivo que sumar).
+        minutosRendimiento = calcularMinutosRendimientoDeLista(tareasCargadasCache);
+        fechaParaCalculo = diaActivo;
+      }
+
+      const pct = calcularPorcentajeRendimiento(minutosRendimiento, fechaParaCalculo);
       elPorcentaje.textContent = (pct === null) ? 'Rto=--%' : `Rto=${Math.round(pct)}%`;
     }
   }
@@ -628,6 +683,10 @@ async function cargarTareas() {
     if (error) {
       console.error("Error al cargar registros:", error);
       tablaBody.innerHTML = `<div class="tabla-msg" style="color:red;">Error Supabase: ${error.message}</div>`;
+      // Se vacía la caché de tareas del día: si no, un día sin datos (por un
+      // error) seguiría mostrando -para cálculos como el Rto de la cabecera-
+      // los registros del último día que sí se cargó con éxito.
+      tareasCargadasCache = [];
       actualizarAvisoAbiertas([]);
       await actualizarResumenHoras([], fechaFiltroStr);
       return;
@@ -635,6 +694,10 @@ async function cargarTareas() {
 
     if (!tareas || tareas.length === 0) {
       tablaBody.innerHTML = `<div class="tabla-msg">No existen registros guardados para la fecha ${fechaFiltroStr}.</div>`;
+      // Igual que arriba: sin esto, un día vacío heredaba en silencio la
+      // caché del día anterior (p.ej. el Rto de la cabecera seguía mostrando
+      // el % de un día distinto al que realmente se está viendo).
+      tareasCargadasCache = [];
       actualizarAvisoAbiertas([]);
       await actualizarResumenHoras([], fechaFiltroStr);
       return;
