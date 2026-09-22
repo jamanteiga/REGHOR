@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <script src="auth.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>REGHOR - Diagrama de Gantt</title>
+  <style>
+    :root {
+      --bg-color: #f4f7f6;
+      --card-bg: #ffffff;
+      --text-color: #333333;
+      --border-color: #cccccc;
+      --header-bg: #007bff;
+    }
+
+    body.dark-mode {
+      --bg-color: #121212;
+      --card-bg: #1e1e1e;
+      --text-color: #e0e0e0;
+      --border-color: #333333;
+      --header-bg: #0b5ed7;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+    }
+
+    .header-container { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .controls-right { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+    .icon-btn { padding: 6px 12px; cursor: pointer; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-color); font-weight: bold; }
+
+    .flag-btn { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 4px; padding: 4px 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .flag-icon { width: 24px; height: 16px; display: block; }
+
+    .btn-cerrar {
+      background-color: #dc3545;
+      color: white;
+      border: none;
+    }
+    .btn-cerrar:hover {
+      background-color: #bd2130;
+    }
+
+    .panel-filtros {
+      background: var(--card-bg);
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: flex-end;
+    }
+
+    .grupo-filtro { display: flex; flex-direction: column; flex: 1 1 120px; min-width: 110px; }
+
+    /* El grupo "Rango Rápido" tiene poco contenido; con flex: 0 0 auto ocupa
+       solo su ancho natural en vez de estirarse y dejar un hueco antes de
+       "Desde Fecha" (mismo ajuste ya aplicado en graficos.html/informes.html). */
+    .grupo-rango-rapido { flex: 0 0 auto; min-width: 0; }
+    .grupo-filtro label { font-weight: bold; font-size: 12px; margin-bottom: 4px; }
+    input, select { padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--card-bg); color: var(--text-color); font-size: 12px; width: 100%; box-sizing: border-box; }
+
+    .grupo-rapido {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .btn-rapido {
+      background-color: #6c757d;
+      color: white;
+      border: none;
+      padding: 6px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: bold;
+    }
+    .btn-rapido:hover {
+      background-color: #5a6268;
+    }
+
+    .btn-generar {
+      background-color: #28a745;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      height: 31px;
+      white-space: nowrap;
+    }
+    .btn-generar:hover {
+      background-color: #218838;
+    }
+
+    .contenedor-gantt {
+      background: var(--card-bg);
+      padding: 16px 20px 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      overflow-x: auto;
+    }
+
+    #gantt-resumen { font-size: 12px; opacity: 0.75; margin: 0 0 12px; }
+    #gantt-vacio { padding: 50px 20px; text-align: center; opacity: 0.65; font-size: 14px; }
+
+    .gantt-header-row { display: flex; margin-bottom: 4px; }
+    .gantt-etiqueta-header { flex: 0 0 220px; max-width: 220px; }
+    .gantt-eje-horas { position: relative; flex: 1; height: 22px; border-bottom: 2px solid var(--border-color); min-width: 480px; }
+    .gantt-hora-marca { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--border-color); padding-left: 3px; font-size: 10px; opacity: 0.7; white-space: nowrap; }
+
+    .gantt-fila { display: flex; border-bottom: 1px solid var(--border-color); }
+    .gantt-fila:hover { background: rgba(0, 123, 255, 0.06); }
+    .gantt-etiqueta { flex: 0 0 220px; max-width: 220px; padding: 8px 10px; font-size: 12px; font-weight: bold; display: flex; align-items: center; word-break: break-word; box-sizing: border-box; }
+    .gantt-etiqueta small { display: block; font-weight: normal; opacity: 0.7; font-size: 11px; }
+    .gantt-pista { position: relative; flex: 1; min-width: 480px; box-sizing: border-box; }
+    .gantt-linea-hora { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--border-color); opacity: 0.35; }
+    .gantt-segmento { position: absolute; border-radius: 4px; box-sizing: border-box; cursor: default; box-shadow: 0 1px 2px rgba(0,0,0,0.25); }
+
+    .gantt-leyenda { display: flex; flex-wrap: wrap; gap: 10px 16px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-color); font-size: 12px; }
+    .gantt-leyenda-item { display: flex; align-items: center; gap: 6px; }
+    .gantt-leyenda-color { width: 14px; height: 14px; border-radius: 3px; display: inline-block; flex-shrink: 0; }
+  </style>
+  <!-- Supabase JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+  <div class="header-container">
+    <h1 id="txt-titulo">📅 Diagrama de Gantt</h1>
+    <div class="controls-right">
+      <button class="flag-btn" onclick="cambiarIdioma('es')" title="Español">
+        <svg class="flag-icon" viewBox="0 0 750 500">
+          <rect width="750" height="500" fill="#c60b1e"/>
+          <rect y="125" width="750" height="250" fill="#ffc400"/>
+        </svg>
+      </button>
+
+      <button class="flag-btn" onclick="cambiarIdioma('gl')" title="Galego">
+        <svg class="flag-icon" viewBox="0 0 3 2">
+          <rect width="3" height="2" fill="#fff"/>
+          <path d="M0 0 L3 2" stroke="#009ac6" stroke-width="0.4"/>
+        </svg>
+      </button>
+
+      <button class="icon-btn" onclick="toggleTheme()" id="btn-theme">🌙 Oscuro</button>
+      <button class="icon-btn btn-cerrar" onclick="cerrarSesion()" id="btn-logout" title="Cerrar sesión">🔒 Salir</button>
+      <button class="icon-btn btn-cerrar" onclick="cerrarPestana()" id="btn-cerrar">❌ Cerrar</button>
+    </div>
+  </div>
+
+  <div class="panel-filtros">
+    <div class="grupo-filtro grupo-rango-rapido">
+      <label id="lbl-rango-rapido">Rango Rápido</label>
+      <div class="grupo-rapido">
+        <button class="btn-rapido" id="btn-hoy" onclick="establecerRangoGantt('hoy')">Hoy</button>
+        <button class="btn-rapido" id="btn-semana" onclick="establecerRangoGantt('semana')">Semana actual</button>
+        <button class="btn-rapido" id="btn-semana-anterior" onclick="establecerRangoGantt('semana_anterior')">Semana anterior</button>
+        <button class="btn-rapido" id="btn-mes" onclick="establecerRangoGantt('mes')">Mes actual</button>
+        <button class="btn-rapido" id="btn-mes-anterior" onclick="establecerRangoGantt('mes_anterior')">Mes anterior</button>
+      </div>
+    </div>
+    <div class="grupo-filtro">
+      <label id="lbl-desde">Desde Fecha</label>
+      <input type="date" id="filtro-desde">
+    </div>
+    <div class="grupo-filtro">
+      <label id="lbl-hasta">Hasta Fecha</label>
+      <input type="date" id="filtro-hasta">
+    </div>
+    <button class="btn-generar" id="btn-generar-gantt" onclick="generarGantt()">Generar Gantt</button>
+  </div>
+
+  <div class="contenedor-gantt">
+    <p id="gantt-resumen"></p>
+    <div id="gantt-vacio" style="display:none;"></div>
+    <div id="gantt-chart"></div>
+    <div id="gantt-leyenda" class="gantt-leyenda"></div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="gantt.js"></script>
+</body>
+</html>

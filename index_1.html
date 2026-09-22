@@ -340,7 +340,8 @@
       flex: 0 0 auto;
     }
     .filtro-rango-personalizado-fila label { color: var(--text-color); white-space: nowrap; }
-    .filtro-rango-personalizado-fila input[type="date"] {
+    .filtro-rango-personalizado-fila input[type="date"],
+    .filtro-rango-personalizado-fila select#filtro-mes {
       width: 150px;
       flex: 0 0 auto;
       padding: 5px 8px;
@@ -351,6 +352,8 @@
       font-size: 12px;
     }
     .btn-filtrar-rango { font-weight: bold; }
+    .btn-limpiar-filtro { background-color: #6c757d; color: #fff; }
+    .btn-limpiar-filtro:hover { background-color: #565e64; }
 
     .aviso-rango-activo {
       display: flex;
@@ -484,9 +487,10 @@
 
     <div class="controls-right">
       <!-- Botones de navegación externa -->
-      <a href="informes.html" target="_blank" class="icon-btn" id="btn-informes">📊 Informes</a>
-      <a href="graficos.html" target="_blank" class="icon-btn" id="btn-graficos">📈 Gráficos</a>
-      <a href="Semana.html" target="_blank" class="icon-btn" id="btn-semana">📅 Registro Semana</a>
+      <a href="informes.html" class="icon-btn" id="btn-informes">📊 Informes</a>
+      <a href="gantt.html" class="icon-btn" id="btn-gantt">📅 Gantt</a>
+      <a href="graficos.html" class="icon-btn" id="btn-graficos">📈 Gráficos</a>
+      <a href="Semana.html" class="icon-btn" id="btn-semana">📅 Registro Semana</a>
       <button type="button" class="icon-btn btn-ausencia" onclick="iniciarAusencia()" id="btn-ausencia" title="Guarda la tarea actual (si la hay) y abre un registro nuevo de ausencia con la hora de inicio actual">🚶 Ausencia</button>
       <button type="button" class="icon-btn btn-finalizar-jornada" onclick="alternarFinalizarJornada()" id="btn-finalizar-jornada" title="Impide añadir nuevas tareas para la fecha seleccionada. Las ya guardadas se pueden seguir editando o eliminando.">🔒 Finalizar jornada</button>
 
@@ -564,7 +568,7 @@
 
       <div class="form-group">
         <label for="bloque" id="lbl-bloque">Bloque</label>
-        <input type="text" id="bloque" placeholder="Ej: B242-PI-SB4">
+        <input type="text" id="bloque" placeholder="Ej: B242-PI-SB4" style="text-transform:uppercase;" oninput="this.value = this.value.toUpperCase();">
       </div>
 
       <div class="form-group">
@@ -593,7 +597,7 @@
 
       <div class="form-group">
         <label for="notas" id="lbl-notas">Notas</label>
-        <textarea id="notas" rows="2"></textarea>
+        <textarea id="notas" rows="2" style="text-transform:uppercase;" oninput="this.value = this.value.toUpperCase();"></textarea>
       </div>
 
       <div class="form-group-btn">
@@ -619,6 +623,12 @@
 
   <div class="filtro-rango-personalizado-fila">
     <span class="rango-campo">
+      <label id="lbl-rango-mes" for="filtro-mes">Mes</label>
+      <select id="filtro-mes" onchange="aplicarFiltroMes()">
+        <option value="" id="opt-filtro-mes-vacio">--</option>
+      </select>
+    </span>
+    <span class="rango-campo">
       <label id="lbl-rango-desde" for="filtro-rango-desde">Desde</label>
       <input type="date" id="filtro-rango-desde">
     </span>
@@ -627,6 +637,7 @@
       <input type="date" id="filtro-rango-hasta">
     </span>
     <button type="button" class="btn-filtro-rapido btn-filtrar-rango" id="btn-filtrar-rango" onclick="aplicarFiltroRangoPersonalizado()">🔍 Filtrar</button>
+    <button type="button" class="btn-filtro-rapido btn-limpiar-filtro" id="btn-limpiar-filtro" onclick="limpiarFiltroRango()">🧹 Limpiar filtro</button>
   </div>
 
   <div id="aviso-rango-activo" class="aviso-rango-activo" style="display:none;"></div>

@@ -488,6 +488,7 @@
     <div class="controls-right">
       <!-- Botones de navegación externa -->
       <a href="informes.html" class="icon-btn" id="btn-informes">📊 Informes</a>
+      <a href="gantt.html" class="icon-btn" id="btn-gantt">📅 Gantt</a>
       <a href="graficos.html" class="icon-btn" id="btn-graficos">📈 Gráficos</a>
       <a href="Semana.html" class="icon-btn" id="btn-semana">📅 Registro Semana</a>
       <button type="button" class="icon-btn btn-ausencia" onclick="iniciarAusencia()" id="btn-ausencia" title="Guarda la tarea actual (si la hay) y abre un registro nuevo de ausencia con la hora de inicio actual">🚶 Ausencia</button>
@@ -567,7 +568,7 @@
 
       <div class="form-group">
         <label for="bloque" id="lbl-bloque">Bloque</label>
-        <input type="text" id="bloque" placeholder="Ej: B242-PI-SB4">
+        <input type="text" id="bloque" placeholder="Ej: B242-PI-SB4" style="text-transform:uppercase;" oninput="this.value = this.value.toUpperCase();">
       </div>
 
       <div class="form-group">
@@ -596,7 +597,7 @@
 
       <div class="form-group">
         <label for="notas" id="lbl-notas">Notas</label>
-        <textarea id="notas" rows="2"></textarea>
+        <textarea id="notas" rows="2" style="text-transform:uppercase;" oninput="this.value = this.value.toUpperCase();"></textarea>
       </div>
 
       <div class="form-group-btn">
