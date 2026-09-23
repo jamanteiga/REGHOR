@@ -12,14 +12,20 @@
       --text-color: #333333;
       --border-color: #cccccc;
       --header-bg: #007bff;
+      --grid-header-bg: #e9edf1;
+      --grid-zebra-bg: rgba(0, 0, 0, 0.025);
+      --grid-hora-fuerte: rgba(0, 0, 0, 0.18);
     }
 
     body.dark-mode {
       --bg-color: #121212;
       --card-bg: #1e1e1e;
       --text-color: #e0e0e0;
-      --border-color: #333333;
+      --border-color: #383838;
       --header-bg: #0b5ed7;
+      --grid-header-bg: #2a2d31;
+      --grid-zebra-bg: rgba(255, 255, 255, 0.03);
+      --grid-hora-fuerte: rgba(255, 255, 255, 0.22);
     }
 
     body {
@@ -102,6 +108,14 @@
       background-color: #218838;
     }
 
+    /* ------------------------------------------------------------
+       Diagrama de Gantt, estilo "hoja de cálculo de proyecto"
+       (tabla de tareas a la izquierda + línea de tiempo a la
+       derecha, como en Microsoft Project): rejilla completa,
+       cabecera fija, filas en zebra, barras con borde y etiqueta de
+       horario, y una línea de "Ahora" cuando el rango mostrado
+       incluye la hora actual.
+       ------------------------------------------------------------ */
     .contenedor-gantt {
       background: var(--card-bg);
       padding: 16px 20px 20px;
@@ -113,22 +127,60 @@
     #gantt-resumen { font-size: 12px; opacity: 0.75; margin: 0 0 12px; }
     #gantt-vacio { padding: 50px 20px; text-align: center; opacity: 0.65; font-size: 14px; }
 
-    .gantt-header-row { display: flex; margin-bottom: 4px; }
-    .gantt-etiqueta-header { flex: 0 0 220px; max-width: 220px; }
-    .gantt-eje-horas { position: relative; flex: 1; height: 22px; border-bottom: 2px solid var(--border-color); min-width: 480px; }
-    .gantt-hora-marca { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--border-color); padding-left: 3px; font-size: 10px; opacity: 0.7; white-space: nowrap; }
+    .gantt-tabla { border: 1px solid var(--border-color); border-radius: 4px; overflow: hidden; min-width: fit-content; }
 
+    .gantt-header-row { display: flex; background: var(--grid-header-bg); border-bottom: 2px solid var(--border-color); }
+    .gantt-etiqueta-header, .gantt-etiqueta { display: flex; flex: 0 0 auto; box-sizing: border-box; }
+    .gantt-col { box-sizing: border-box; border-right: 1px solid var(--border-color); padding: 6px 8px; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; }
+    .gantt-header-row .gantt-col { font-weight: bold; text-transform: uppercase; font-size: 10px; letter-spacing: 0.3px; }
+    .gantt-col-num { flex: 0 0 30px; justify-content: center; color: inherit; opacity: 0.6; }
+    .gantt-col-tarea { flex: 0 0 140px; font-weight: bold; }
+    .gantt-header-row .gantt-col-tarea { font-weight: bold; }
+    .gantt-col-bloque { flex: 0 0 120px; opacity: 0.85; }
+    .gantt-col-duracion { flex: 0 0 64px; justify-content: flex-end; font-variant-numeric: tabular-nums; }
+    .gantt-col-rep { flex: 0 0 48px; justify-content: center; }
+
+    .gantt-eje-horas { position: relative; flex: 1; min-width: 480px; display: flex; align-items: center; }
+    .gantt-hora-marca { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--border-color); padding-left: 3px; font-size: 10px; opacity: 0.75; white-space: nowrap; display: flex; align-items: center; }
+    .gantt-hora-marca.hora-entera { border-left: 1px solid var(--grid-hora-fuerte); font-weight: bold; }
+
+    .gantt-cuerpo-scroll { max-height: 62vh; overflow-y: auto; }
+    .gantt-filas { }
     .gantt-fila { display: flex; border-bottom: 1px solid var(--border-color); }
-    .gantt-fila:hover { background: rgba(0, 123, 255, 0.06); }
-    .gantt-etiqueta { flex: 0 0 220px; max-width: 220px; padding: 8px 10px; font-size: 12px; font-weight: bold; display: flex; align-items: center; word-break: break-word; box-sizing: border-box; }
-    .gantt-etiqueta small { display: block; font-weight: normal; opacity: 0.7; font-size: 11px; }
+    .gantt-fila:nth-child(even) { background: var(--grid-zebra-bg); }
+    .gantt-fila:hover { background: rgba(0, 123, 255, 0.08); }
+
     .gantt-pista { position: relative; flex: 1; min-width: 480px; box-sizing: border-box; }
-    .gantt-linea-hora { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--border-color); opacity: 0.35; }
-    .gantt-segmento { position: absolute; border-radius: 4px; box-sizing: border-box; cursor: default; box-shadow: 0 1px 2px rgba(0,0,0,0.25); }
+    .gantt-linea-hora { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--border-color); opacity: 0.3; }
+    .gantt-linea-hora.hora-entera { border-left: 1px solid var(--grid-hora-fuerte); opacity: 0.55; }
+
+    .gantt-linea-ahora { position: absolute; top: 0; bottom: 0; border-left: 2px dashed #dc3545; z-index: 3; pointer-events: none; }
+    /* La etiqueta cuelga justo DEBAJO de la regla de horas (top:100%) en vez
+       de superponerse a los rótulos "HH:00", para no taparlos. */
+    .gantt-ahora-etiqueta { position: absolute; top: 100%; margin-top: 2px; transform: translateX(-50%); background: #dc3545; color: #fff; font-size: 9px; font-weight: bold; padding: 1px 4px; border-radius: 3px; white-space: nowrap; z-index: 4; }
+
+    .gantt-segmento {
+      position: absolute;
+      border-radius: 3px;
+      box-sizing: border-box;
+      cursor: default;
+      border: 1px solid rgba(0, 0, 0, 0.35);
+      background-image: linear-gradient(to bottom, rgba(255,255,255,0.35), rgba(255,255,255,0) 40%, rgba(0,0,0,0.08));
+      box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    }
+    .gantt-segmento-texto {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 10px;
+      white-space: nowrap;
+      opacity: 0.85;
+      pointer-events: none;
+    }
 
     .gantt-leyenda { display: flex; flex-wrap: wrap; gap: 10px 16px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-color); font-size: 12px; }
     .gantt-leyenda-item { display: flex; align-items: center; gap: 6px; }
-    .gantt-leyenda-color { width: 14px; height: 14px; border-radius: 3px; display: inline-block; flex-shrink: 0; }
+    .gantt-leyenda-color { width: 14px; height: 14px; border-radius: 3px; display: inline-block; flex-shrink: 0; border: 1px solid rgba(0,0,0,0.3); }
   </style>
   <!-- Supabase JS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

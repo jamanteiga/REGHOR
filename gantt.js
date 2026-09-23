@@ -1,6 +1,6 @@
 // SUPABASE_URL, SUPABASE_KEY, supabaseClient, TABLA, formatearFechaISO,
 // formatearMinutosAHoras, parsearFechaLocal, calcularRangoFechas,
-// toggleTheme y cerrarPestana viven en config.js.
+// obtenerFechaHoyISO, toggleTheme y cerrarPestana viven en config.js.
 
 let idiomaActual = 'es';
 let ultimosDatosGantt = [];
@@ -14,7 +14,9 @@ const TEXTOS_GANTT = {
     mes: 'Mes actual', mesAnterior: 'Mes anterior',
     desde: 'Desde Fecha', hasta: 'Hasta Fecha', generar: 'Generar Gantt',
     registros: 'registros', filasTexto: 'tareas distintas',
-    sinDatos: 'No hay registros en el rango de fechas seleccionado.'
+    sinDatos: 'No hay registros en el rango de fechas seleccionado.',
+    colNum: '#', colTarea: 'Tarea', colBloque: 'Bloque', colDuracion: 'Duración', colRep: 'Rep.',
+    ahora: 'Ahora'
   },
   gl: {
     titulo: '📅 Diagrama de Gantt', cerrar: '❌ Pechar', rangoRapido: 'Intervalo Rápido',
@@ -22,7 +24,9 @@ const TEXTOS_GANTT = {
     mes: 'Mes actual', mesAnterior: 'Mes anterior',
     desde: 'Desde Data', hasta: 'Ata Data', generar: 'Xerar Gantt',
     registros: 'rexistros', filasTexto: 'tarefas distintas',
-    sinDatos: 'Non hai rexistros no intervalo de datas seleccionado.'
+    sinDatos: 'Non hai rexistros no intervalo de datas seleccionado.',
+    colNum: '#', colTarea: 'Tarefa', colBloque: 'Bloque', colDuracion: 'Duración', colRep: 'Rep.',
+    ahora: 'Agora'
   }
 };
 
@@ -49,8 +53,8 @@ function cambiarIdioma(lang) {
   document.getElementById('lbl-hasta').textContent = t.hasta;
   document.getElementById('btn-generar-gantt').textContent = t.generar;
 
-  // Volver a pintar para actualizar el resumen/mensaje vacío al nuevo idioma
-  // (las barras y colores no cambian, solo los textos).
+  // Volver a pintar para actualizar cabeceras de columna, resumen y mensaje
+  // vacío al nuevo idioma (las barras y colores no cambian, solo los textos).
   procesarYRenderizarGantt(ultimosDatosGantt);
 }
 
@@ -108,13 +112,20 @@ function escaparHtmlGantt(str) {
   return div.innerHTML;
 }
 
+/** Hora actual en decimal, respetando cualquier "mock" de Date usado en pruebas. */
+function horaActualDecimalGantt() {
+  const ahora = new Date();
+  return ahora.getHours() + ahora.getMinutes() / 60;
+}
+
 /**
  * Agrupa los registros en filas (eje Y) y calcula el eje de horas (eje X),
  * y dispara el pintado. La agrupación en filas es por la combinación exacta
  * Tarea + Bloque: dos registros con la misma Tarea pero distinto Bloque (o
  * uno con Bloque y otro sin él) son filas distintas; con la misma Tarea y el
  * mismo Bloque (aunque sea de fechas distintas) comparten fila -así es como
- * el diagrama "sabe" que una tarea se repite-.
+ * el diagrama "sabe" que una tarea se repite, y la columna "Rep." de la
+ * tabla de la izquierda lo muestra como un número-.
  */
 function procesarYRenderizarGantt(data) {
   const t = TEXTOS_GANTT[idiomaActual];
@@ -165,6 +176,13 @@ function procesarYRenderizarGantt(data) {
     return cmpTarea !== 0 ? cmpTarea : a.bloque.localeCompare(b.bloque, 'es');
   });
 
+  // Duración total y número de repeticiones (apariciones) de cada fila, para
+  // la tabla de tareas de la izquierda (estilo "columnas" de MS Project).
+  filas.forEach(fila => {
+    fila.duracionTotalMin = fila.segmentos.reduce((acc, seg) => acc + Math.round((seg.finDec - seg.inicioDec) * 60), 0);
+    fila.repeticiones = fila.segmentos.length;
+  });
+
   // --- Eje de horas: del inicio más temprano al fin más tardío de todo el rango, a horas completas ---
   let minDec = Infinity, maxDec = -Infinity;
   registrosValidos.forEach(r => {
@@ -209,38 +227,72 @@ function procesarYRenderizarGantt(data) {
 
   resumen.textContent = `${registrosValidos.length} ${t.registros} · ${filas.length} ${t.filasTexto}`;
 
-  renderizarGantt(filas, ejeInicio, ejeFin, coloresProyecto);
+  // ¿Se debe dibujar la línea de "Ahora"? Solo si el rango de fechas
+  // mostrado incluye hoy y la hora actual cae dentro del eje de horas
+  // dibujado (igual que la línea de "fecha de estado" de MS Project).
+  const desdeVal = document.getElementById('filtro-desde').value;
+  const hastaVal = document.getElementById('filtro-hasta').value;
+  const hoyStr = obtenerFechaHoyISO();
+  const horaActualDec = horaActualDecimalGantt();
+  const mostrarAhora = desdeVal && hastaVal && hoyStr >= desdeVal && hoyStr <= hastaVal &&
+    horaActualDec >= ejeInicio && horaActualDec <= ejeFin;
+
+  renderizarGantt(filas, ejeInicio, ejeFin, coloresProyecto, mostrarAhora ? horaActualDec : null);
   renderizarLeyendaGantt(coloresProyecto);
 }
 
-function renderizarGantt(filas, ejeInicio, ejeFin, coloresProyecto) {
+function renderizarGantt(filas, ejeInicio, ejeFin, coloresProyecto, horaAhoraDec) {
+  const t = TEXTOS_GANTT[idiomaActual];
   const chart = document.getElementById('gantt-chart');
   chart.innerHTML = '';
 
   const ancho = ejeFin - ejeInicio;
-  const CARRIL_ALTO = 24, CARRIL_GAP = 4, PAD_VERT = 8;
+  const CARRIL_ALTO = 22, CARRIL_GAP = 4, PAD_VERT = 8;
 
-  // Cabecera con las marcas de hora, alineada con el ancho de las "pistas".
+  const tabla = document.createElement('div');
+  tabla.className = 'gantt-tabla';
+
+  // --- Cabecera: columnas de la tabla de tareas + regla de horas ---
   const headerRow = document.createElement('div');
   headerRow.className = 'gantt-header-row';
-  headerRow.appendChild(document.createElement('div')).className = 'gantt-etiqueta-header';
+
+  const headerEtiqueta = document.createElement('div');
+  headerEtiqueta.className = 'gantt-etiqueta-header';
+  headerEtiqueta.appendChild(crearColumna('gantt-col-num', t.colNum));
+  headerEtiqueta.appendChild(crearColumna('gantt-col-tarea', t.colTarea));
+  headerEtiqueta.appendChild(crearColumna('gantt-col-bloque', t.colBloque));
+  headerEtiqueta.appendChild(crearColumna('gantt-col-duracion', t.colDuracion));
+  headerEtiqueta.appendChild(crearColumna('gantt-col-rep', t.colRep));
+  headerRow.appendChild(headerEtiqueta);
 
   const ejeHoras = document.createElement('div');
   ejeHoras.className = 'gantt-eje-horas';
   for (let h = ejeInicio; h <= ejeFin; h++) {
     const marca = document.createElement('div');
-    marca.className = 'gantt-hora-marca';
+    marca.className = 'gantt-hora-marca hora-entera';
     marca.style.left = `${((h - ejeInicio) / ancho) * 100}%`;
     marca.textContent = `${String(h % 24).padStart(2, '0')}:00`;
     ejeHoras.appendChild(marca);
   }
+  if (horaAhoraDec !== null) {
+    const etiquetaAhora = document.createElement('div');
+    etiquetaAhora.className = 'gantt-ahora-etiqueta';
+    etiquetaAhora.style.left = `${((horaAhoraDec - ejeInicio) / ancho) * 100}%`;
+    etiquetaAhora.textContent = t.ahora;
+    ejeHoras.appendChild(etiquetaAhora);
+  }
   headerRow.appendChild(ejeHoras);
-  chart.appendChild(headerRow);
+  tabla.appendChild(headerRow);
+
+  // --- Cuerpo (con scroll vertical propio si hay muchas filas; la cabecera
+  //     de arriba queda fija porque está fuera de este contenedor) ---
+  const cuerpoScroll = document.createElement('div');
+  cuerpoScroll.className = 'gantt-cuerpo-scroll';
 
   const filasCont = document.createElement('div');
   filasCont.className = 'gantt-filas';
 
-  filas.forEach(fila => {
+  filas.forEach((fila, indice) => {
     const filaDiv = document.createElement('div');
     filaDiv.className = 'gantt-fila';
 
@@ -249,9 +301,11 @@ function renderizarGantt(filas, ejeInicio, ejeFin, coloresProyecto) {
     const etiqueta = document.createElement('div');
     etiqueta.className = 'gantt-etiqueta';
     etiqueta.style.minHeight = `${alturaPista}px`;
-    etiqueta.innerHTML = fila.bloque
-      ? `${escaparHtmlGantt(fila.tarea)}<small>${escaparHtmlGantt(fila.bloque)}</small>`
-      : escaparHtmlGantt(fila.tarea);
+    etiqueta.appendChild(crearColumna('gantt-col-num', String(indice + 1)));
+    etiqueta.appendChild(crearColumna('gantt-col-tarea', fila.tarea, fila.tarea));
+    etiqueta.appendChild(crearColumna('gantt-col-bloque', fila.bloque, fila.bloque));
+    etiqueta.appendChild(crearColumna('gantt-col-duracion', formatearMinutosAHoras(fila.duracionTotalMin)));
+    etiqueta.appendChild(crearColumna('gantt-col-rep', String(fila.repeticiones)));
     filaDiv.appendChild(etiqueta);
 
     const pista = document.createElement('div');
@@ -260,31 +314,57 @@ function renderizarGantt(filas, ejeInicio, ejeFin, coloresProyecto) {
 
     for (let h = ejeInicio; h <= ejeFin; h++) {
       const linea = document.createElement('div');
-      linea.className = 'gantt-linea-hora';
+      linea.className = 'gantt-linea-hora hora-entera';
       linea.style.left = `${((h - ejeInicio) / ancho) * 100}%`;
       pista.appendChild(linea);
+    }
+
+    if (horaAhoraDec !== null) {
+      const lineaAhora = document.createElement('div');
+      lineaAhora.className = 'gantt-linea-ahora';
+      lineaAhora.style.left = `${((horaAhoraDec - ejeInicio) / ancho) * 100}%`;
+      pista.appendChild(lineaAhora);
     }
 
     fila.segmentos.forEach(seg => {
       const left = ((seg.inicioDec - ejeInicio) / ancho) * 100;
       const width = Math.max(((seg.finDec - seg.inicioDec) / ancho) * 100, 0.6);
+      const top = PAD_VERT + seg.carril * (CARRIL_ALTO + CARRIL_GAP);
+
       const bar = document.createElement('div');
       bar.className = 'gantt-segmento';
       bar.style.left = `${left}%`;
       bar.style.width = `${width}%`;
-      bar.style.top = `${PAD_VERT + seg.carril * (CARRIL_ALTO + CARRIL_GAP)}px`;
+      bar.style.top = `${top}px`;
       bar.style.height = `${CARRIL_ALTO}px`;
       bar.style.backgroundColor = coloresProyecto[seg.proyecto || '—'];
       const duracion = formatearMinutosAHoras(Math.round((seg.finDec - seg.inicioDec) * 60));
       bar.title = `${seg.fecha}  ${seg.horainicio}–${seg.horafin} (${duracion})\n${seg.proyecto || ''}${seg.comentario ? ' · ' + seg.comentario : ''}`;
       pista.appendChild(bar);
+
+      const texto = document.createElement('div');
+      texto.className = 'gantt-segmento-texto';
+      texto.style.left = `calc(${left + width}% + 4px)`;
+      texto.style.top = `${top + CARRIL_ALTO / 2}px`;
+      texto.textContent = `${seg.horainicio}–${seg.horafin}`;
+      pista.appendChild(texto);
     });
 
     filaDiv.appendChild(pista);
     filasCont.appendChild(filaDiv);
   });
 
-  chart.appendChild(filasCont);
+  cuerpoScroll.appendChild(filasCont);
+  tabla.appendChild(cuerpoScroll);
+  chart.appendChild(tabla);
+}
+
+function crearColumna(clase, texto, title) {
+  const col = document.createElement('div');
+  col.className = `gantt-col ${clase}`;
+  col.textContent = texto;
+  if (title) col.title = title;
+  return col;
 }
 
 function renderizarLeyendaGantt(coloresProyecto) {
