@@ -28,14 +28,30 @@
       --grid-hora-fuerte: rgba(255, 255, 255, 0.22);
     }
 
+    html, body { height: 100%; margin: 0; }
+
     body {
       font-family: Arial, sans-serif;
-      margin: 20px;
       background-color: var(--bg-color);
       color: var(--text-color);
     }
 
-    .header-container { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    /* Toda la página cabe en la ventana y NO hace scroll: el único que
+       debe desplazarse cuando el Gantt tiene muchas filas (varios días) es
+       el propio diagrama (.gantt-cuerpo-scroll más abajo), no la web
+       entera -pedido explícitamente-. Cabecera y filtros mantienen su
+       altura natural; el resto ("contenedor-gantt") se reparte el espacio
+       vertical que quede. */
+    .pagina-gantt {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      padding: 20px;
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+
+    .header-container { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex: 0 0 auto; }
     .controls-right { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 
     .icon-btn { padding: 6px 12px; cursor: pointer; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-color); font-weight: bold; }
@@ -62,6 +78,7 @@
       flex-wrap: wrap;
       gap: 12px;
       align-items: flex-end;
+      flex: 0 0 auto;
     }
 
     .grupo-filtro { display: flex; flex-direction: column; flex: 1 1 120px; min-width: 110px; }
@@ -122,14 +139,20 @@
       border-radius: 8px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       overflow-x: auto;
+      overflow-y: hidden;
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
     }
 
-    #gantt-resumen { font-size: 12px; opacity: 0.75; margin: 0 0 12px; }
-    #gantt-vacio { padding: 50px 20px; text-align: center; opacity: 0.65; font-size: 14px; }
+    #gantt-resumen { font-size: 12px; opacity: 0.75; margin: 0 0 12px; flex: 0 0 auto; }
+    #gantt-vacio { padding: 50px 20px; text-align: center; opacity: 0.65; font-size: 14px; flex: 0 0 auto; }
 
-    .gantt-tabla { border: 1px solid var(--border-color); border-radius: 4px; overflow: hidden; min-width: fit-content; }
+    #gantt-chart { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+    .gantt-tabla { border: 1px solid var(--border-color); border-radius: 4px; overflow: hidden; min-width: fit-content; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 
-    .gantt-header-row { display: flex; background: var(--grid-header-bg); border-bottom: 2px solid var(--border-color); }
+    .gantt-header-row { display: flex; background: var(--grid-header-bg); border-bottom: 2px solid var(--border-color); flex: 0 0 auto; }
     .gantt-etiqueta-header, .gantt-etiqueta { display: flex; flex: 0 0 auto; box-sizing: border-box; }
     .gantt-col { box-sizing: border-box; border-right: 1px solid var(--border-color); padding: 6px 8px; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; }
     .gantt-header-row .gantt-col { font-weight: bold; text-transform: uppercase; font-size: 10px; letter-spacing: 0.3px; }
@@ -144,7 +167,12 @@
     .gantt-hora-marca { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--border-color); padding-left: 3px; font-size: 10px; opacity: 0.75; white-space: nowrap; display: flex; align-items: center; }
     .gantt-hora-marca.hora-entera { border-left: 1px solid var(--grid-hora-fuerte); font-weight: bold; }
 
-    .gantt-cuerpo-scroll { max-height: 62vh; overflow-y: auto; }
+    /* El scroll vertical del Gantt vive AQUÍ (no en la página): esta franja
+       ocupa todo el alto que le deja el resto del layout (flex: 1 1 auto +
+       min-height: 0) y solo ella desplaza cuando hay muchas filas -por
+       ejemplo, al generar el Gantt de un mes con muchas tareas distintas-.
+       min-height evita que se quede a 0px si la ventana es muy baja. */
+    .gantt-cuerpo-scroll { flex: 1 1 auto; min-height: 120px; overflow-y: auto; }
     .gantt-filas { }
     .gantt-fila { display: flex; border-bottom: 1px solid var(--border-color); }
     .gantt-fila:nth-child(even) { background: var(--grid-zebra-bg); }
@@ -178,7 +206,7 @@
       pointer-events: none;
     }
 
-    .gantt-leyenda { display: flex; flex-wrap: wrap; gap: 10px 16px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-color); font-size: 12px; }
+    .gantt-leyenda { display: flex; flex-wrap: wrap; gap: 10px 16px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-color); font-size: 12px; flex: 0 0 auto; max-height: 25vh; overflow-y: auto; }
     .gantt-leyenda-item { display: flex; align-items: center; gap: 6px; }
     .gantt-leyenda-color { width: 14px; height: 14px; border-radius: 3px; display: inline-block; flex-shrink: 0; border: 1px solid rgba(0,0,0,0.3); }
   </style>
@@ -186,6 +214,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+  <div class="pagina-gantt">
 
   <div class="header-container">
     <h1 id="txt-titulo">📅 Diagrama de Gantt</h1>
@@ -237,6 +266,8 @@
     <div id="gantt-vacio" style="display:none;"></div>
     <div id="gantt-chart"></div>
     <div id="gantt-leyenda" class="gantt-leyenda"></div>
+  </div>
+
   </div>
 
   <script src="config.js"></script>
