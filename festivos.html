@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <script src="auth.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>REGHOR - Festivos</title>
+  <style>
+    :root {
+      --bg-color: #f4f7f6;
+      --card-bg: #ffffff;
+      --text-color: #333333;
+      --border-color: #cccccc;
+      --header-bg: #007bff;
+      --grid-header-bg: #e9edf1;
+      --grid-zebra-bg: rgba(0, 0, 0, 0.025);
+    }
+
+    body.dark-mode {
+      --bg-color: #121212;
+      --card-bg: #1e1e1e;
+      --text-color: #e0e0e0;
+      --border-color: #383838;
+      --header-bg: #0b5ed7;
+      --grid-header-bg: #2a2d31;
+      --grid-zebra-bg: rgba(255, 255, 255, 0.03);
+    }
+
+    html, body { height: 100%; margin: 0; }
+
+    body {
+      font-family: Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+    }
+
+    .pagina-festivos {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+
+    .header-container { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+    .controls-right { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+    .icon-btn { padding: 6px 12px; cursor: pointer; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-color); font-weight: bold; }
+
+    .flag-btn { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 4px; padding: 4px 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .flag-icon { width: 24px; height: 16px; display: block; }
+
+    .btn-cerrar { background-color: #dc3545; color: white; border: none; }
+    .btn-cerrar:hover { background-color: #bd2130; }
+
+    .panel {
+      background: var(--card-bg);
+      padding: 16px 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .fila-anio { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+    .grupo-campo { display: flex; flex-direction: column; }
+    .grupo-campo label { font-weight: bold; font-size: 12px; margin-bottom: 4px; }
+    input, select { padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--card-bg); color: var(--text-color); font-size: 13px; box-sizing: border-box; }
+
+    .btn-accion {
+      background-color: #28a745;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      white-space: nowrap;
+      height: 31px;
+    }
+    .btn-accion:hover { background-color: #218838; }
+    .btn-secundario { background-color: #6c757d; }
+    .btn-secundario:hover { background-color: #5a6268; }
+
+    .form-nuevo { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border-color); }
+    .form-nuevo .grupo-campo { flex: 1 1 140px; min-width: 130px; }
+    #campo-nombre { min-width: 220px; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead th {
+      background: var(--grid-header-bg);
+      text-align: left;
+      padding: 8px 10px;
+      border-bottom: 2px solid var(--border-color);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    tbody td { padding: 7px 10px; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
+    tbody tr:nth-child(even) { background: var(--grid-zebra-bg); }
+    tbody tr:hover { background: rgba(0, 123, 255, 0.08); }
+    td.col-fecha { white-space: nowrap; font-variant-numeric: tabular-nums; }
+    td.col-dia { opacity: 0.75; text-transform: capitalize; }
+    td.col-acciones { text-align: right; white-space: nowrap; }
+
+    .btn-mini {
+      border: none;
+      border-radius: 4px;
+      padding: 4px 8px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: bold;
+      margin-left: 6px;
+      color: white;
+    }
+    .btn-mini-editar { background-color: #007bff; }
+    .btn-mini-editar:hover { background-color: #0069d9; }
+    .btn-mini-borrar { background-color: #dc3545; }
+    .btn-mini-borrar:hover { background-color: #bd2130; }
+    .btn-mini-guardar { background-color: #28a745; }
+    .btn-mini-guardar:hover { background-color: #218838; }
+    .btn-mini-cancelar { background-color: #6c757d; }
+    .btn-mini-cancelar:hover { background-color: #5a6268; }
+
+    #festivos-vacio { padding: 30px 10px; text-align: center; opacity: 0.65; font-size: 13px; }
+
+    .aviso-info {
+      font-size: 12px;
+      opacity: 0.75;
+      margin: 0 0 14px;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+  <div class="pagina-festivos">
+
+  <div class="header-container">
+    <h1 id="txt-titulo">🎌 Festivos</h1>
+    <div class="controls-right">
+      <button class="flag-btn" onclick="cambiarIdiomaFestivos('es')" title="Español">
+        <svg class="flag-icon" viewBox="0 0 750 500">
+          <rect width="750" height="500" fill="#c60b1e"/>
+          <rect y="125" width="750" height="250" fill="#ffc400"/>
+        </svg>
+      </button>
+
+      <button class="flag-btn" onclick="cambiarIdiomaFestivos('gl')" title="Galego">
+        <svg class="flag-icon" viewBox="0 0 3 2">
+          <rect width="3" height="2" fill="#fff"/>
+          <path d="M0 0 L3 2" stroke="#009ac6" stroke-width="0.4"/>
+        </svg>
+      </button>
+
+      <button class="icon-btn" onclick="toggleTheme()" id="btn-theme">🌙 Oscuro</button>
+      <button class="icon-btn btn-cerrar" onclick="cerrarSesion()" id="btn-logout" title="Cerrar sesión">🔒 Salir</button>
+      <button class="icon-btn btn-cerrar" onclick="cerrarPestana()" id="btn-cerrar">❌ Cerrar</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <p class="aviso-info" id="txt-aviso-info">
+      Estos son los días que la app considera no laborables (jornada teórica 0h) en los balances de horas.
+      Vienen precargados con los festivos de Ferrol, Galicia y España de 2026; puedes editarlos o añadir los de años siguientes en cuanto se publiquen.
+    </p>
+    <div class="fila-anio">
+      <div class="grupo-campo">
+        <label id="lbl-anio">Año</label>
+        <select id="select-anio" onchange="cambiarAnioFestivos()"></select>
+      </div>
+      <button class="btn-accion" id="btn-anadir-anio" onclick="anadirAnioFestivos()">➕ Año nuevo</button>
+      <button class="btn-accion btn-secundario" id="btn-restaurar" onclick="restaurarFestivosDefecto()">↺ Restaurar valores por defecto</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div id="festivos-vacio" style="display:none;"></div>
+    <table id="tabla-festivos" style="display:none;">
+      <thead>
+        <tr>
+          <th id="col-fecha">Fecha</th>
+          <th id="col-dia">Día</th>
+          <th id="col-nombre">Nombre</th>
+          <th id="col-acciones"></th>
+        </tr>
+      </thead>
+      <tbody id="cuerpo-festivos"></tbody>
+    </table>
+
+    <div class="form-nuevo">
+      <div class="grupo-campo">
+        <label id="lbl-nueva-fecha">Fecha</label>
+        <input type="date" id="campo-fecha">
+      </div>
+      <div class="grupo-campo">
+        <label id="lbl-nuevo-nombre">Nombre</label>
+        <input type="text" id="campo-nombre" placeholder="p.ej. San Xoán" maxlength="80">
+      </div>
+      <button class="btn-accion" id="btn-anadir-festivo" onclick="anadirFestivo()">➕ Añadir festivo</button>
+    </div>
+  </div>
+
+  </div>
+
+  <script src="config.js"></script>
+  <script src="festivos.js"></script>
+</body>
+</html>

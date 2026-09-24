@@ -13,7 +13,9 @@ const TEXTOS_INFORME = {
     bloque: 'Bloque (*)', comentario: 'Comentario (*)', generar: 'Generar Informe',
     xlsx: '📊 Exportar XLSX', csv: '📄 Exportar CSV', pdf: '📕 Exportar PDF', thFecha: 'Fecha', thTarea: 'Tarea',
     thProyecto: 'Proyecto', thBloque: 'Bloque', thInicio: 'Hora inicio', thFin: 'Hora fin',
-    thDuracion: 'Duración', thComentario: 'Comentario', thNotas: 'Notas', totalHoras: 'Total Horas:'
+    thDuracion: 'Duración', thComentario: 'Comentario', thNotas: 'Notas', totalHoras: 'Total Horas:',
+    anio: 'Año', balanceAnual: '📅 Balance Anual', backupJson: '💾 Backup JSON (todo)', importarJson: '📥 Importar backup',
+    thbMes: 'Mes', thbTeorica: 'Jornada Teórica', thbTrabajado: 'Horas Trabajadas', thbBalance: 'Balance del Mes', thbAcumulado: 'Balance Acumulado', totalAnio: 'Total {anio}'
   },
   gl: {
     titulo: '📊 Informes e Rexistros', cerrar: '❌ Pechar', rangoRapido: 'Intervalo Rápido',
@@ -22,7 +24,9 @@ const TEXTOS_INFORME = {
     bloque: 'Bloque (*)', comentario: 'Comentario (*)', generar: 'Xerar Informe',
     xlsx: '📊 Exportar XLSX', csv: '📄 Exportar CSV', pdf: '📕 Exportar PDF', thFecha: 'Data', thTarea: 'Tarefa',
     thProyecto: 'Proxecto', thBloque: 'Bloque', thInicio: 'Hora inicio', thFin: 'Hora fin',
-    thDuracion: 'Duración', thComentario: 'Comentario', thNotas: 'Notas', totalHoras: 'Total de Horas:'
+    thDuracion: 'Duración', thComentario: 'Comentario', thNotas: 'Notas', totalHoras: 'Total de Horas:',
+    anio: 'Ano', balanceAnual: '📅 Balance Anual', backupJson: '💾 Backup JSON (todo)', importarJson: '📥 Importar backup',
+    thbMes: 'Mes', thbTeorica: 'Xornada Teórica', thbTrabajado: 'Horas Traballadas', thbBalance: 'Balance do Mes', thbAcumulado: 'Balance Acumulado', totalAnio: 'Total {anio}'
   },
   en: {
     titulo: '📊 Reports and Records', cerrar: '❌ Close', rangoRapido: 'Quick Range',
@@ -31,7 +35,9 @@ const TEXTOS_INFORME = {
     bloque: 'Block (*)', comentario: 'Comment (*)', generar: 'Generate Report',
     xlsx: '📊 Export XLSX', csv: '📄 Export CSV', pdf: '📕 Export PDF', thFecha: 'Date', thTarea: 'Task',
     thProyecto: 'Project', thBloque: 'Block', thInicio: 'Start Time', thFin: 'End Time',
-    thDuracion: 'Duration', thComentario: 'Comment', thNotas: 'Notes', totalHoras: 'Total Hours:'
+    thDuracion: 'Duration', thComentario: 'Comment', thNotas: 'Notes', totalHoras: 'Total Hours:',
+    anio: 'Year', balanceAnual: '📅 Annual Balance', backupJson: '💾 JSON Backup (all)', importarJson: '📥 Import backup',
+    thbMes: 'Month', thbTeorica: 'Theoretical Hours', thbTrabajado: 'Hours Worked', thbBalance: 'Month Balance', thbAcumulado: 'Cumulative Balance', totalAnio: 'Total {anio}'
   }
 };
 
@@ -66,12 +72,37 @@ function cambiarIdioma(lang) {
   document.getElementById('th-comentario').textContent = t.thComentario;
   document.getElementById('th-notas').textContent = t.thNotas;
   document.getElementById('txt-total-label').textContent = t.totalHoras;
+
+  document.getElementById('lbl-anio-balance').textContent = t.anio;
+  document.getElementById('btn-balance-anual').textContent = t.balanceAnual;
+  document.getElementById('btn-backup-json').textContent = t.backupJson;
+  document.getElementById('btn-importar-json').textContent = t.importarJson;
+  document.getElementById('thb-mes').textContent = t.thbMes;
+  document.getElementById('thb-teorica').textContent = t.thbTeorica;
+  document.getElementById('thb-trabajado').textContent = t.thbTrabajado;
+  document.getElementById('thb-balance').textContent = t.thbBalance;
+  document.getElementById('thb-acumulado').textContent = t.thbAcumulado;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
   establecerValoresPorDefecto();
+  poblarSelectorAnioBalance();
   cargarInforme();
 });
+
+/** Rellena el desplegable de año del panel de Balance Anual: el año actual y los 6 anteriores. */
+function poblarSelectorAnioBalance() {
+  const sel = document.getElementById('filtro-anio-balance');
+  if (!sel) return;
+  const anioActual = new Date().getFullYear();
+  const valorPrevio = sel.value;
+  let opciones = '';
+  for (let a = anioActual; a >= anioActual - 6; a--) {
+    opciones += `<option value="${a}">${a}</option>`;
+  }
+  sel.innerHTML = opciones;
+  sel.value = valorPrevio || String(anioActual);
+}
 
 function establecerValoresPorDefecto() {
   const fechaHoy = obtenerFechaHoyISO();
@@ -312,4 +343,224 @@ function exportarPDF() {
   });
 
   doc.save(`Informe_REGHOR_${desde}_a_${hasta}.pdf`);
+}
+
+/**
+ * Balance de horas extra mes a mes de un año completo, con saldo
+ * acumulado -el mismo criterio de jornada teórica/descanso que el resto de
+ * la app (obtenerJornadaTeoricaMinutos/obtenerDescansoMinutos de
+ * config.js)-. Pensado para ver de un vistazo cómo evoluciona el saldo de
+ * horas extra a lo largo del año, no solo día a día o en un rango suelto.
+ */
+async function cargarBalanceAnual() {
+  if (!supabaseClient) return;
+  const anio = Number(document.getElementById('filtro-anio-balance').value);
+  if (!anio) return;
+
+  const desdeStr = `${anio}-01-01`;
+  const hastaStr = `${anio}-12-31`;
+
+  const panel = document.getElementById('panel-balance-anual');
+  const tbody = document.getElementById('tabla-balance-anual-body');
+  panel.style.display = '';
+  tbody.innerHTML = `<tr><td colspan="5">Cargando...</td></tr>`;
+
+  const TAMANO_PAGINA = 1000;
+  let data = [];
+  let desdeIndice = 0;
+  while (true) {
+    const { data: pagina, error } = await supabaseClient
+      .from(TABLA)
+      .select('fecha,horainicio,horafin')
+      .gte('fecha', desdeStr)
+      .lte('fecha', hastaStr)
+      .range(desdeIndice, desdeIndice + TAMANO_PAGINA - 1);
+
+    if (error) {
+      console.error('Error al cargar el balance anual:', error);
+      tbody.innerHTML = `<tr><td colspan="5" style="color:red;">Error Supabase: ${error.message}</td></tr>`;
+      return;
+    }
+
+    data = data.concat(pagina || []);
+    if (!pagina || pagina.length < TAMANO_PAGINA) break;
+    desdeIndice += TAMANO_PAGINA;
+  }
+
+  // Minutos brutos trabajados por día (antes del descanso), para poder
+  // aplicar el descuento una sola vez por día, igual que en el resto de la app.
+  const minutosPorDia = {};
+  data.forEach(item => {
+    let fechaKey = String(item.fecha || '').trim();
+    if (fechaKey.includes('T')) fechaKey = fechaKey.split('T')[0];
+    if (fechaKey.includes(' ')) fechaKey = fechaKey.split(' ')[0];
+    if (!fechaKey) return;
+    minutosPorDia[fechaKey] = (minutosPorDia[fechaKey] || 0) + obtenerMinutosDuracion(item.horainicio, item.horafin);
+  });
+
+  const nombresMeses = MESES[idiomaActual] || MESES.es;
+  let acumulado = 0;
+  let teoricaAnual = 0;
+  let trabajadoAnual = 0;
+  let filasHtml = '';
+
+  for (let mes = 0; mes < 12; mes++) {
+    const primerDia = new Date(anio, mes, 1);
+    const ultimoDia = new Date(anio, mes + 1, 0);
+
+    let teoricaMes = 0;
+    let trabajadoMes = 0;
+    let cursor = new Date(primerDia);
+    while (cursor <= ultimoDia) {
+      const fStr = formatearFechaISO(cursor);
+      teoricaMes += obtenerJornadaTeoricaMinutos(fStr);
+      let minDia = minutosPorDia[fStr] || 0;
+      if (minDia > 0) minDia = Math.max(0, minDia - obtenerDescansoMinutos(fStr));
+      trabajadoMes += minDia;
+      cursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 1);
+    }
+
+    const balanceMes = trabajadoMes - teoricaMes;
+    acumulado += balanceMes;
+    teoricaAnual += teoricaMes;
+    trabajadoAnual += trabajadoMes;
+
+    const nombreMes = nombresMeses[mes].charAt(0).toUpperCase() + nombresMeses[mes].slice(1);
+    const claseBalance = balanceMes > 0 ? 'saldo-positivo' : (balanceMes < 0 ? 'saldo-negativo' : 'saldo-neutro');
+    const claseAcumulado = acumulado > 0 ? 'saldo-positivo' : (acumulado < 0 ? 'saldo-negativo' : 'saldo-neutro');
+    const signoBalance = balanceMes > 0 ? '+' : '';
+    const signoAcumulado = acumulado > 0 ? '+' : '';
+
+    filasHtml += `
+      <tr>
+        <td>${nombreMes} ${anio}</td>
+        <td>${formatearMinutosAHoras(teoricaMes)}</td>
+        <td>${formatearMinutosAHoras(trabajadoMes)}</td>
+        <td class="${claseBalance}">${signoBalance}${formatearMinutosAHoras(balanceMes)}</td>
+        <td class="${claseAcumulado}">${signoAcumulado}${formatearMinutosAHoras(acumulado)}</td>
+      </tr>
+    `;
+  }
+
+  const balanceAnualTotal = trabajadoAnual - teoricaAnual;
+  const claseTotal = balanceAnualTotal > 0 ? 'saldo-positivo' : (balanceAnualTotal < 0 ? 'saldo-negativo' : 'saldo-neutro');
+  const signoTotal = balanceAnualTotal > 0 ? '+' : '';
+  const t = TEXTOS_INFORME[idiomaActual] || TEXTOS_INFORME.es;
+  const etiquetaTotal = (t.totalAnio || 'Total {anio}').replace('{anio}', anio);
+  filasHtml += `
+    <tr class="fila-total">
+      <td>${etiquetaTotal}</td>
+      <td>${formatearMinutosAHoras(teoricaAnual)}</td>
+      <td>${formatearMinutosAHoras(trabajadoAnual)}</td>
+      <td class="${claseTotal}">${signoTotal}${formatearMinutosAHoras(balanceAnualTotal)}</td>
+      <td class="${claseTotal}">${signoTotal}${formatearMinutosAHoras(balanceAnualTotal)}</td>
+    </tr>
+  `;
+
+  tbody.innerHTML = filasHtml;
+}
+
+/**
+ * Backup completo: exporta TODOS los registros de la base de datos (no solo
+ * el rango filtrado del informe de arriba) como un fichero JSON, para tener
+ * una copia de seguridad manual descargada en el propio ordenador.
+ */
+async function exportarBackupJSON() {
+  if (!supabaseClient) return;
+
+  const TAMANO_PAGINA = 1000;
+  let data = [];
+  let desdeIndice = 0;
+  while (true) {
+    const { data: pagina, error } = await supabaseClient
+      .from(TABLA)
+      .select('*')
+      .order('fecha', { ascending: true })
+      .range(desdeIndice, desdeIndice + TAMANO_PAGINA - 1);
+
+    if (error) {
+      alert('Error de Supabase al generar el backup: ' + error.message);
+      return;
+    }
+
+    data = data.concat(pagina || []);
+    if (!pagina || pagina.length < TAMANO_PAGINA) break;
+    desdeIndice += TAMANO_PAGINA;
+  }
+
+  if (data.length === 0) {
+    alert('No hay registros que exportar.');
+    return;
+  }
+
+  const contenido = JSON.stringify({ generado: new Date().toISOString(), total: data.length, registros: data }, null, 2);
+  const blob = new Blob([contenido], { type: 'application/json;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  const hoyStr = obtenerFechaHoyISO();
+
+  link.setAttribute('href', url);
+  link.setAttribute('download', `REGHOR_backup_${hoyStr}.json`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Restaura un backup generado por exportarBackupJSON(). Los registros se
+ * insertan SIN el id original (Supabase asigna uno nuevo al insertar), para
+ * no chocar con ids ya existentes en la base de datos; por eso, si se
+ * importa dos veces el mismo fichero, los registros quedarán duplicados
+ * -conviene revisar el resultado tras importar-.
+ */
+async function importarBackupJSON(event) {
+  const input = event.target;
+  const file = input.files && input.files[0];
+  if (!file) return;
+
+  try {
+    const texto = await file.text();
+    const json = JSON.parse(texto);
+    const registros = Array.isArray(json) ? json : json.registros;
+
+    if (!Array.isArray(registros) || registros.length === 0) {
+      alert('El fichero no contiene registros válidos para importar.');
+      input.value = '';
+      return;
+    }
+
+    const confirmado = confirm(`Se van a importar ${registros.length} registros desde el backup como registros NUEVOS (no se comprueban duplicados con lo ya existente). ¿Continuar?`);
+    if (!confirmado) {
+      input.value = '';
+      return;
+    }
+
+    // Se quita el id original de cada registro: Supabase asigna uno nuevo al insertar.
+    const registrosSinId = registros.map(r => {
+      const { id, ...resto } = r;
+      return resto;
+    });
+
+    const TAMANO_LOTE = 500;
+    let importados = 0;
+    for (let i = 0; i < registrosSinId.length; i += TAMANO_LOTE) {
+      const lote = registrosSinId.slice(i, i + TAMANO_LOTE);
+      const { error } = await supabaseClient.from(TABLA).insert(lote);
+      if (error) {
+        alert(`Error al importar: ${error.message}. Se importaron ${importados} registros antes del error.`);
+        input.value = '';
+        return;
+      }
+      importados += lote.length;
+    }
+
+    alert(`✅ Importados ${importados} registros correctamente.`);
+    input.value = '';
+    cargarInforme();
+  } catch (e) {
+    console.error('Error al importar el backup:', e);
+    alert('Error al leer el fichero. Comprueba que sea un backup JSON válido generado por REGHOR.');
+    input.value = '';
+  }
 }

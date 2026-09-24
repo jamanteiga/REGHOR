@@ -10,15 +10,15 @@ const TAREAS_DEFAULT = [
   "Maquillaje .e2 1000's", "Maquillaje .e2 2000's", "Maquillaje .e2 3000's", "Maquillaje .e2 4000's",
   "Maquillaje .e2 6000's", "Maquillaje de previas", "Maquillaje de UA", "Maquillaje de UL", "Modificación planos GR",
   "Modificaciones en planos", "Nueva tarea", "Píldora de ciberseguridad", "Plano previas", "Problemas red en servidores cliente",
-  "Productos intermedios", "Programación", "Reunión por Teams", "Reinstalación software", "Revisión de comentarios", "Revisión de paneles",
+  "Procedimientos", "Productos intermedios", "Programación", "Reunión por Teams", "Reinstalación software", "Revisión de comentarios", "Revisión de paneles",
   "Revisión de unidades abiertas UA", "Revisión de unidades lineales UL", "Revisión grupos", "Revisión maquillaje 1000's",
   "Revisión maquillaje 2000's", "Revisión maquillaje 3000's", "Revisión maquillaje 4000's",
-  "Revisión maquillaje 6000's", "Revisión previas", "Solicitada nueva tarea", "Varios"
+  "Revisión maquillaje 6000's", "Revisión previas", "Revisión SB", "Revisión SB E", "Revisión SB L", "Solicitada nueva tarea", "Varios"
 ];
 
-// Los 13 Proyectos predefinidos
+// Los 14 Proyectos predefinidos
 const PROYECTOS_DEFAULT = [
-  "ABAC", "BAC2", "BLOR", "COM", "DES", "FES", "FOR", "INFO", "INT", "MAN", "NAV", "PROG", "VAC"
+  "ABAC", "BAC2", "BLOR", "COM", "DES", "FES", "FOR", "INFO", "INT", "MAN", "NAV", "PROC", "PROG", "VAC"
 ];
 
 /**
@@ -58,11 +58,13 @@ const MIGRACIONES_TAREAS = [
   { clave: 'cfg_migracion_tareas_2026_09_v2', valores: ["Ausencia no recuperable", "Ausencia recuperable"] },
   { clave: 'cfg_migracion_tareas_2026_09_v3', valores: ["Arranque sesión remota"] },
   { clave: 'cfg_migracion_tareas_2026_09_v4', valores: ["Píldora de ciberseguridad", "Consulta técnica"] },
-  { clave: 'cfg_migracion_tareas_2026_09_v5', valores: ["Anidado de ficheros 1000's", "Anidado de ficheros 2000's", "Anidado de ficheros 4000's", "Anidado de ficheros 6000's", "Actualización de planos realizados"] }
+  { clave: 'cfg_migracion_tareas_2026_09_v5', valores: ["Anidado de ficheros 1000's", "Anidado de ficheros 2000's", "Anidado de ficheros 4000's", "Anidado de ficheros 6000's", "Actualización de planos realizados"] },
+  { clave: 'cfg_migracion_tareas_2026_09_v6', valores: ["Procedimientos", "Revisión SB E", "Revisión SB L", "Revisión SB"] }
 ];
 
 const MIGRACIONES_PROYECTOS = [
-  { clave: 'cfg_migracion_proyectos_2026_09', valores: ["FES"] }
+  { clave: 'cfg_migracion_proyectos_2026_09', valores: ["FES"] },
+  { clave: 'cfg_migracion_proyectos_2026_09_v2', valores: ["PROC"] }
 ];
 
 // Cargar desde LocalStorage si existen (con las migraciones ya fusionadas) o usar los por defecto
@@ -78,6 +80,21 @@ let tareasCargadasCache = [];
 // null en la vista normal de un solo día; {desde, hasta, tipo} cuando el
 // listado está mostrando un rango de fechas (filtros rápidos Semana/Mes).
 let rangoActivo = null;
+
+// ------------------------------------------------------------
+// Registro automático "AOYV" al empezar el día (ver iniciarRegistroAOYV).
+// registroAOYVAbiertoId: id en Supabase del registro AOYV todavía "abierto"
+// (sin que se haya guardado ninguna tarea real después), o null si no hay
+// ninguno. intervaloTickerAOYV: temporizador que va actualizando su hora
+// fin sola mientras siga abierto.
+// ------------------------------------------------------------
+let registroAOYVAbiertoId = null;
+let registroAOYVHoraInicio = null;
+let intervaloTickerAOYV = null;
+let creandoRegistroAOYV = false;
+const TAREA_AOYV = 'AOYV';
+const PROYECTO_AOYV = 'DES';
+const BLOQUE_AOYV = 'GENERAL';
 
 // DIAS_SEMANA, MESES, formatearFechaISO, obtenerFechaHoyISO,
 // obtenerJornadaTeoricaMinutos y obtenerDescansoMinutos viven ahora en
@@ -524,13 +541,16 @@ function poblarSelects() {
   configData.tareas = ordenarLista(configData.tareas);
   configData.proyectos = ordenarLista(configData.proyectos);
 
+  // Opción en blanco al principio de ambos desplegables: así, tras guardar
+  // un registro (resetearFormulario), Tarea y Proyecto pueden quedar sin
+  // selección en vez de "heredar" el primer valor de la lista.
   if (selTarea) {
-    selTarea.innerHTML = configData.tareas.map(t => `<option value="${t}">${t}</option>`).join('');
+    selTarea.innerHTML = '<option value=""></option>' + configData.tareas.map(t => `<option value="${t}">${t}</option>`).join('');
     sincronizarComentario();
   }
 
   if (selProyecto) {
-    selProyecto.innerHTML = configData.proyectos.map(p => `<option value="${p}">${p}</option>`).join('');
+    selProyecto.innerHTML = '<option value=""></option>' + configData.proyectos.map(p => `<option value="${p}">${p}</option>`).join('');
     if (configData.proyectos.includes('BAC2')) {
       selProyecto.value = 'BAC2';
     }
@@ -630,20 +650,166 @@ function setHoraActual(inputId) {
   document.getElementById(inputId).value = `${hh}:${mm}`;
 }
 
+// Hora de entrada habitual: se usa como hora de inicio por defecto cuando
+// se empieza una jornada nueva (no hay ningún registro todavía hoy), en vez
+// de heredar la hora de fin de la última tarea del día anterior.
+const HORA_INICIO_JORNADA_DEFECTO = '06:40';
+
+/** Hora actual como 'HH:MM' (con ceros a la izquierda). */
+function horaActualHHMM() {
+  const ahora = new Date();
+  return `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`;
+}
+
+/**
+ * Registro automático que arranca la jornada solo: si al entrar en la app
+ * (o al volver a la fecha de hoy) todavía no hay NINGÚN registro hoy, se
+ * crea y GUARDA DIRECTAMENTE en Supabase -sin esperar a que se pulse
+ * Guardar- un primer registro con Tarea "AOYV", Proyecto "DES" y Bloque
+ * "GENERAL", con la hora de inicio = el momento en que se ha detectado que
+ * el día estaba vacío (la "hora de entrada" a la app). Su hora fin se va
+ * actualizando sola cada minuto (ver iniciarTickerAOYV) mientras no se
+ * guarde ninguna tarea real; en cuanto eso ocurra, se cierra automáticamente
+ * (ver cerrarRegistroAOYVSiProcede, llamado desde guardarRegistroFormulario).
+ */
+async function iniciarRegistroAOYV(fechaStr) {
+  if (creandoRegistroAOYV || !supabaseClient) return;
+  creandoRegistroAOYV = true;
+  try {
+    const horaActual = horaActualHHMM();
+    const registro = {
+      fecha: fechaStr,
+      tarea: TAREA_AOYV,
+      proyecto: PROYECTO_AOYV,
+      bloque: BLOQUE_AOYV,
+      horainicio: horaActual,
+      horafin: horaActual,
+      comentario: TAREA_AOYV,
+      notas: ''
+    };
+
+    const { data, error } = await supabaseClient.from(TABLA).insert([registro]).select();
+    if (error) {
+      console.error('Error al crear el registro automático AOYV:', error);
+      return;
+    }
+
+    const filaCreada = (data && data[0]) || null;
+    if (filaCreada && filaCreada.id != null) {
+      registroAOYVAbiertoId = filaCreada.id;
+      registroAOYVHoraInicio = filaCreada.horainicio;
+      iniciarTickerAOYV();
+    }
+
+    await cargarTareas();
+  } finally {
+    creandoRegistroAOYV = false;
+  }
+}
+
+/** Va actualizando en Supabase (cada minuto) la hora fin del registro AOYV todavía abierto, mientras se siga viendo el día de hoy. */
+function iniciarTickerAOYV() {
+  if (intervaloTickerAOYV) return;
+  intervaloTickerAOYV = setInterval(async () => {
+    if (!registroAOYVAbiertoId || !supabaseClient) {
+      detenerTickerAOYV();
+      return;
+    }
+    const hoyStr = obtenerFechaHoyISO();
+    const inputFecha = document.getElementById('fecha');
+    const fechaVista = inputFecha ? inputFecha.value.trim() : hoyStr;
+    // Si ya no se está viendo el día de hoy (se navegó a otra fecha o a un
+    // rango), no se toca la pantalla, pero el registro sigue actualizándose
+    // en segundo plano en Supabase.
+    const actualizarPantalla = (fechaVista === hoyStr && !rangoActivo);
+
+    const horaActual = horaActualHHMM();
+    try {
+      await supabaseClient.from(TABLA).update({ horafin: horaActual }).eq('id', registroAOYVAbiertoId);
+    } catch (e) {
+      console.error('Error al actualizar la hora fin del registro AOYV en curso:', e);
+      return;
+    }
+
+    if (actualizarPantalla) {
+      const registro = tareasCargadasCache.find(t => t.id === registroAOYVAbiertoId);
+      if (registro) {
+        registro.horafin = horaActual;
+        renderFilasTabla(tareasCargadasCache);
+        await actualizarResumenHoras(tareasCargadasCache, hoyStr);
+      }
+    }
+  }, 60000);
+}
+
+function detenerTickerAOYV() {
+  if (intervaloTickerAOYV) {
+    clearInterval(intervaloTickerAOYV);
+    intervaloTickerAOYV = null;
+  }
+}
+
+/**
+ * Si hay un registro AOYV todavía abierto y se va a guardar una tarea NUEVA
+ * (no una edición) y distinta del propio AOYV, se cierra justo antes con la
+ * hora de inicio de esa tarea nueva como su hora fin -así no queda ni un
+ * hueco ni un solape entre el AOYV y la primera tarea real del día-. Se
+ * llama ANTES de comprobar solapes de horario, para que esa comprobación ya
+ * vea el AOYV cerrado con el horario correcto.
+ */
+async function cerrarRegistroAOYVSiProcede(esNuevo, fechaStr, tareaNueva, horaInicioNueva) {
+  if (!registroAOYVAbiertoId || !esNuevo || !horaInicioNueva) return;
+  if (fechaStr !== obtenerFechaHoyISO()) return;
+  if (tareaNueva === TAREA_AOYV) return;
+
+  // Si por lo que sea la tarea nueva empieza ANTES de que el propio AOYV
+  // arrancara (p.ej. se ha tecleado a mano una hora de inicio anterior a la
+  // de apertura de la app), no se fuerza su hora fin a un valor anterior a
+  // su propia hora de inicio -dejaría un registro con horafin < horainicio-:
+  // simplemente se deja de controlar, tal cual estaba.
+  if (registroAOYVHoraInicio && horaInicioNueva < registroAOYVHoraInicio) {
+    detenerTickerAOYV();
+    registroAOYVAbiertoId = null;
+    registroAOYVHoraInicio = null;
+    return;
+  }
+
+  try {
+    await supabaseClient.from(TABLA).update({ horafin: horaInicioNueva }).eq('id', registroAOYVAbiertoId);
+  } catch (e) {
+    console.error('Error al cerrar el registro AOYV al guardar una tarea real:', e);
+  }
+  detenerTickerAOYV();
+  registroAOYVAbiertoId = null;
+  registroAOYVHoraInicio = null;
+}
+
 async function copiarHoraFinAnterior() {
   if (!supabaseClient) return;
   try {
     const { data, error } = await supabaseClient
       .from(TABLA)
-      .select('horafin')
+      .select('fecha,horafin')
       .order('id', { ascending: false })
       .limit(1);
 
-    if (!error && data && data.length > 0 && data[0].horafin) {
-      document.getElementById('horainicio').value = data[0].horafin;
-    } else {
+    if (error || !data || data.length === 0 || !data[0].horafin) {
       alert('No se encontró ninguna hora fin registrada.');
+      return;
     }
+
+    let fechaUltimo = String(data[0].fecha || '').trim();
+    if (fechaUltimo.includes('T')) fechaUltimo = fechaUltimo.split('T')[0];
+    if (fechaUltimo.includes(' ')) fechaUltimo = fechaUltimo.split(' ')[0];
+
+    // Si el último registro guardado es de HOY, se sigue encadenando desde
+    // su hora de fin (como siempre). Si es de un día anterior -se está
+    // empezando una jornada nueva-, esa hora de fin era la hora de SALIDA
+    // del día anterior y no tiene sentido como hora de entrada de hoy: se
+    // usa la hora de entrada habitual (06:40).
+    const hoyStr = obtenerFechaHoyISO();
+    document.getElementById('horainicio').value =
+      (fechaUltimo === hoyStr) ? data[0].horafin : HORA_INICIO_JORNADA_DEFECTO;
   } catch(e) {
     alert("Error de conexión al consultar Supabase.");
   }
@@ -674,6 +840,11 @@ async function cargarTareas() {
 
   actualizarEstadoDiaCerrado();
 
+  // Si se deja de ver el día de hoy, el AOYV -si seguía abierto- sigue
+  // actualizándose solo en Supabase en segundo plano (iniciarTickerAOYV),
+  // pero se para de tocar la pantalla hasta que se vuelva a hoy.
+  const hoyStrActual = obtenerFechaHoyISO();
+
   try {
     const { data: tareas, error } = await supabaseClient
       .from(TABLA)
@@ -700,6 +871,10 @@ async function cargarTareas() {
       tareasCargadasCache = [];
       actualizarAvisoAbiertas([]);
       await actualizarResumenHoras([], fechaFiltroStr);
+      // Jornada que empieza sola: solo en el día de hoy y si no está cerrado.
+      if (fechaFiltroStr === hoyStrActual && !esDiaCerrado(fechaFiltroStr)) {
+        await iniciarRegistroAOYV(fechaFiltroStr);
+      }
       return;
     }
 
@@ -714,6 +889,22 @@ async function cargarTareas() {
     });
     tareasCargadasCache = tareas;
     actualizarAvisoAbiertas(tareas);
+
+    // Si el único registro de hoy es el AOYV automático (p.ej. tras recargar
+    // la página con el navegador), se retoma su seguimiento -sigue siendo el
+    // "cajón" abierto hasta que se guarde una tarea real-. En cualquier otro
+    // caso (ya hay una tarea real, o se está viendo otro día) se deja de
+    // controlar un id que ya no aplica.
+    if (fechaFiltroStr === hoyStrActual && tareas.length === 1 && tareas[0].tarea === TAREA_AOYV && !esDiaCerrado(fechaFiltroStr)) {
+      registroAOYVAbiertoId = tareas[0].id;
+      registroAOYVHoraInicio = tareas[0].horainicio;
+      iniciarTickerAOYV();
+    } else if (fechaFiltroStr === hoyStrActual && registroAOYVAbiertoId != null && !tareas.some(t => t.id === registroAOYVAbiertoId)) {
+      // El AOYV que se estaba controlando ya no existe (se borró a mano).
+      detenerTickerAOYV();
+      registroAOYVAbiertoId = null;
+      registroAOYVHoraInicio = null;
+    }
 
     // Al recargar la fecha se limpia el filtro instantáneo, para no ocultar
     // por sorpresa registros del nuevo día bajo un texto de filtro que ya
@@ -904,6 +1095,11 @@ function cargarParaDuplicar(id) {
 
 function resetearFormulario() {
   document.getElementById('tarea-id').value = '';
+  // Tarea y Proyecto también quedan sin seleccionar tras guardar (opción en
+  // blanco añadida en poblarSelects), igual que Bloque/Comentario/Notas: no
+  // se deja ningún valor "heredado" del registro recién guardado.
+  document.getElementById('tarea').value = '';
+  document.getElementById('proyecto').value = '';
   document.getElementById('bloque').value = '';
   document.getElementById('horainicio').value = '';
   document.getElementById('horafin').value = '';
@@ -1312,6 +1508,13 @@ async function guardarRegistroFormulario() {
     return false;
   }
 
+  // Si esto es una tarea NUEVA (no una edición) y todavía hay un AOYV
+  // abierto de hoy, se cierra ahora mismo -antes de comprobar solapes-, para
+  // que la comprobación de abajo ya vea su horario definitivo.
+  if (!id) {
+    await cerrarRegistroAOYVSiProcede(true, fechaStr, document.getElementById('tarea').value, horaInicio);
+  }
+
   if (horaInicio && horaFin) {
     const conflicto = await existeSolapeHorario(fechaStr, horaInicio, horaFin, id);
     if (conflicto) {
@@ -1324,11 +1527,14 @@ async function guardarRegistroFormulario() {
     fecha: fechaStr,
     tarea: document.getElementById('tarea').value,
     proyecto: document.getElementById('proyecto').value,
-    bloque: document.getElementById('bloque').value,
+    // Bloque y Notas se guardan siempre en mayúsculas (el propio campo ya
+    // las fuerza mientras se escribe; esto es un cierre de seguridad para
+    // valores pegados o autocompletados sin pasar por el oninput).
+    bloque: document.getElementById('bloque').value.toUpperCase(),
     horainicio: horaInicio,
     horafin: horaFin,
     comentario: document.getElementById('comentario').value,
-    notas: document.getElementById('notas').value
+    notas: document.getElementById('notas').value.toUpperCase()
   };
 
   try {

@@ -159,9 +159,8 @@
     .gantt-col-num { flex: 0 0 30px; justify-content: center; color: inherit; opacity: 0.6; }
     .gantt-col-tarea { flex: 0 0 140px; font-weight: bold; }
     .gantt-header-row .gantt-col-tarea { font-weight: bold; }
-    .gantt-col-bloque { flex: 0 0 120px; opacity: 0.85; }
-    .gantt-col-duracion { flex: 0 0 64px; justify-content: flex-end; font-variant-numeric: tabular-nums; }
-    .gantt-col-rep { flex: 0 0 48px; justify-content: center; }
+    .gantt-col-secundario { flex: 0 0 120px; opacity: 0.85; }
+    .gantt-col-duracion { flex: 0 0 64px; justify-content: center; font-variant-numeric: tabular-nums; }
 
     .gantt-eje-horas { position: relative; flex: 1; min-width: 480px; display: flex; align-items: center; }
     .gantt-hora-marca { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--border-color); padding-left: 3px; font-size: 10px; opacity: 0.75; white-space: nowrap; display: flex; align-items: center; }
@@ -196,19 +195,51 @@
       background-image: linear-gradient(to bottom, rgba(255,255,255,0.35), rgba(255,255,255,0) 40%, rgba(0,0,0,0.08));
       box-shadow: 0 1px 2px rgba(0,0,0,0.3);
     }
+    /* Duración del tramo, centrada DENTRO de la propia barra (formato h:mm,
+       p.ej. "0:26"), con color de texto legible según el fondo -sustituye a
+       la antigua etiqueta "horainicio–horafin" que iba al lado de la barra-. */
     .gantt-segmento-texto {
       position: absolute;
-      top: 50%;
-      transform: translateY(-50%);
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       font-size: 10px;
+      font-weight: bold;
       white-space: nowrap;
-      opacity: 0.85;
+      overflow: hidden;
       pointer-events: none;
     }
 
     .gantt-leyenda { display: flex; flex-wrap: wrap; gap: 10px 16px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-color); font-size: 12px; flex: 0 0 auto; max-height: 25vh; overflow-y: auto; }
     .gantt-leyenda-item { display: flex; align-items: center; gap: 6px; }
-    .gantt-leyenda-color { width: 14px; height: 14px; border-radius: 3px; display: inline-block; flex-shrink: 0; border: 1px solid rgba(0,0,0,0.3); }
+    .gantt-leyenda-color {
+      width: 14px; height: 14px; border-radius: 3px; display: inline-block; flex-shrink: 0;
+      border: 1px solid rgba(0,0,0,0.3); cursor: pointer; padding: 0;
+    }
+    .gantt-leyenda-color:hover { transform: scale(1.15); }
+    .gantt-leyenda-color-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+    /* Botón "Agrupar por" (Bloque/Proyecto): mismo estilo que los de Rango
+       Rápido, con el activo resaltado en azul. */
+    .btn-agrupar.activo { background-color: #007bff; }
+    .btn-agrupar.activo:hover { background-color: #0069d9; }
+
+    .select-exportar { cursor: pointer; }
+
+    /* ------------------------------------------------------------
+       Impresión a PDF: se muestra el Gantt completo, sin el recorte de
+       scroll interno ni el resto de la interfaz (cabecera, filtros).
+       ------------------------------------------------------------ */
+    @media print {
+      body { background: #fff !important; }
+      .header-container, .panel-filtros { display: none !important; }
+      .pagina-gantt { height: auto !important; overflow: visible !important; padding: 0 !important; }
+      .contenedor-gantt { overflow: visible !important; box-shadow: none !important; }
+      #gantt-chart, .gantt-tabla { overflow: visible !important; }
+      .gantt-cuerpo-scroll { overflow: visible !important; max-height: none !important; }
+      .gantt-leyenda { max-height: none !important; overflow: visible !important; }
+    }
   </style>
   <!-- Supabase JS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -234,6 +265,13 @@
       </button>
 
       <button class="icon-btn" onclick="toggleTheme()" id="btn-theme">🌙 Oscuro</button>
+      <select class="icon-btn select-exportar" id="select-exportar" onchange="onCambioExportar()" title="Exportar el Gantt actual">
+        <option value="" id="opt-exportar-placeholder" selected>⬇️ Exportar</option>
+        <option value="gan">.gan (GanttProject)</option>
+        <option value="json">.json</option>
+        <option value="pdf">.pdf</option>
+        <option value="xml">.xml (Microsoft Project)</option>
+      </select>
       <button class="icon-btn btn-cerrar" onclick="cerrarSesion()" id="btn-logout" title="Cerrar sesión">🔒 Salir</button>
       <button class="icon-btn btn-cerrar" onclick="cerrarPestana()" id="btn-cerrar">❌ Cerrar</button>
     </div>
@@ -259,6 +297,13 @@
       <input type="date" id="filtro-hasta">
     </div>
     <button class="btn-generar" id="btn-generar-gantt" onclick="generarGantt()">Generar Gantt</button>
+    <div class="grupo-filtro grupo-agrupar">
+      <label id="lbl-agrupar-por">Agrupar por</label>
+      <div class="grupo-rapido">
+        <button class="btn-rapido btn-agrupar activo" id="btn-agrupar-bloque" onclick="cambiarAgrupacionGantt(false)">Bloque</button>
+        <button class="btn-rapido btn-agrupar" id="btn-agrupar-proyecto" onclick="cambiarAgrupacionGantt(true)">Proyecto</button>
+      </div>
+    </div>
   </div>
 
   <div class="contenedor-gantt">

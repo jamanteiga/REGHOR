@@ -152,26 +152,96 @@ const MESES = {
 // Festivos y jornada teórica (compartido por app.js, informes.js y Semana.js)
 // ------------------------------------------------------------
 
-// Festivos oficiales de Ferrol: nacionales + autonómicos + locales.
-// IMPORTANTE: añadir aquí la lista de cada año nuevo en cuanto el
-// Ayuntamiento/Xunta la publiquen (normalmente a finales del año anterior).
-// Mientras un año no tenga lista, esFestivo() devuelve false para esas
-// fechas y la app funciona igual, solo que sin descontar festivos ese año.
-const FESTIVOS_FERROL = {
+// Festivos oficiales de Ferrol por defecto: nacionales + autonómicos +
+// locales de 2026. Estos son solo la SEMILLA inicial -la lista real que usa
+// la app vive en localStorage (ver más abajo) y se puede consultar/editar
+// desde festivos.html-. Esta constante solo se usa la primera vez que se
+// abre la app en un navegador (antes de que exista nada guardado) y como
+// opción de "restaurar valores por defecto" dentro de festivos.html.
+const FESTIVOS_FERROL_DEFECTO = {
   2026: [
-    '2026-01-01', '2026-01-06', '2026-01-07', '2026-03-19', '2026-04-02',
-    '2026-04-03', '2026-04-06', '2026-05-01', '2026-06-24', '2026-07-25',
-    '2026-08-15', '2026-10-12', '2026-12-08', '2026-12-25'
+    { fecha: '2026-01-01', nombre: 'Año Nuevo' },
+    { fecha: '2026-01-06', nombre: 'Epifanía del Señor (Reyes)' },
+    { fecha: '2026-01-07', nombre: 'Festivo local (Ferrol)' },
+    { fecha: '2026-03-19', nombre: 'San José' },
+    { fecha: '2026-04-02', nombre: 'Jueves Santo' },
+    { fecha: '2026-04-03', nombre: 'Viernes Santo' },
+    { fecha: '2026-04-06', nombre: 'Luns de Pascua' },
+    { fecha: '2026-05-01', nombre: 'Día del Trabajador' },
+    { fecha: '2026-06-24', nombre: 'San Xoán' },
+    { fecha: '2026-07-25', nombre: 'Santiago Apóstol (Día Nacional de Galicia)' },
+    { fecha: '2026-08-15', nombre: 'Asunción de la Virgen' },
+    { fecha: '2026-10-12', nombre: 'Fiesta Nacional de España' },
+    { fecha: '2026-12-08', nombre: 'Inmaculada Concepción' },
+    { fecha: '2026-12-25', nombre: 'Navidad' }
   ]
-  // 2027: [ ... ] — pendiente de publicación oficial (ver aviso en el chat)
+  // 2027: [ ... ] — pendiente de publicación oficial (ver aviso en el chat).
+  // Aunque no se añada aquí, José puede darlos de alta él mismo desde
+  // festivos.html en cuanto se publiquen.
 };
 
-/** ¿Es 'fechaStr' (YYYY-MM-DD) festivo en Ferrol? Devuelve false si ese año aún no está cargado. */
+const CLAVE_FESTIVOS = 'reghor_festivos_v1';
+
+/**
+ * Devuelve el objeto completo de festivos configurados, con forma
+ * { '2026': [{fecha:'2026-01-01', nombre:'Año Nuevo'}, ...], '2027': [...] }.
+ * La primera vez que se llama (localStorage vacío o corrupto) se siembra con
+ * FESTIVOS_FERROL_DEFECTO y se guarda, para que la app funcione igual que
+ * antes sin que José tenga que configurar nada a mano.
+ */
+function obtenerFestivosGuardados() {
+  let datos = null;
+  try {
+    const raw = localStorage.getItem(CLAVE_FESTIVOS);
+    if (raw) datos = JSON.parse(raw);
+  } catch (e) {
+    datos = null;
+  }
+  if (!datos || typeof datos !== 'object' || Array.isArray(datos)) {
+    datos = sembrarFestivosPorDefecto();
+    guardarFestivosGuardados(datos);
+  }
+  return datos;
+}
+
+/** Copia profunda de FESTIVOS_FERROL_DEFECTO, lista para guardar en localStorage. */
+function sembrarFestivosPorDefecto() {
+  const datos = {};
+  Object.keys(FESTIVOS_FERROL_DEFECTO).forEach(anio => {
+    datos[anio] = FESTIVOS_FERROL_DEFECTO[anio].map(f => ({ fecha: f.fecha, nombre: f.nombre }));
+  });
+  return datos;
+}
+
+/** Persiste el objeto completo de festivos en localStorage. */
+function guardarFestivosGuardados(datos) {
+  try {
+    localStorage.setItem(CLAVE_FESTIVOS, JSON.stringify(datos));
+  } catch (e) {
+    // localStorage no disponible: los festivos no se pueden guardar, pero no rompe nada más.
+  }
+}
+
+/** Lista de festivos (ordenada por fecha) de un año concreto, como [{fecha, nombre}]. */
+function obtenerFestivosAnio(anio) {
+  const datos = obtenerFestivosGuardados();
+  const lista = datos[String(anio)] || [];
+  return lista.slice().sort((a, b) => a.fecha.localeCompare(b.fecha));
+}
+
+/** Años que tienen al menos un festivo configurado, ordenados ascendente. */
+function obtenerAniosConFestivos() {
+  const datos = obtenerFestivosGuardados();
+  return Object.keys(datos).map(Number).filter(n => !isNaN(n)).sort((a, b) => a - b);
+}
+
+/** ¿Es 'fechaStr' (YYYY-MM-DD) festivo? Devuelve false si esa fecha no está en la lista configurada. */
 function esFestivo(fechaStr) {
   if (!fechaStr) return false;
-  const anio = Number(fechaStr.split('-')[0]);
-  const lista = FESTIVOS_FERROL[anio];
-  return !!lista && lista.includes(fechaStr);
+  const anio = fechaStr.split('-')[0];
+  const datos = obtenerFestivosGuardados();
+  const lista = datos[anio];
+  return !!lista && lista.some(f => f.fecha === fechaStr);
 }
 
 /** Jornada de verano: del 1 de julio al 31 de agosto. */

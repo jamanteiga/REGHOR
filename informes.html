@@ -60,10 +60,17 @@
 
     .grupo-filtro { display: flex; flex-direction: column; flex: 1 1 120px; min-width: 110px; }
     .grupo-filtro label { font-weight: bold; font-size: 12px; margin-bottom: 4px; }
+
+    /* El grupo "Rango Rápido" tiene muy poco contenido; si se deja crecer
+       como el resto de grupos (flex: 1 1 120px) se estira y sus botones
+       quedan tapados por "Desde Fecha". Con flex: 0 0 auto ocupa solo su
+       ancho natural (igual que en graficos.html). */
+    .grupo-rango-rapido { flex: 0 0 auto; min-width: 0; }
     input, select { padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--card-bg); color: var(--text-color); font-size: 12px; width: 100%; box-sizing: border-box; }
 
     .grupo-rapido {
       display: flex;
+      flex-wrap: wrap;
       gap: 4px;
     }
 
@@ -175,6 +182,11 @@
       background-color: var(--card-bg);
       background-image: linear-gradient(rgba(0, 123, 255, 0.08), rgba(0, 123, 255, 0.08));
     }
+
+    .saldo-positivo { color: #28a745; font-weight: bold; }
+    .saldo-negativo { color: #dc3545; font-weight: bold; }
+    .saldo-neutro { color: #6c757d; font-weight: bold; }
+    #tabla-balance-anual-body tr.fila-total { font-weight: bold; background-color: rgba(0, 123, 255, 0.08); }
   </style>
   <!-- Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -220,7 +232,7 @@
   </div>
 
   <div class="panel-filtros">
-    <div class="grupo-filtro">
+    <div class="grupo-filtro grupo-rango-rapido">
       <label id="lbl-rango-rapido">Rango Rápido</label>
       <div class="grupo-rapido">
         <button class="btn-rapido" id="btn-hoy" onclick="establecerRango('hoy')">Hoy</button>
@@ -260,6 +272,36 @@
       <button class="btn-csv" id="btn-csv" onclick="exportarCSV()">📄 Exportar CSV</button>
       <button class="btn-pdf" id="btn-pdf" onclick="exportarPDF()">📕 Exportar PDF</button>
     </div>
+  </div>
+
+  <div class="panel-filtros">
+    <div class="grupo-filtro" style="flex: 0 0 auto; min-width: 90px;">
+      <label id="lbl-anio-balance" for="filtro-anio-balance">Año</label>
+      <select id="filtro-anio-balance"></select>
+    </div>
+    <div class="grupo-botones">
+      <button class="btn-filtrar" id="btn-balance-anual" style="background-color:#6f42c1;" onclick="cargarBalanceAnual()">📅 Balance Anual</button>
+    </div>
+    <div class="grupo-botones" style="margin-left: auto;">
+      <button class="btn-xlsx" id="btn-backup-json" style="background-color:#20c997;" onclick="exportarBackupJSON()">💾 Backup JSON (todo)</button>
+      <button class="btn-csv" id="btn-importar-json" style="background-color:#6c757d;" onclick="document.getElementById('input-importar-json').click()">📥 Importar backup</button>
+      <input type="file" id="input-importar-json" accept="application/json" style="display:none;" onchange="importarBackupJSON(event)">
+    </div>
+  </div>
+
+  <div class="tabla-contenedor" id="panel-balance-anual" style="display:none; margin-bottom: 20px; max-height: none;">
+    <table>
+      <thead>
+        <tr>
+          <th id="thb-mes">Mes</th>
+          <th id="thb-teorica">Jornada Teórica</th>
+          <th id="thb-trabajado">Horas Trabajadas</th>
+          <th id="thb-balance">Balance del Mes</th>
+          <th id="thb-acumulado">Balance Acumulado</th>
+        </tr>
+      </thead>
+      <tbody id="tabla-balance-anual-body"></tbody>
+    </table>
   </div>
 
   <div class="tabla-contenedor">
