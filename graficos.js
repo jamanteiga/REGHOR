@@ -8,27 +8,36 @@ let idiomaActual = 'es';
 const TEXTOS_GRAFICOS = {
   es: {
     titulo: '📈 Análisis Gráfico de Tiempos', cerrar: '❌ Cerrar', rangoRapido: 'Rango Rápido',
-    hoy: 'Hoy', semana: 'Semana', semanaAnterior: 'Semana anterior', mes: 'Mes', mesSelector: 'Mes', desde: 'Desde Fecha', hasta: 'Hasta Fecha',
+    ayer: 'Ayer', hoy: 'Hoy', semana: 'Semana', semanaAnterior: 'Semana anterior', mes: 'Mes', mesAnterior: 'Mes anterior', mesSelector: 'Mes', desde: 'Desde Fecha', hasta: 'Hasta Fecha',
     proyecto: 'Proyecto (*)', tarea: 'Tarea (*)', bloque: 'Bloque (*)', comentarios: 'Comentarios (*)',
     agruparPor: 'Agrupar por', optProyecto: 'Proyecto', optTarea: 'Tarea', optBloque: 'Bloque', optFecha: 'Fecha',
     tipoGrafico: 'Tipo de Gráfico', optBar: 'Barras', optLine: 'Línea', optArea: 'Área', optPie: 'Tarta', optDoughnut: 'Rosco',
-    actualizar: 'Actualizar Gráfico', rendimiento: '📊 Rendimiento de Jornada'
+    actualizar: 'Actualizar Gráfico', rendimiento: '📊 Rendimiento de Jornada', entradaSalida: '🕒 Entrada / Salida',
+    colFecha: 'Fecha', colDia: 'Día', colEntrada: 'Entrada', colSalida: 'Salida', colDuracion: 'Duración',
+    sinDatosRango: 'No hay registros en el periodo seleccionado.',
+    diasCortos: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
   },
   gl: {
     titulo: '📈 Análise Gráfica de Tempos', cerrar: '❌ Pechar', rangoRapido: 'Intervalo Rápido',
-    hoy: 'Hoxe', semana: 'Semana', semanaAnterior: 'Semana anterior', mes: 'Mes', mesSelector: 'Mes', desde: 'Desde Data', hasta: 'Ata Data',
+    ayer: 'Onte', hoy: 'Hoxe', semana: 'Semana', semanaAnterior: 'Semana anterior', mes: 'Mes', mesAnterior: 'Mes anterior', mesSelector: 'Mes', desde: 'Desde Data', hasta: 'Ata Data',
     proyecto: 'Proxecto (*)', tarea: 'Tarefa (*)', bloque: 'Bloque (*)', comentarios: 'Comentarios (*)',
     agruparPor: 'Agrupar por', optProyecto: 'Proxecto', optTarea: 'Tarefa', optBloque: 'Bloque', optFecha: 'Data',
     tipoGrafico: 'Tipo de Gráfico', optBar: 'Barras', optLine: 'Liña', optArea: 'Área', optPie: 'Torta', optDoughnut: 'Rosca',
-    actualizar: 'Actualizar Gráfico', rendimiento: '📊 Rendemento da Xornada'
+    actualizar: 'Actualizar Gráfico', rendimiento: '📊 Rendemento da Xornada', entradaSalida: '🕒 Entrada / Saída',
+    colFecha: 'Data', colDia: 'Día', colEntrada: 'Entrada', colSalida: 'Saída', colDuracion: 'Duración',
+    sinDatosRango: 'Non hai rexistros no período seleccionado.',
+    diasCortos: ['Lun', 'Mar', 'Mér', 'Xov', 'Ven', 'Sáb', 'Dom']
   },
   en: {
     titulo: '📈 Time Chart Analysis', cerrar: '❌ Close', rangoRapido: 'Quick Range',
-    hoy: 'Today', semana: 'Week', semanaAnterior: 'Last week', mes: 'Month', mesSelector: 'Month', desde: 'From Date', hasta: 'To Date',
+    ayer: 'Yesterday', hoy: 'Today', semana: 'Week', semanaAnterior: 'Last week', mes: 'Month', mesAnterior: 'Last month', mesSelector: 'Month', desde: 'From Date', hasta: 'To Date',
     proyecto: 'Project (*)', tarea: 'Task (*)', bloque: 'Block (*)', comentarios: 'Comments (*)',
     agruparPor: 'Group by', optProyecto: 'Project', optTarea: 'Task', optBloque: 'Block', optFecha: 'Date',
     tipoGrafico: 'Chart Type', optBar: 'Bar', optLine: 'Line', optArea: 'Area', optPie: 'Pie', optDoughnut: 'Doughnut',
-    actualizar: 'Update Chart', rendimiento: '📊 Workday Performance'
+    actualizar: 'Update Chart', rendimiento: '📊 Workday Performance', entradaSalida: '🕒 Check-in / Check-out',
+    colFecha: 'Date', colDia: 'Day', colEntrada: 'Check-in', colSalida: 'Check-out', colDuracion: 'Duration',
+    sinDatosRango: 'No records in the selected period.',
+    diasCortos: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
   }
 };
 
@@ -39,10 +48,12 @@ function cambiarIdioma(lang) {
   document.getElementById('txt-titulo').textContent = t.titulo;
   document.getElementById('btn-cerrar').textContent = t.cerrar;
   document.getElementById('lbl-rango-rapido').textContent = t.rangoRapido;
+  document.getElementById('btn-ayer').textContent = t.ayer;
   document.getElementById('btn-hoy').textContent = t.hoy;
   document.getElementById('btn-semana').textContent = t.semana;
   document.getElementById('btn-semana-anterior').textContent = t.semanaAnterior;
   document.getElementById('btn-mes').textContent = t.mes;
+  document.getElementById('btn-mes-anterior').textContent = t.mesAnterior;
   document.getElementById('lbl-mes-graficos').textContent = t.mesSelector;
   document.getElementById('lbl-desde').textContent = t.desde;
   document.getElementById('lbl-hasta').textContent = t.hasta;
@@ -63,8 +74,22 @@ function cambiarIdioma(lang) {
   document.getElementById('opt-tipo-doughnut').textContent = t.optDoughnut;
   document.getElementById('btn-actualizar').textContent = t.actualizar;
   document.getElementById('btn-rendimiento').textContent = t.rendimiento;
+  document.getElementById('btn-entrada-salida').textContent = t.entradaSalida;
+  document.getElementById('th-fecha').textContent = t.colFecha;
+  document.getElementById('th-dia').textContent = t.colDia;
+  document.getElementById('th-entrada').textContent = t.colEntrada;
+  document.getElementById('th-salida').textContent = t.colSalida;
+  document.getElementById('th-duracion').textContent = t.colDuracion;
 
   poblarSelectorMesesGraficos();
+
+  // Si la tabla de Entrada/Salida ya estaba generada, se vuelve a pintar
+  // para que sus filas (día de la semana, "sin datos") usen el idioma
+  // recién seleccionado sin tener que pulsar otra vez el botón.
+  const contenedorTabla = document.getElementById('contenedor-tabla-entrada-salida');
+  if (contenedorTabla && contenedorTabla.style.display !== 'none') {
+    generarTablaEntradaSalida();
+  }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -108,7 +133,7 @@ function aplicarFiltroMesGraficos() {
   generarGrafico();
 }
 
-// tipo: 'hoy' | 'semana' | 'semana_anterior' | 'mes' (calcularRangoFechas vive en config.js).
+// tipo: 'hoy' | 'ayer' | 'semana' | 'semana_anterior' | 'mes' | 'mes_anterior' (calcularRangoFechas vive en config.js).
 function establecerRango(tipo) {
   const { desde, hasta } = calcularRangoFechas(tipo);
   document.getElementById('filtro-desde').value = desde;
@@ -119,8 +144,15 @@ function establecerRango(tipo) {
   generarGrafico();
 }
 
+/** Alterna entre el lienzo del gráfico y la tabla de Entrada/Salida (son vistas excluyentes). */
+function mostrarVista(vista) {
+  document.getElementById('contenedor-grafico').style.display = (vista === 'grafico') ? 'block' : 'none';
+  document.getElementById('contenedor-tabla-entrada-salida').style.display = (vista === 'tabla') ? 'block' : 'none';
+}
+
 async function generarGrafico() {
   if (!supabaseClient) return;
+  mostrarVista('grafico');
 
   const desde = document.getElementById('filtro-desde').value;
   const hasta = document.getElementById('filtro-hasta').value;
@@ -202,6 +234,7 @@ function formatearFechaCorta(fechaISO) {
  */
 async function generarGraficoRendimiento() {
   if (!supabaseClient) return;
+  mostrarVista('grafico');
 
   // Este botón depende de PROYECTOS_RENDIMIENTO/calcularPorcentajeRendimiento,
   // añadidos a config.js. Si ese fichero no se actualizó junto con graficos.js
@@ -258,6 +291,89 @@ async function generarGraficoRendimiento() {
     yTitle: '% Rendimiento',
     formatoTooltip: (valor) => `${valor}%`
   });
+}
+
+/** 'YYYY-MM-DD' -> 'DD/MM/YYYY'. */
+function formatearFechaDDMMYYYY(fechaISO) {
+  const partes = String(fechaISO).split('-');
+  return partes.length === 3 ? `${partes[2]}/${partes[1]}/${partes[0]}` : fechaISO;
+}
+
+/**
+ * Tabla de Entrada/Salida por día para el rango Desde/Hasta seleccionado
+ * (los mismos campos que usan el gráfico normal y los botones rápidos de
+ * arriba, así que vale tanto para "ayer" como para la semana/mes actual o
+ * anterior, o cualquier periodo a medida). Por cada fecha con registros:
+ * Entrada = la hora de inicio más temprana del día, Salida = la hora de fin
+ * más tardía -mismo criterio que ya usa el resumen semanal de
+ * Registro Semana (Semana.html/Semana.js)-, y Duración = la suma de la
+ * duración de todas las tareas de ese día (bruta, sin descontar descansos).
+ * No aplica los filtros de texto (Proyecto/Tarea/Bloque/Comentarios): es un
+ * resumen de jornada, no un desglose por tarea.
+ */
+async function generarTablaEntradaSalida() {
+  if (!supabaseClient) return;
+
+  const desde = document.getElementById('filtro-desde').value;
+  const hasta = document.getElementById('filtro-hasta').value;
+
+  if (!desde || !hasta) {
+    alert('❌ Selecciona una fecha "Desde" y una fecha "Hasta".');
+    return;
+  }
+
+  const { data, error } = await supabaseClient
+    .from(TABLA)
+    .select('fecha,horainicio,horafin')
+    .gte('fecha', desde)
+    .lte('fecha', hasta);
+
+  if (error) {
+    console.error('Error al recuperar datos para Entrada/Salida:', error);
+    return;
+  }
+
+  const porFecha = {};
+  (data || []).forEach(item => {
+    let f = String(item.fecha || '').trim();
+    if (f.includes('T')) f = f.split('T')[0];
+    if (f.includes(' ')) f = f.split(' ')[0];
+    if (!f) return;
+
+    if (!porFecha[f]) porFecha[f] = { entrada: null, salida: null, minutos: 0 };
+
+    if (item.horainicio && (porFecha[f].entrada === null || item.horainicio < porFecha[f].entrada)) {
+      porFecha[f].entrada = item.horainicio;
+    }
+    if (item.horafin && (porFecha[f].salida === null || item.horafin > porFecha[f].salida)) {
+      porFecha[f].salida = item.horafin;
+    }
+    porFecha[f].minutos += obtenerMinutosDuracion(item.horainicio, item.horafin);
+  });
+
+  const t = TEXTOS_GRAFICOS[idiomaActual] || TEXTOS_GRAFICOS.es;
+  const fechasOrdenadas = Object.keys(porFecha).sort();
+  const tbody = document.getElementById('cuerpo-tabla-entrada-salida');
+
+  if (fechasOrdenadas.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">${t.sinDatosRango}</td></tr>`;
+  } else {
+    tbody.innerHTML = fechasOrdenadas.map(f => {
+      const info = porFecha[f];
+      const d = parsearFechaLocal(f);
+      // getDay(): 0=domingo..6=sábado -> se reindexa para que 0=lunes, igual que DIAS_CORTOS.
+      const nombreDia = t.diasCortos[(d.getDay() + 6) % 7];
+      return `<tr>
+        <td>${formatearFechaDDMMYYYY(f)}</td>
+        <td>${nombreDia}</td>
+        <td>${info.entrada || '--:--'}</td>
+        <td>${info.salida || '--:--'}</td>
+        <td>${formatearHorasComoHMM(info.minutos / 60)}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  mostrarVista('tabla');
 }
 
 /** Convierte horas en decimal (p.ej. 1.5) al formato h:mm (p.ej. "1:30"). */

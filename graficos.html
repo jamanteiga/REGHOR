@@ -105,6 +105,8 @@
     }
     .btn-rendimiento { background-color: #6f42c1; }
     .btn-rendimiento:hover { background-color: #59339d; }
+    .btn-entrada-salida { background-color: #17a2b8; }
+    .btn-entrada-salida:hover { background-color: #117a8b; }
 
     .contenedor-grafico {
       background: var(--card-bg);
@@ -115,6 +117,36 @@
       height: 60vh;
       width: 100%;
       box-sizing: border-box;
+    }
+
+    .contenedor-tabla {
+      background: var(--card-bg);
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      width: 100%;
+      box-sizing: border-box;
+      overflow-x: auto;
+    }
+
+    .tabla-entrada-salida {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .tabla-entrada-salida th, .tabla-entrada-salida td {
+      padding: 8px 10px;
+      text-align: left;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .tabla-entrada-salida th {
+      background-color: var(--header-bg);
+      color: #fff;
+      position: sticky;
+      top: 0;
+    }
+    .tabla-entrada-salida tbody tr:hover {
+      background-color: rgba(0, 123, 255, 0.08);
     }
   </style>
   <!-- Supabase JS -->
@@ -161,10 +193,12 @@
     <div class="grupo-filtro grupo-rango-rapido">
       <label id="lbl-rango-rapido">Rango Rápido</label>
       <div class="grupo-rapido">
+        <button class="btn-rapido" id="btn-ayer" onclick="establecerRango('ayer')">Ayer</button>
         <button class="btn-rapido" id="btn-hoy" onclick="establecerRango('hoy')">Hoy</button>
         <button class="btn-rapido" id="btn-semana" onclick="establecerRango('semana')">Semana</button>
         <button class="btn-rapido" id="btn-semana-anterior" onclick="establecerRango('semana_anterior')">Semana anterior</button>
         <button class="btn-rapido" id="btn-mes" onclick="establecerRango('mes')">Mes</button>
+        <button class="btn-rapido" id="btn-mes-anterior" onclick="establecerRango('mes_anterior')">Mes anterior</button>
       </div>
     </div>
     <div class="grupo-filtro">
@@ -218,10 +252,26 @@
     </div>
     <button class="btn-generar" id="btn-actualizar" onclick="generarGrafico()">Actualizar Gráfico</button>
     <button class="btn-generar btn-rendimiento" id="btn-rendimiento" onclick="generarGraficoRendimiento()">📊 Rendimiento de Jornada</button>
+    <button class="btn-generar btn-entrada-salida" id="btn-entrada-salida" onclick="generarTablaEntradaSalida()">🕒 Entrada / Salida</button>
   </div>
 
-  <div class="contenedor-grafico">
+  <div class="contenedor-grafico" id="contenedor-grafico">
     <canvas id="miGrafico"></canvas>
+  </div>
+
+  <div class="contenedor-tabla" id="contenedor-tabla-entrada-salida" style="display:none;">
+    <table class="tabla-entrada-salida">
+      <thead>
+        <tr>
+          <th id="th-fecha">Fecha</th>
+          <th id="th-dia">Día</th>
+          <th id="th-entrada">Entrada</th>
+          <th id="th-salida">Salida</th>
+          <th id="th-duracion">Duración</th>
+        </tr>
+      </thead>
+      <tbody id="cuerpo-tabla-entrada-salida"></tbody>
+    </table>
   </div>
 
   <script src="config.js"></script>
