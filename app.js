@@ -676,6 +676,41 @@ async function iniciarRegistroAOYV(fechaStr) {
   if (creandoRegistroAOYV || !supabaseClient) return;
   creandoRegistroAOYV = true;
   try {
+    // Justo antes de crear el AOYV se vuelve a comprobar en Supabase -no solo
+    // en la caché local de esta pestaña- si entretanto ya se ha creado algún
+    // registro para este día. Esto evita que dos pestañas o sesiones abiertas
+    // a la vez (cada una viendo "0 registros hoy" con su propia consulta)
+    // acaben creando CADA UNA su propio AOYV duplicado, que luego tiquetean
+    // en paralelo y descuadran la Entrada/Duración de la semana. No elimina
+    // del todo la ventana de carrera -no hay forma de hacerlo 100% atómico
+    // sin una restricción a nivel de base de datos (p.ej. un índice único
+        // parcial en (fecha, tarea) para tarea = 'AOYV')-, pero la reduce al
+    // mínimo imprescindible, justo antes del insert.
+    const { data: existentes, error: errorComprobacion } = await supabaseClient
+      .from(TABLA)
+      .select('*')
+      .ilike('fecha', `%${fechaStr}%`);
+
+    if (errorComprobacion) {
+      console.error('Error al comprobar registros existentes antes de crear el AOYV:', errorComprobacion);
+      return;
+    }
+
+    if (existentes && existentes.length > 0) {
+      // Alguien se nos ha adelantado en la carrera. Si lo único que hay es el
+      // propio AOYV (creado por otra pestaña/sesión en ese mismo instante),
+      // nos enganchamos a ese registro en vez de crear uno nuevo. Si ya hay
+      // una tarea real (o varios registros), no se crea nada: se deja tal
+      // cual y se refresca la pantalla con lo que realmente hay guardado.
+      if (existentes.length === 1 && existentes[0].tarea === TAREA_AOYV) {
+        registroAOYVAbiertoId = existentes[0].id;
+        registroAOYVHoraInicio = existentes[0].horainicio;
+        iniciarTickerAOYV();
+      }
+      await cargarTareas();
+      return;
+    }
+
     const horaActual = horaActualHHMM();
     const registro = {
       fecha: fechaStr,
@@ -813,6 +848,19 @@ async function copiarHoraFinAnterior() {
   } catch(e) {
     alert("Error de conexión al consultar Supabase.");
   }
+}
+
+/**
+ * Mueve el campo Fecha un día hacia atrás (delta=-1) o hacia adelante
+ * (delta=1) -botones ◁/▷ junto al campo- y recarga el listado para ese
+ * nuevo día, igual que si se hubiera elegido a mano en el selector.
+ */
+function cambiarFechaDia(delta) {
+  const inputFecha = document.getElementById('fecha');
+  const base = parsearFechaLocal(inputFecha.value) || parsearFechaLocal(obtenerFechaHoyISO());
+  base.setDate(base.getDate() + delta);
+  inputFecha.value = formatearFechaISO(base);
+  cargarTareas();
 }
 
 async function cargarTareas() {
@@ -1508,6 +1556,20 @@ async function guardarRegistroFormulario() {
     return false;
   }
 
+  // Guarda de seguridad: si se va a CREAR un registro nuevo con una fecha
+  // POSTERIOR a hoy, se pide confirmación antes de guardar. En un parte de
+  // horas casi nunca tiene sentido registrar una fecha futura -salvo que se
+  // haya tecleado mal a mano (p.ej. "2026" en vez de "2025" al escribir el
+  // año)-, y ese es justo el tipo de error que puede dejar una tarea real
+  // archivada bajo una fecha equivocada, apareciendo luego como si fuese
+  // trabajo "del futuro".
+  if (!id && fechaStr > obtenerFechaHoyISO()) {
+    const confirmarFutura = confirm(
+      `⚠️ La fecha introducida (${fechaStr}) es POSTERIOR a la de hoy.\n¿Seguro que quieres guardar esta tarea con esa fecha? (revisa que el año sea correcto)`
+    );
+    if (!confirmarFutura) return false;
+  }
+
   // Si esto es una tarea NUEVA (no una edición) y todavía hay un AOYV
   // abierto de hoy, se cierra ahora mismo -antes de comprobar solapes-, para
   // que la comprobación de abajo ya vea su horario definitivo.
@@ -1838,3 +1900,5 @@ function cambiarIdioma(lang) {
   poblarSelects();
   actualizarAvisoAbiertas(tareasCargadasCache);
 }
+
+
