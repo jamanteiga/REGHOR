@@ -21,7 +21,7 @@
          del contenedor (más abajo) solo entra como último recurso, cuando
          ya no queda más margen de adaptación. */
       --w-numero: minmax(28px, 40px);
-      --w-fecha: minmax(86px, 108px);
+      --w-fecha: minmax(92px, 118px);
       --w-hora: minmax(78px, 100px);
       --w-duracion: minmax(70px, 90px);
       --w-acciones: minmax(150px, 210px);
@@ -145,10 +145,21 @@
     /* Campo Fecha con los botones de navegación de día anterior/siguiente a
        cada lado. El propio <input type="date"> ocupa el espacio restante
        (flex:1) y los botones se quedan fijos y pequeños junto a él. */
+    /* El campo Fecha "roba" 21px de ancho a la columna vacía de relleno que
+       tiene justo a la izquierda (solo ahí para alinear con el Nº del
+       listado, nunca tiene contenido propio) -así el botón ◁ queda metido
+       en ese hueco y el <input type="date"> recupera el ancho que antes
+       le quitaban los dos botones, suficiente para ver "dd/mm/aaaa" entero
+       en vez de cortarse en "dd/mm". 21px = ancho de un botón (18px) + el
+       gap (3px) que había entre ambos; la columna de relleno mide como
+       mínimo 28px más el gap de 8px del grid, así que siempre hay sitio de
+       sobra para este hueco sin invadir la columna Nº. */
     .fecha-nav-wrapper {
       display: flex;
       align-items: stretch;
       gap: 3px;
+      margin-left: -21px;
+      width: calc(100% + 21px);
     }
     .fecha-nav-wrapper input[type="date"] {
       flex: 1 1 auto;
