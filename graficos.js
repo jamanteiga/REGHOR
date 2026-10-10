@@ -12,7 +12,8 @@ const TEXTOS_GRAFICOS = {
     proyecto: 'Proyecto (*)', tarea: 'Tarea (*)', bloque: 'Bloque (*)', comentarios: 'Comentarios (*)',
     agruparPor: 'Agrupar por', optProyecto: 'Proyecto', optTarea: 'Tarea', optBloque: 'Bloque', optFecha: 'Fecha',
     tipoGrafico: 'Tipo de Gráfico', optBar: 'Barras', optLine: 'Línea', optArea: 'Área', optPie: 'Tarta', optDoughnut: 'Rosco',
-    actualizar: 'Actualizar Gráfico', rendimiento: '📊 Rendimiento de Jornada', entradaSalida: '🕒 Entrada / Salida',
+    actualizar: 'Actualizar Gráfico', rendimiento: '📊 Rendimiento de Jornada', entradaSalida: '🕒 Entrada / Salida (tabla)', entradaSalidaGrafico: '📶 Entrada / Salida (gráfico)',
+    entradaSalidaGraficoTitulo: 'Horario de entrada y salida', entradaSalidaGraficoEje: 'Hora del día',
     colFecha: 'Fecha', colDia: 'Día', colEntrada: 'Entrada', colSalida: 'Salida', colDuracion: 'Duración',
     sinDatosRango: 'No hay registros en el periodo seleccionado.',
     diasCortos: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
@@ -31,7 +32,8 @@ const TEXTOS_GRAFICOS = {
     proyecto: 'Proxecto (*)', tarea: 'Tarefa (*)', bloque: 'Bloque (*)', comentarios: 'Comentarios (*)',
     agruparPor: 'Agrupar por', optProyecto: 'Proxecto', optTarea: 'Tarefa', optBloque: 'Bloque', optFecha: 'Data',
     tipoGrafico: 'Tipo de Gráfico', optBar: 'Barras', optLine: 'Liña', optArea: 'Área', optPie: 'Torta', optDoughnut: 'Rosca',
-    actualizar: 'Actualizar Gráfico', rendimiento: '📊 Rendemento da Xornada', entradaSalida: '🕒 Entrada / Saída',
+    actualizar: 'Actualizar Gráfico', rendimiento: '📊 Rendemento da Xornada', entradaSalida: '🕒 Entrada / Saída (táboa)', entradaSalidaGrafico: '📶 Entrada / Saída (gráfico)',
+    entradaSalidaGraficoTitulo: 'Horario de entrada e saída', entradaSalidaGraficoEje: 'Hora do día',
     colFecha: 'Data', colDia: 'Día', colEntrada: 'Entrada', colSalida: 'Saída', colDuracion: 'Duración',
     sinDatosRango: 'Non hai rexistros no período seleccionado.',
     diasCortos: ['Lun', 'Mar', 'Mér', 'Xov', 'Ven', 'Sáb', 'Dom'],
@@ -50,7 +52,8 @@ const TEXTOS_GRAFICOS = {
     proyecto: 'Project (*)', tarea: 'Task (*)', bloque: 'Block (*)', comentarios: 'Comments (*)',
     agruparPor: 'Group by', optProyecto: 'Project', optTarea: 'Task', optBloque: 'Block', optFecha: 'Date',
     tipoGrafico: 'Chart Type', optBar: 'Bar', optLine: 'Line', optArea: 'Area', optPie: 'Pie', optDoughnut: 'Doughnut',
-    actualizar: 'Update Chart', rendimiento: '📊 Workday Performance', entradaSalida: '🕒 Check-in / Check-out',
+    actualizar: 'Update Chart', rendimiento: '📊 Workday Performance', entradaSalida: '🕒 Check-in / Check-out (table)', entradaSalidaGrafico: '📶 Check-in / Check-out (chart)',
+    entradaSalidaGraficoTitulo: 'Check-in and check-out times', entradaSalidaGraficoEje: 'Time of day',
     colFecha: 'Date', colDia: 'Day', colEntrada: 'Check-in', colSalida: 'Check-out', colDuracion: 'Duration',
     sinDatosRango: 'No records in the selected period.',
     diasCortos: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
@@ -99,6 +102,8 @@ function cambiarIdioma(lang) {
   document.getElementById('btn-actualizar').textContent = t.actualizar;
   document.getElementById('btn-rendimiento').textContent = t.rendimiento;
   document.getElementById('btn-entrada-salida').textContent = t.entradaSalida;
+  const btnEntradaSalidaGrafico = document.getElementById('btn-entrada-salida-grafico');
+  if (btnEntradaSalidaGrafico) btnEntradaSalidaGrafico.textContent = t.entradaSalidaGrafico;
   document.getElementById('th-fecha').textContent = t.colFecha;
   document.getElementById('th-dia').textContent = t.colDia;
   document.getElementById('th-entrada').textContent = t.colEntrada;
@@ -597,27 +602,21 @@ function formatearFechaDDMMYYYY(fechaISO) {
  * No aplica los filtros de texto (Proyecto/Tarea/Bloque/Comentarios): es un
  * resumen de jornada, no un desglose por tarea.
  */
-async function generarTablaEntradaSalida() {
-  if (!supabaseClient) return;
-
-  const desde = document.getElementById('filtro-desde').value;
-  const hasta = document.getElementById('filtro-hasta').value;
-
-  if (!desde || !hasta) {
-    alert('❌ Selecciona una fecha "Desde" y una fecha "Hasta".');
-    return;
-  }
-
+/**
+ * Consulta Supabase y agrega por fecha (entrada = hora de inicio más
+ * temprana del día, salida = hora de fin más tardía, minutos = suma de la
+ * duración de todas las tareas) para el rango [desde, hasta]. Compartido
+ * por la tabla y el gráfico de Entrada/Salida, para no repetir la misma
+ * consulta y agregación dos veces.
+ */
+async function obtenerResumenEntradaSalida(desde, hasta) {
   const { data, error } = await supabaseClient
     .from(TABLA)
     .select('fecha,horainicio,horafin')
     .gte('fecha', desde)
     .lte('fecha', hasta);
 
-  if (error) {
-    console.error('Error al recuperar datos para Entrada/Salida:', error);
-    return;
-  }
+  if (error) return { error, porFecha: {} };
 
   const porFecha = {};
   (data || []).forEach(item => {
@@ -636,6 +635,26 @@ async function generarTablaEntradaSalida() {
     }
     porFecha[f].minutos += obtenerMinutosDuracion(item.horainicio, item.horafin);
   });
+
+  return { error: null, porFecha };
+}
+
+async function generarTablaEntradaSalida() {
+  if (!supabaseClient) return;
+
+  const desde = document.getElementById('filtro-desde').value;
+  const hasta = document.getElementById('filtro-hasta').value;
+
+  if (!desde || !hasta) {
+    alert('❌ Selecciona una fecha "Desde" y una fecha "Hasta".');
+    return;
+  }
+
+  const { error, porFecha } = await obtenerResumenEntradaSalida(desde, hasta);
+  if (error) {
+    console.error('Error al recuperar datos para Entrada/Salida:', error);
+    return;
+  }
 
   const t = TEXTOS_GRAFICOS[idiomaActual] || TEXTOS_GRAFICOS.es;
   const fechasOrdenadas = Object.keys(porFecha).sort();
@@ -660,6 +679,134 @@ async function generarTablaEntradaSalida() {
   }
 
   mostrarVista('tabla');
+}
+
+/** 'HH:MM' -> horas en decimal (p.ej. '07:30' -> 7.5). null si no hay valor. */
+function horaADecimal(horaStr) {
+  if (!horaStr) return null;
+  const [h, m] = horaStr.split(':').map(Number);
+  return h + m / 60;
+}
+
+/**
+ * Gráfico (barras "flotantes": una columna por día, desde la hora de
+ * Entrada hasta la hora de Salida) del horario de entrada/salida en el
+ * rango Desde/Hasta seleccionado -los mismos campos que ya usan la tabla de
+ * Entrada/Salida y el gráfico normal, así que vale para cualquiera de los
+ * filtros rápidos (día/semana/mes, actual o anterior) o un rango a medida-.
+ * Un único color (igual que el resto de la identidad de REGHOR): no hace
+ * falta leyenda porque solo hay una serie y el título ya la nombra.
+ */
+async function generarGraficoEntradaSalida() {
+  if (!supabaseClient) return;
+
+  const desde = document.getElementById('filtro-desde').value;
+  const hasta = document.getElementById('filtro-hasta').value;
+
+  if (!desde || !hasta) {
+    alert('❌ Selecciona una fecha "Desde" y una fecha "Hasta".');
+    return;
+  }
+
+  const t = TEXTOS_GRAFICOS[idiomaActual] || TEXTOS_GRAFICOS.es;
+  const { error, porFecha } = await obtenerResumenEntradaSalida(desde, hasta);
+  if (error) {
+    console.error('Error al recuperar datos para el gráfico de Entrada/Salida:', error);
+    return;
+  }
+
+  const fechasOrdenadas = Object.keys(porFecha).sort();
+  if (fechasOrdenadas.length === 0) {
+    alert(t.sinDatosRango);
+    return;
+  }
+
+  const etiquetas = fechasOrdenadas.map(f => {
+    const d = parsearFechaLocal(f);
+    const nombreDia = t.diasCortos[(d.getDay() + 6) % 7];
+    return `${formatearFechaCorta(f)} ${nombreDia}`;
+  });
+  const rangos = fechasOrdenadas.map(f => {
+    const info = porFecha[f];
+    const entradaDec = horaADecimal(info.entrada);
+    const salidaDec = horaADecimal(info.salida);
+    return [entradaDec === null ? 0 : entradaDec, salidaDec === null ? (entradaDec === null ? 0 : entradaDec) : salidaDec];
+  });
+
+  mostrarVista('grafico');
+  renderizarChartEntradaSalida(etiquetas, rangos, fechasOrdenadas, porFecha);
+}
+
+/**
+ * Dibuja el gráfico de barras flotantes de Entrada/Salida en el mismo
+ * <canvas> que el resto de gráficos (ver mostrarVista). Serie única -> un
+ * solo color (el azul de identidad de REGHOR) y sin leyenda, con el título
+ * del eje ya indicando qué se ve; el tooltip da la hora exacta de entrada,
+ * salida y la duración de la jornada de ese día.
+ */
+function renderizarChartEntradaSalida(labels, rangos, fechasISO, porFecha) {
+  const canvas = document.getElementById('miGrafico');
+  const ctx = canvas.getContext('2d');
+
+  if (miChart) {
+    miChart.destroy();
+  }
+
+  const t = TEXTOS_GRAFICOS[idiomaActual] || TEXTOS_GRAFICOS.es;
+  const colorBase = '#007bff';
+
+  miChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: t.entradaSalidaGraficoTitulo,
+        data: rangos,
+        backgroundColor: 'rgba(0, 123, 255, 0.55)',
+        borderColor: colorBase,
+        borderWidth: 1,
+        borderRadius: 4,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: (items) => items[0].label,
+            label: (context) => {
+              const fISO = fechasISO[context.dataIndex];
+              const info = porFecha[fISO];
+              const duracion = formatearHorasComoHMM((info.minutos || 0) / 60);
+              return [
+                `${t.colEntrada}: ${info.entrada || '--:--'}`,
+                `${t.colSalida}: ${info.salida || '--:--'}`,
+                `${t.colDuracion}: ${duracion}`
+              ];
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          min: 4,
+          max: 22,
+          ticks: {
+            stepSize: 2,
+            callback: (valor) => `${String(Math.floor(valor)).padStart(2, '0')}:00`
+          },
+          title: { display: true, text: t.entradaSalidaGraficoEje },
+          grid: { color: 'rgba(128, 128, 128, 0.15)' }
+        },
+        x: {
+          grid: { display: false }
+        }
+      }
+    }
+  });
 }
 
 /** Convierte horas en decimal (p.ej. 1.5) al formato h:mm (p.ej. "1:30"). */

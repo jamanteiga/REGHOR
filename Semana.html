@@ -130,6 +130,19 @@
     tr.fila-pendiente td:last-child { color: var(--warning-color); }
     tr.fila-salida-prevista td { background-color: var(--hover-color); border-top: 2px solid var(--header-bg); font-size: 15px; }
     tr.fila-salida-prevista td:last-child { color: var(--header-bg); }
+
+    /* Entrada/Salida teóricas (proyectadas), mientras el día no tenga
+       ningún registro real todavía: en cursiva y algo más tenues que un
+       valor real, para distinguirlas de un vistazo. */
+    td.valor-proyectado { font-style: italic; opacity: 0.75; }
+
+    #txt-nota-proyectado {
+      font-size: 11px;
+      color: var(--text-color);
+      opacity: 0.65;
+      margin: -14px 0 16px 0;
+      font-style: italic;
+    }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -176,6 +189,8 @@
     <button class="btn-nav" id="btn-actual" onclick="cambiarSemana(0)">Semana actual</button>
     <button class="btn-nav" id="btn-siguiente" onclick="cambiarSemana(1)">Semana siguiente ▶</button>
   </div>
+
+  <div id="txt-nota-proyectado" style="display:none;"></div>
 
   <div class="tabla-semana-contenedor">
     <table class="tabla-semana">

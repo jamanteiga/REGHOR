@@ -111,6 +111,8 @@
     .btn-rendimiento:hover { background-color: #59339d; }
     .btn-entrada-salida { background-color: #17a2b8; }
     .btn-entrada-salida:hover { background-color: #117a8b; }
+    .btn-entrada-salida-grafico { background-color: #0d6efd; }
+    .btn-entrada-salida-grafico:hover { background-color: #0b5ed7; }
 
     .contenedor-grafico {
       background: var(--card-bg);
@@ -306,7 +308,8 @@
     </div>
     <button class="btn-generar" id="btn-actualizar" onclick="generarGrafico()">Actualizar Gráfico</button>
     <button class="btn-generar btn-rendimiento" id="btn-rendimiento" onclick="generarGraficoRendimiento()">📊 Rendimiento de Jornada</button>
-    <button class="btn-generar btn-entrada-salida" id="btn-entrada-salida" onclick="generarTablaEntradaSalida()">🕒 Entrada / Salida</button>
+    <button class="btn-generar btn-entrada-salida" id="btn-entrada-salida" onclick="generarTablaEntradaSalida()">🕒 Entrada / Salida (tabla)</button>
+    <button class="btn-generar btn-entrada-salida-grafico" id="btn-entrada-salida-grafico" onclick="generarGraficoEntradaSalida()">📶 Entrada / Salida (gráfico)</button>
     <button class="btn-generar btn-calendario" id="btn-calendario" onclick="generarCalendarioMensual()">🗓️ Calendario mensual</button>
     <button class="btn-generar btn-cierre-pdf" id="btn-cierre-pdf" onclick="generarCierreMensualPDF()">🧾 Cierre mensual (PDF)</button>
   </div>

@@ -30,7 +30,10 @@ const TEXTOS_SEMANA = {
     pendienteViernes: 'Horas pendientes viernes',
     pendienteViernesTip: 'Horas teóricas de toda la semana menos las ya trabajadas de lunes a jueves. Un lunes por la mañana coincide con el total teórico de la semana; a medida que avanza la semana va bajando según lo que se vaya trabajando.',
     salidaViernesPrevista: 'Hora salida viernes (prevista)',
-    pendiente: 'Pendiente', sinDatos: 'Sin tareas registradas: a efectos del cálculo se asume la jornada teórica cumplida'
+    pendiente: 'Pendiente', sinDatos: 'Sin tareas registradas: a efectos del cálculo se asume la jornada teórica cumplida',
+    proyectadoTip: 'Hora teórica estimada (entrada por defecto 06:45): se sustituirá por el dato real en cuanto registres algo ese día.',
+    notaProyectado: '* Hora teórica estimada, pendiente del registro real de ese día.',
+    festivoTexto: 'Festivo'
   },
   gl: {
     titulo: '📅 Resumo Semanal', cerrar: '❌ Pechar', nota: 'Cálculo automático a partir das tarefas rexistradas cada día na Listaxe de Tarefas.',
@@ -40,7 +43,10 @@ const TEXTOS_SEMANA = {
     pendienteViernes: 'Horas pendentes venres',
     pendienteViernesTip: 'Horas teóricas de toda a semana menos as xa traballadas de luns a xoves. Un luns pola mañá coincide co total teórico da semana; a medida que avanza a semana vai baixando segundo o que se vaia traballando.',
     salidaViernesPrevista: 'Hora saída venres (prevista)',
-    pendiente: 'Pendente', sinDatos: 'Sen tarefas rexistradas: a efectos do cálculo asúmese a xornada teórica cumprida'
+    pendiente: 'Pendente', sinDatos: 'Sen tarefas rexistradas: a efectos do cálculo asúmese a xornada teórica cumprida',
+    proyectadoTip: 'Hora teórica estimada (entrada por defecto 06:45): sustituirase polo dato real en canto rexistres algo ese día.',
+    notaProyectado: '* Hora teórica estimada, pendente do rexistro real dese día.',
+    festivoTexto: 'Festivo'
   },
   en: {
     titulo: '📅 Weekly Summary', cerrar: '❌ Close', nota: 'Calculated automatically from the tasks logged each day in the Task List.',
@@ -50,11 +56,27 @@ const TEXTOS_SEMANA = {
     pendienteViernes: 'Hours Pending on Friday',
     pendienteViernesTip: 'Weekly theoretical hours minus what has already been worked Monday-Thursday. On Monday morning this matches the week\'s theoretical total; it goes down as the week progresses.',
     salidaViernesPrevista: 'Friday End Time (estimated)',
-    pendiente: 'Pending', sinDatos: 'No tasks logged: the theoretical shift is assumed fulfilled for this calculation'
+    pendiente: 'Pending', sinDatos: 'No tasks logged: the theoretical shift is assumed fulfilled for this calculation',
+    proyectadoTip: 'Estimated theoretical time (default start 06:45): replaced by the real value as soon as something is logged that day.',
+    notaProyectado: '* Estimated theoretical time, pending that day\'s real record.',
+    festivoTexto: 'Holiday'
   }
 };
 
 // MESES vive en config.js (compartido con app.js)
+
+// ------------------------------------------------------------
+// Entrada/Salida TEÓRICAS por defecto, para que la hora de salida prevista
+// se pueda ver desde el lunes, antes incluso de registrar nada esa semana
+// (ver cargarSemana): mientras un día no tenga ningún registro real en
+// 'obras', se asume que se entra a las 06:45 y -de lunes a jueves- que se
+// sale a las 16:00. El viernes no tiene una salida teórica fija: se calcula
+// (igual que ya hacía "Hora salida viernes (prevista)") a partir de las
+// horas que falten por completar esa semana. En cuanto el día tiene algún
+// registro real, esta entrada/salida teórica se sustituye por la real.
+// ------------------------------------------------------------
+const ENTRADA_TEORICA_DEFECTO = '06:45';
+const SALIDA_TEORICA_LUNES_JUEVES = '16:00';
 
 function formatearFechaDDMMYYYY(fecha) {
   const dd = String(fecha.getDate()).padStart(2, '0');
@@ -77,6 +99,28 @@ function sumarMinutosAHora(horaStr, minutosExtra) {
   const hh = String(Math.floor(total / 60)).padStart(2, '0');
   const mm = String(total % 60).padStart(2, '0');
   return `${hh}:${mm}`;
+}
+
+/**
+ * Horas teóricas de toda la semana y horas pendientes para el viernes
+ * (teórica total - horas efectivas ya "cerradas" de lunes a jueves, sin
+ * acotar: puede salir negativo si se va por delante de jornada). Requiere
+ * que datosDiaActual[0..3] ya estén calculados (se usa tanto dentro del
+ * propio cargarSemana, al pintar la fila del viernes, como luego en
+ * actualizarResumenSemana).
+ */
+function calcularPendienteMinutosViernes() {
+  let teoricoTotalMin = 0;
+  diasSemanaActual.forEach(fecha => {
+    teoricoTotalMin += obtenerJornadaTeoricaMinutos(formatearFechaISO(fecha));
+  });
+
+  let totalesLunesJueves = 0;
+  for (let i = 0; i < 4; i++) {
+    totalesLunesJueves += datosDiaActual[i].minutosEfectivos;
+  }
+
+  return { teoricoTotalMin, totalesLunesJueves, pendienteMin: teoricoTotalMin - totalesLunesJueves };
 }
 
 /** Número de semana ISO-8601 (la semana pertenece al año de su jueves). */
@@ -181,14 +225,38 @@ async function cargarSemana(lunes) {
       ? Math.max(0, minutosBrutos - obtenerDescansoMinutos(fechaStr))
       : obtenerJornadaTeoricaMinutos(fechaStr);
 
+    // Entrada/Salida TEÓRICAS cuando el día todavía no tiene ningún
+    // registro real (y no es festivo, que no tiene jornada que proyectar):
+    // de lunes a jueves se asume la entrada/salida por defecto fija; el
+    // viernes la salida depende de lo que quede pendiente esa semana (igual
+    // fórmula que ya usaba "Hora salida viernes (prevista)" más abajo), así
+    // que necesita que lunes-jueves (idx 0..3) ya estén en datosDiaActual
+    // -por eso se calcula aquí, dentro del propio map, en vez de antes-.
+    // En cuanto el día tenga algún registro real, esto deja de aplicarse:
+    // entrada/salida pasan a ser siempre los valores reales de arriba.
+    let proyectada = false;
+    if (!tieneDatos && !festivo) {
+      entrada = ENTRADA_TEORICA_DEFECTO;
+      proyectada = true;
+      if (esViernes) {
+        const { pendienteMin } = calcularPendienteMinutosViernes();
+        salida = sumarMinutosAHora(entrada, Math.max(0, pendienteMin));
+      } else {
+        salida = SALIDA_TEORICA_LUNES_JUEVES;
+      }
+    }
+
     datosDiaActual.push({ fechaStr, entrada, salida, minutosEfectivos, tieneDatos, festivo });
+
+    const tipLabel = proyectada ? ` title="${t.proyectadoTip}"` : '';
+    const claseProyectada = proyectada ? ' valor-proyectado' : '';
 
     return `
       <tr class="fila-dia-editable ${esViernes ? 'fila-viernes' : ''} ${festivo ? 'fila-festivo' : ''}">
         <td>${formatearFechaDDMMYYYY(fecha)}</td>
         <td>${nombresDias[idx]}</td>
-        <td>${entrada || '-'}</td>
-        <td>${salida || '-'}</td>
+        <td class="${claseProyectada}"${tipLabel}>${entrada || '-'}${proyectada ? ' *' : ''}</td>
+        <td class="${claseProyectada}"${tipLabel}>${salida || '-'}${proyectada ? ' *' : ''}</td>
         <td>${formatearMinutosAHoras(obtenerJornadaTeoricaMinutos(fechaStr))}</td>
         <td>${tieneDatos ? formatearMinutosAHoras(minutosEfectivos) : `<span title="${t.sinDatos}">00:00</span>`}</td>
       </tr>
@@ -214,6 +282,13 @@ async function cargarSemana(lunes) {
       <td id="valor-salida-prevista">-</td>
     </tr>
   `;
+
+  const notaProyectado = document.getElementById('txt-nota-proyectado');
+  if (notaProyectado) {
+    const hayProyectados = datosDiaActual.some(d => !d.tieneDatos && !d.festivo);
+    notaProyectado.style.display = hayProyectados ? '' : 'none';
+    notaProyectado.textContent = t.notaProyectado;
+  }
 
   actualizarResumenSemana();
 }
@@ -247,27 +322,22 @@ async function cargarSemana(lunes) {
 function actualizarResumenSemana() {
   const t = TEXTOS_SEMANA[idiomaActual];
 
-  let teoricoTotalMin = 0;
-  diasSemanaActual.forEach(fecha => {
-    teoricoTotalMin += obtenerJornadaTeoricaMinutos(formatearFechaISO(fecha));
-  });
-
-  let totalesLunesJueves = 0;
-  for (let i = 0; i < 4; i++) {
-    totalesLunesJueves += datosDiaActual[i].minutosEfectivos;
-  }
-
-  const pendienteMin = teoricoTotalMin - totalesLunesJueves;
+  const { teoricoTotalMin, totalesLunesJueves, pendienteMin } = calcularPendienteMinutosViernes();
 
   // La hora de salida prevista del viernes se calcula a partir de la
-  // primera tarea que ya hayas registrado ese día (su hora de inicio); si
-  // el viernes aún no tiene ninguna tarea registrada, no se puede calcular.
-  // Se acota en 0 para no dar una salida anterior a la propia entrada
-  // cuando la semana ya está cumplida antes de empezar el viernes.
+  // entrada de ese día -real si ya hay una tarea registrada, o si no la
+  // teórica por defecto (06:45), ver cargarSemana-, así que con la
+  // proyección aplicada esto YA tiene valor desde el lunes. Solo queda sin
+  // poder calcularse si el propio viernes es festivo (jornada teórica 0,
+  // sin proyección). Se acota en 0 para no dar una salida anterior a la
+  // propia entrada cuando la semana ya está cumplida antes de empezar el
+  // viernes.
   const diaViernes = datosDiaActual[4];
-  const salidaPrevista = (diaViernes && diaViernes.entrada)
-    ? sumarMinutosAHora(diaViernes.entrada, Math.max(0, pendienteMin))
-    : t.pendiente;
+  const salidaPrevista = (diaViernes && diaViernes.festivo)
+    ? t.festivoTexto
+    : (diaViernes && diaViernes.entrada)
+      ? sumarMinutosAHora(diaViernes.entrada, Math.max(0, pendienteMin))
+      : t.pendiente;
 
   document.getElementById('valor-teoricas').textContent = formatearMinutosAHoras(teoricoTotalMin);
   document.getElementById('valor-totales').textContent = formatearMinutosAHoras(totalesLunesJueves);
