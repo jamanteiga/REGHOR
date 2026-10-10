@@ -366,3 +366,18 @@ async function obtenerJornadaTeoricaAjustada(fechaStr) {
     return obtenerJornadaTeoricaMinutos(fechaStr);
   }
 }
+
+// ------------------------------------------------------------
+// PWA: registro del Service Worker (ver service-worker.js), compartido por
+// todas las páginas que cargan config.js. Permite instalar REGHOR como app
+// (📱 "Instalar" / "Añadir a pantalla de inicio" en el navegador) y da
+// acceso básico a las páginas ya visitadas sin conexión. Los datos en sí
+// (tabla de registros) siguen necesitando conexión a Supabase.
+// ------------------------------------------------------------
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js').catch((e) => {
+      console.error('No se pudo registrar el Service Worker (no afecta al resto de la app):', e);
+    });
+  });
+}

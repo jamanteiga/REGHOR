@@ -15,7 +15,15 @@ const TEXTOS_GRAFICOS = {
     actualizar: 'Actualizar Gráfico', rendimiento: '📊 Rendimiento de Jornada', entradaSalida: '🕒 Entrada / Salida',
     colFecha: 'Fecha', colDia: 'Día', colEntrada: 'Entrada', colSalida: 'Salida', colDuracion: 'Duración',
     sinDatosRango: 'No hay registros en el periodo seleccionado.',
-    diasCortos: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+    diasCortos: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
+    calendarioMensual: '🗓️ Calendario mensual', cierrePdf: '🧾 Cierre mensual (PDF)',
+    calendarioTitulo: 'Calendario mensual', calendarioSeleccionaMes: '❌ Selecciona un Mes (o un rango Desde/Hasta dentro de un mismo mes) para ver el calendario.',
+    leyendaCumplido: 'Jornada cumplida', leyendaExceso: 'Por encima de la teórica', leyendaDeficit: 'Por debajo de la teórica', leyendaNeutro: 'Sin jornada (fin de semana/festivo)',
+    pdfSinMes: '❌ Selecciona un Mes (o un rango Desde/Hasta) antes de generar el cierre.',
+    pdfSinLibreria: '⚠️ No se pudo cargar la librería de generación de PDF. Comprueba la conexión a internet y vuelve a intentarlo.',
+    pdfCierreTitulo: 'REGHOR — Cierre mensual', pdfGenerado: 'Generado', pdfColReales: 'Reales', pdfColTeoricas: 'Teóricas', pdfColBalance: 'Balance',
+    pdfTotalesProyecto: 'Totales por proyecto', pdfProyecto: 'Proyecto', pdfHoras: 'Horas',
+    pdfTotalTrabajadas: 'Total horas trabajadas', pdfTotalTeoricas: 'Total jornada teórica', pdfBalance: 'Balance'
   },
   gl: {
     titulo: '📈 Análise Gráfica de Tempos', cerrar: '❌ Pechar', rangoRapido: 'Intervalo Rápido',
@@ -26,7 +34,15 @@ const TEXTOS_GRAFICOS = {
     actualizar: 'Actualizar Gráfico', rendimiento: '📊 Rendemento da Xornada', entradaSalida: '🕒 Entrada / Saída',
     colFecha: 'Data', colDia: 'Día', colEntrada: 'Entrada', colSalida: 'Saída', colDuracion: 'Duración',
     sinDatosRango: 'Non hai rexistros no período seleccionado.',
-    diasCortos: ['Lun', 'Mar', 'Mér', 'Xov', 'Ven', 'Sáb', 'Dom']
+    diasCortos: ['Lun', 'Mar', 'Mér', 'Xov', 'Ven', 'Sáb', 'Dom'],
+    calendarioMensual: '🗓️ Calendario mensual', cierrePdf: '🧾 Peche mensual (PDF)',
+    calendarioTitulo: 'Calendario mensual', calendarioSeleccionaMes: '❌ Selecciona un Mes (ou un intervalo Desde/Ata dentro dun mesmo mes) para ver o calendario.',
+    leyendaCumplido: 'Xornada cumprida', leyendaExceso: 'Por riba da teórica', leyendaDeficit: 'Por debaixo da teórica', leyendaNeutro: 'Sen xornada (fin de semana/festivo)',
+    pdfSinMes: '❌ Selecciona un Mes (ou un intervalo Desde/Ata) antes de xerar o peche.',
+    pdfSinLibreria: '⚠️ Non se puido cargar a libraría de xeración de PDF. Comproba a conexión a internet e vólveo intentar.',
+    pdfCierreTitulo: 'REGHOR — Peche mensual', pdfGenerado: 'Xerado', pdfColReales: 'Reais', pdfColTeoricas: 'Teóricas', pdfColBalance: 'Balance',
+    pdfTotalesProyecto: 'Totais por proxecto', pdfProyecto: 'Proxecto', pdfHoras: 'Horas',
+    pdfTotalTrabajadas: 'Total horas traballadas', pdfTotalTeoricas: 'Total xornada teórica', pdfBalance: 'Balance'
   },
   en: {
     titulo: '📈 Time Chart Analysis', cerrar: '❌ Close', rangoRapido: 'Quick Range',
@@ -37,7 +53,15 @@ const TEXTOS_GRAFICOS = {
     actualizar: 'Update Chart', rendimiento: '📊 Workday Performance', entradaSalida: '🕒 Check-in / Check-out',
     colFecha: 'Date', colDia: 'Day', colEntrada: 'Check-in', colSalida: 'Check-out', colDuracion: 'Duration',
     sinDatosRango: 'No records in the selected period.',
-    diasCortos: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    diasCortos: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+    calendarioMensual: '🗓️ Monthly calendar', cierrePdf: '🧾 Monthly closing (PDF)',
+    calendarioTitulo: 'Monthly calendar', calendarioSeleccionaMes: '❌ Select a Month (or a From/To range within a single month) to view the calendar.',
+    leyendaCumplido: 'Hours met', leyendaExceso: 'Above theoretical hours', leyendaDeficit: 'Below theoretical hours', leyendaNeutro: 'No workday (weekend/holiday)',
+    pdfSinMes: '❌ Select a Month (or a From/To range) before generating the closing report.',
+    pdfSinLibreria: '⚠️ Could not load the PDF generation library. Check your internet connection and try again.',
+    pdfCierreTitulo: 'REGHOR — Monthly closing', pdfGenerado: 'Generated', pdfColReales: 'Actual', pdfColTeoricas: 'Theoretical', pdfColBalance: 'Balance',
+    pdfTotalesProyecto: 'Totals by project', pdfProyecto: 'Project', pdfHoras: 'Hours',
+    pdfTotalTrabajadas: 'Total hours worked', pdfTotalTeoricas: 'Total theoretical hours', pdfBalance: 'Balance'
   }
 };
 
@@ -81,6 +105,20 @@ function cambiarIdioma(lang) {
   document.getElementById('th-salida').textContent = t.colSalida;
   document.getElementById('th-duracion').textContent = t.colDuracion;
 
+  const btnCalendario = document.getElementById('btn-calendario');
+  const btnCierrePdf = document.getElementById('btn-cierre-pdf');
+  if (btnCalendario) btnCalendario.textContent = t.calendarioMensual;
+  if (btnCierrePdf) btnCierrePdf.textContent = t.cierrePdf;
+
+  const leyendaCumplido = document.getElementById('leyenda-cumplido');
+  const leyendaExceso = document.getElementById('leyenda-exceso');
+  const leyendaDeficit = document.getElementById('leyenda-deficit');
+  const leyendaNeutro = document.getElementById('leyenda-neutro');
+  if (leyendaCumplido) leyendaCumplido.textContent = t.leyendaCumplido;
+  if (leyendaExceso) leyendaExceso.textContent = t.leyendaExceso;
+  if (leyendaDeficit) leyendaDeficit.textContent = t.leyendaDeficit;
+  if (leyendaNeutro) leyendaNeutro.textContent = t.leyendaNeutro;
+
   poblarSelectorMesesGraficos();
 
   // Si la tabla de Entrada/Salida ya estaba generada, se vuelve a pintar
@@ -89,6 +127,12 @@ function cambiarIdioma(lang) {
   const contenedorTabla = document.getElementById('contenedor-tabla-entrada-salida');
   if (contenedorTabla && contenedorTabla.style.display !== 'none') {
     generarTablaEntradaSalida();
+  }
+  // Igual que la tabla Entrada/Salida: si el calendario ya estaba generado,
+  // se vuelve a pintar en el idioma nuevo.
+  const contenedorCalendario = document.getElementById('contenedor-calendario');
+  if (contenedorCalendario && contenedorCalendario.style.display !== 'none') {
+    generarCalendarioMensual();
   }
 }
 
@@ -144,10 +188,252 @@ function establecerRango(tipo) {
   generarGrafico();
 }
 
-/** Alterna entre el lienzo del gráfico y la tabla de Entrada/Salida (son vistas excluyentes). */
+/** Alterna entre el lienzo del gráfico, la tabla de Entrada/Salida y el calendario mensual (vistas excluyentes). */
 function mostrarVista(vista) {
   document.getElementById('contenedor-grafico').style.display = (vista === 'grafico') ? 'block' : 'none';
   document.getElementById('contenedor-tabla-entrada-salida').style.display = (vista === 'tabla') ? 'block' : 'none';
+  document.getElementById('contenedor-calendario').style.display = (vista === 'calendario') ? 'block' : 'none';
+}
+
+/**
+ * Determina el mes (1er y último día) sobre el que trabajan el Calendario
+ * mensual y el Cierre mensual en PDF: si hay un mes elegido en el
+ * desplegable "Mes" se usa ese; si no, se toma el mes de la fecha "Desde"
+ * actual (o el mes en curso si tampoco hay nada puesto). Devuelve
+ * {desde, hasta, anio, mes0 (0-indexado), etiqueta}.
+ */
+function obtenerMesSeleccionado() {
+  const selMes = document.getElementById('filtro-mes-graficos');
+  const meses = MESES[idiomaActual] || MESES.es;
+  let anio, mes0;
+
+  if (selMes && selMes.value) {
+    const [a, m] = selMes.value.split('-').map(Number);
+    anio = a; mes0 = m - 1;
+  } else {
+    const desdeActual = document.getElementById('filtro-desde').value;
+    const base = desdeActual ? parsearFechaLocal(desdeActual) : new Date();
+    anio = base.getFullYear(); mes0 = base.getMonth();
+  }
+
+  const desde = formatearFechaISO(new Date(anio, mes0, 1));
+  const hasta = formatearFechaISO(new Date(anio, mes0 + 1, 0));
+  const etiqueta = `${meses[mes0].charAt(0).toUpperCase() + meses[mes0].slice(1)} ${anio}`;
+  return { desde, hasta, anio, mes0, etiqueta };
+}
+
+/**
+ * Vista de calendario mensual: una celda por día del mes seleccionado (ver
+ * obtenerMesSeleccionado), coloreada según el balance de ese día frente a
+ * su jornada teórica (obtenerJornadaTeoricaMinutos/obtenerDescansoMinutos,
+ * en config.js -el mismo criterio que usa index.html para el balance del
+ * día-). No usa obtenerJornadaTeoricaAjustada (el ajuste especial del
+ * viernes): para una vista mensual de un vistazo basta con la jornada
+ * teórica fija de cada día.
+ */
+async function generarCalendarioMensual() {
+  if (!supabaseClient) return;
+
+  const { desde, hasta, etiqueta } = obtenerMesSeleccionado();
+  const t = TEXTOS_GRAFICOS[idiomaActual] || TEXTOS_GRAFICOS.es;
+
+  const { data, error } = await supabaseClient
+    .from(TABLA)
+    .select('fecha,horainicio,horafin')
+    .gte('fecha', desde)
+    .lte('fecha', hasta);
+
+  if (error) {
+    console.error('Error al recuperar datos para el calendario:', error);
+    return;
+  }
+
+  const minutosPorFecha = {};
+  (data || []).forEach(item => {
+    let f = String(item.fecha || '').trim();
+    if (f.includes('T')) f = f.split('T')[0];
+    if (f.includes(' ')) f = f.split(' ')[0];
+    if (!f) return;
+    minutosPorFecha[f] = (minutosPorFecha[f] || 0) + obtenerMinutosDuracion(item.horainicio, item.horafin);
+  });
+
+  const inicioMes = parsearFechaLocal(desde);
+  const finMes = parsearFechaLocal(hasta);
+  const hoyStr = obtenerFechaHoyISO();
+
+  // Huecos vacíos antes del día 1, para que el calendario empiece en lunes
+  // (getDay(): 0=domingo..6=sábado -> se reindexa para que 0=lunes).
+  const huecosIniciales = (inicioMes.getDay() + 6) % 7;
+
+  let celdas = '';
+  for (let i = 0; i < huecosIniciales; i++) {
+    celdas += '<div class="calendario-celda calendario-celda-vacia"></div>';
+  }
+
+  for (let d = new Date(inicioMes); d <= finMes; d.setDate(d.getDate() + 1)) {
+    const fStr = formatearFechaISO(d);
+    const minutosBrutos = minutosPorFecha[fStr] || 0;
+    const teorico = obtenerJornadaTeoricaMinutos(fStr);
+    const reales = minutosBrutos > 0 ? Math.max(0, minutosBrutos - obtenerDescansoMinutos(fStr)) : 0;
+    const balance = reales - teorico;
+
+    let clase = 'cal-neutro';
+    let textoHoras = '';
+    if (teorico === 0) {
+      clase = 'cal-neutro';
+      textoHoras = reales > 0 ? formatearHorasComoHMM(reales / 60) : '';
+    } else if (fStr > hoyStr) {
+      clase = 'cal-pendiente';
+    } else if (Math.abs(balance) <= 15) {
+      clase = 'cal-cumplido';
+      textoHoras = formatearHorasComoHMM(reales / 60);
+    } else if (balance > 15) {
+      clase = 'cal-exceso';
+      textoHoras = formatearHorasComoHMM(reales / 60);
+    } else {
+      clase = 'cal-deficit';
+      textoHoras = formatearHorasComoHMM(reales / 60);
+    }
+
+    const balanceTexto = (teorico > 0 && fStr <= hoyStr)
+      ? `${balance >= 0 ? '+' : ''}${formatearHorasComoHMM(balance / 60)}`
+      : '';
+
+    celdas += `
+      <div class="calendario-celda ${clase}" title="${fStr}">
+        <span class="cal-dia-num">${d.getDate()}</span>
+        <span class="cal-horas">${textoHoras}</span>
+        ${balanceTexto ? `<span class="cal-balance"><br>${balanceTexto}</span>` : ''}
+      </div>
+    `;
+  }
+
+  const nombresDias = t.diasCortos.map(nombre => `<div class="calendario-dia-nombre">${nombre}</div>`).join('');
+
+  document.getElementById('txt-calendario-titulo').textContent = `${t.calendarioTitulo}: ${etiqueta}`;
+  document.getElementById('calendario-grid').innerHTML = nombresDias + celdas;
+
+  mostrarVista('calendario');
+}
+
+/**
+ * Cierre mensual en PDF: genera un PDF con el resumen diario (Entrada,
+ * Salida, horas reales/teóricas/balance) y los totales por proyecto del mes
+ * seleccionado (ver obtenerMesSeleccionado), usando jsPDF + el plugin
+ * autoTable (cargados en graficos.html). No depende del gráfico ni de la
+ * tabla Entrada/Salida en pantalla: vuelve a consultar Supabase con el
+ * mismo criterio que usa esa tabla.
+ */
+async function generarCierreMensualPDF() {
+  if (!supabaseClient) return;
+
+  if (typeof window.jspdf === 'undefined') {
+    const t0 = TEXTOS_GRAFICOS[idiomaActual] || TEXTOS_GRAFICOS.es;
+    alert(t0.pdfSinLibreria);
+    return;
+  }
+
+  const { desde, hasta, etiqueta } = obtenerMesSeleccionado();
+  const t = TEXTOS_GRAFICOS[idiomaActual] || TEXTOS_GRAFICOS.es;
+
+  const btn = document.getElementById('btn-cierre-pdf');
+  if (btn) { btn.disabled = true; }
+
+  try {
+    const { data, error } = await supabaseClient
+      .from(TABLA)
+      .select('fecha,proyecto,horainicio,horafin')
+      .gte('fecha', desde)
+      .lte('fecha', hasta);
+
+    if (error) {
+      alert('Error de Supabase: ' + error.message);
+      return;
+    }
+
+    const porFecha = {};
+    const porProyecto = {};
+    (data || []).forEach(item => {
+      let f = String(item.fecha || '').trim();
+      if (f.includes('T')) f = f.split('T')[0];
+      if (f.includes(' ')) f = f.split(' ')[0];
+      if (!f) return;
+
+      if (!porFecha[f]) porFecha[f] = { entrada: null, salida: null, minutos: 0 };
+      if (item.horainicio && (porFecha[f].entrada === null || item.horainicio < porFecha[f].entrada)) porFecha[f].entrada = item.horainicio;
+      if (item.horafin && (porFecha[f].salida === null || item.horafin > porFecha[f].salida)) porFecha[f].salida = item.horafin;
+
+      const minutos = obtenerMinutosDuracion(item.horainicio, item.horafin);
+      porFecha[f].minutos += minutos;
+
+      const p = item.proyecto || '—';
+      porProyecto[p] = (porProyecto[p] || 0) + minutos;
+    });
+
+    const fechasOrdenadas = Object.keys(porFecha).sort();
+    let totalReales = 0, totalTeoricas = 0;
+
+    const filasDias = fechasOrdenadas.map(f => {
+      const info = porFecha[f];
+      const teorico = obtenerJornadaTeoricaMinutos(f);
+      const reales = info.minutos > 0 ? Math.max(0, info.minutos - obtenerDescansoMinutos(f)) : 0;
+      totalReales += reales;
+      totalTeoricas += teorico;
+      const balance = reales - teorico;
+      const d = parsearFechaLocal(f);
+      const nombreDia = t.diasCortos[(d.getDay() + 6) % 7];
+      return [
+        formatearFechaDDMMYYYY(f), nombreDia,
+        info.entrada || '--:--', info.salida || '--:--',
+        formatearHorasComoHMM(reales / 60), formatearHorasComoHMM(teorico / 60),
+        `${balance >= 0 ? '+' : ''}${formatearHorasComoHMM(balance / 60)}`
+      ];
+    });
+
+    const filasProyecto = Object.keys(porProyecto).sort().map(p => [p, formatearHorasComoHMM(porProyecto[p] / 60)]);
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    doc.setFontSize(15);
+    doc.text(`${t.pdfCierreTitulo}: ${etiqueta}`, 14, 16);
+    doc.setFontSize(9);
+    doc.text(`${t.pdfGenerado}: ${new Date().toLocaleString()}`, 14, 22);
+
+    doc.autoTable({
+      startY: 27,
+      head: [[t.colFecha, t.colDia, t.colEntrada, t.colSalida, t.pdfColReales, t.pdfColTeoricas, t.pdfColBalance]],
+      body: filasDias,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [0, 123, 255] }
+    });
+
+    let y = doc.lastAutoTable.finalY + 10;
+    doc.setFontSize(12);
+    doc.text(t.pdfTotalesProyecto, 14, y);
+    doc.autoTable({
+      startY: y + 4,
+      head: [[t.pdfProyecto, t.pdfHoras]],
+      body: filasProyecto,
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [23, 162, 184] }
+    });
+
+    y = doc.lastAutoTable.finalY + 10;
+    const balanceTotal = totalReales - totalTeoricas;
+    doc.setFontSize(10);
+    doc.text(
+      `${t.pdfTotalTrabajadas}: ${formatearHorasComoHMM(totalReales / 60)}    ${t.pdfTotalTeoricas}: ${formatearHorasComoHMM(totalTeoricas / 60)}    ${t.pdfBalance}: ${balanceTotal >= 0 ? '+' : ''}${formatearHorasComoHMM(balanceTotal / 60)}`,
+      14, y
+    );
+
+    doc.save(`reghor_cierre_${desde}_a_${hasta}.pdf`);
+  } catch (e) {
+    console.error('Error al generar el cierre mensual en PDF:', e);
+    alert('Error inesperado al generar el PDF.');
+  } finally {
+    if (btn) { btn.disabled = false; }
+  }
 }
 
 async function generarGrafico() {

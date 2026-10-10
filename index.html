@@ -4,6 +4,10 @@
   <script src="auth.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#007bff">
+  <link rel="icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
   <title>REGHOR</title>
   <style>
     :root {
@@ -510,6 +514,69 @@
       color: #d3d6d8;
       border-color: #495057;
     }
+
+    /* Aviso de jornada anómala (desviación grande sobre la jornada teórica). */
+    .aviso-anomalia {
+      background: #f8d7da;
+      color: #842029;
+      border: 1px solid #f5c2c7;
+      padding: 8px 14px;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      font-size: 13px;
+      font-weight: bold;
+      flex: 0 0 auto;
+    }
+    body.dark-mode .aviso-anomalia {
+      background: #4d1a1f;
+      color: #f5c2c7;
+      border-color: #842029;
+    }
+
+    /* Edición en lote: casilla en la columna Nº y barra flotante de acciones. */
+    .celda-numero-lote {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+    .celda-numero-lote input[type="checkbox"] {
+      width: auto;
+      margin: 0;
+      cursor: pointer;
+    }
+    .barra-lote {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background: #0b5ed7;
+      color: #fff;
+      padding: 8px 14px;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      font-size: 13px;
+      font-weight: bold;
+      flex: 0 0 auto;
+    }
+    .barra-lote .barra-lote-botones { display: flex; gap: 8px; }
+    .barra-lote button {
+      padding: 5px 10px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: bold;
+      background-color: rgba(255,255,255,0.15);
+      color: #fff;
+    }
+    .barra-lote button:hover { background-color: rgba(255,255,255,0.3); }
+    .barra-lote .btn-lote-eliminar { background-color: #dc3545; }
+    .barra-lote .btn-lote-eliminar:hover { background-color: #bd2130; }
+
+    #modal-lote .form-group { margin-bottom: 10px; }
+    #modal-lote .form-group label { display: block; font-weight: bold; font-size: 12px; margin-bottom: 4px; }
+    #modal-lote small { display: block; opacity: 0.7; margin-top: 2px; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -535,6 +602,7 @@
       <a href="Semana.html" class="icon-btn" id="btn-semana">📅 Registro Semana</a>
       <button type="button" class="icon-btn btn-ausencia" onclick="iniciarAusencia()" id="btn-ausencia" title="Guarda la tarea actual (si la hay) y abre un registro nuevo de ausencia con la hora de inicio actual">🚶 Ausencia</button>
       <button type="button" class="icon-btn btn-finalizar-jornada" onclick="alternarFinalizarJornada()" id="btn-finalizar-jornada" title="Impide añadir nuevas tareas para la fecha seleccionada. Las ya guardadas se pueden seguir editando o eliminando.">🔒 Finalizar jornada</button>
+      <button type="button" class="icon-btn" onclick="exportarBackupCompleto()" id="btn-backup" title="Descarga una copia de seguridad (JSON) de TODOS los registros guardados en Supabase">💾 Backup</button>
 
       <!-- Bandera España SVG -->
       <button class="flag-btn" onclick="cambiarIdioma('es')" title="Español">
@@ -655,6 +723,7 @@
 
   <div id="aviso-abiertas" class="aviso-abiertas" style="display:none;"></div>
   <div id="aviso-dia-cerrado" class="aviso-dia-cerrado" style="display:none;"></div>
+  <div id="aviso-anomalia" class="aviso-anomalia" style="display:none;"></div>
 
   <h2 id="txt-listado">Listado de tareas</h2>
 
@@ -692,9 +761,20 @@
          placeholder="🔎 Filtrar por tarea, proyecto, bloque, comentario o notas... (usa * como comodín)"
          oninput="aplicarFiltroInstantaneo()" autocomplete="off">
 
+  <div id="barra-lote" class="barra-lote">
+    <span id="txt-barra-lote-contador">0 seleccionados</span>
+    <div class="barra-lote-botones">
+      <button type="button" id="btn-lote-editar" onclick="abrirEdicionLote()">✏️ Editar en lote</button>
+      <button type="button" id="btn-lote-eliminar" class="btn-lote-eliminar" onclick="eliminarSeleccionLote()">🗑️ Eliminar seleccionados</button>
+      <button type="button" id="btn-lote-cancelar" onclick="cancelarSeleccionLote()">✕ Cancelar</button>
+    </div>
+  </div>
+
   <div class="tabla-container">
     <div class="tabla-grid-row tabla-header-row">
-      <div class="celda-numero" id="th-numero">Nº</div>
+      <div class="celda-numero celda-numero-lote" id="th-numero">
+        <input type="checkbox" id="chk-seleccionar-todos" onchange="toggleSeleccionarTodos(this.checked)" title="Seleccionar todos">
+      </div>
       <div id="th-fecha">Fecha<span class="col-resize-handle" data-col="fecha"></span></div>
       <div id="th-tarea">Tarea<span class="col-resize-handle" data-col="tarea"></span></div>
       <div id="th-proyecto">Proyecto<span class="col-resize-handle" data-col="proyecto"></span></div>
@@ -739,6 +819,35 @@
         <button type="button" onclick="agregarOpcionConfig()">Añadir</button>
       </div>
       <ul id="lista-config" style="list-style:none; padding:0;"></ul>
+    </div>
+  </div>
+
+  <!-- Modal Edición en lote -->
+  <div id="modal-lote" class="modal">
+    <div class="modal-content">
+      <span class="close-modal" onclick="cerrarEdicionLote()">&times;</span>
+      <h3 id="modal-lote-titulo">Editar en lote</h3>
+      <p id="txt-modal-lote-info" style="font-size:12px; opacity:0.8;">Deja un campo en blanco para no modificarlo en los registros seleccionados.</p>
+      <div class="form-group">
+        <label for="lote-tarea" id="lbl-lote-tarea">Tarea</label>
+        <input type="text" id="lote-tarea" placeholder="(sin cambios)">
+      </div>
+      <div class="form-group">
+        <label for="lote-proyecto" id="lbl-lote-proyecto">Proyecto</label>
+        <input type="text" id="lote-proyecto" placeholder="(sin cambios)">
+      </div>
+      <div class="form-group">
+        <label for="lote-bloque" id="lbl-lote-bloque">Bloque</label>
+        <input type="text" id="lote-bloque" placeholder="(sin cambios)" style="text-transform:uppercase;" oninput="this.value = this.value.toUpperCase();">
+      </div>
+      <div class="form-group">
+        <label for="lote-comentario" id="lbl-lote-comentario">Comentario</label>
+        <input type="text" id="lote-comentario" placeholder="(sin cambios)">
+      </div>
+      <div style="display:flex; gap:8px; margin-top:10px;">
+        <button type="button" class="btn-submit" id="btn-lote-aplicar" onclick="guardarEdicionLote()">Aplicar a seleccionados</button>
+        <button type="button" class="btn-cancel" style="display:inline-block;" onclick="cerrarEdicionLote()">Cancelar</button>
+      </div>
     </div>
   </div>
 

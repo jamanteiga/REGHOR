@@ -82,6 +82,13 @@ let tareasCargadasCache = [];
 let rangoActivo = null;
 
 // ------------------------------------------------------------
+// Edición en lote: ids (Supabase) de las filas actualmente marcadas con su
+// casilla, para editar o eliminar varios registros a la vez (ver
+// toggleSeleccionFila, abrirEdicionLote, eliminarSeleccionLote más abajo).
+// ------------------------------------------------------------
+let seleccionLote = new Set();
+
+// ------------------------------------------------------------
 // Registro automático "AOYV" al empezar el día (ver iniciarRegistroAOYV).
 // registroAOYVAbiertoId: id en Supabase del registro AOYV todavía "abierto"
 // (sin que se haya guardado ninguna tarea real después), o null si no hay
@@ -906,6 +913,8 @@ async function cargarTareas() {
       // error) seguiría mostrando -para cálculos como el Rto de la cabecera-
       // los registros del último día que sí se cargó con éxito.
       tareasCargadasCache = [];
+      seleccionLote.clear();
+      actualizarBarraLote();
       actualizarAvisoAbiertas([]);
       await actualizarResumenHoras([], fechaFiltroStr);
       return;
@@ -917,6 +926,8 @@ async function cargarTareas() {
       // caché del día anterior (p.ej. el Rto de la cabecera seguía mostrando
       // el % de un día distinto al que realmente se está viendo).
       tareasCargadasCache = [];
+      seleccionLote.clear();
+      actualizarBarraLote();
       actualizarAvisoAbiertas([]);
       await actualizarResumenHoras([], fechaFiltroStr);
       // Jornada que empieza sola: solo en el día de hoy y si no está cerrado.
@@ -967,6 +978,8 @@ async function cargarTareas() {
   } catch(err) {
     console.error("Error inesperado en cargarTareas:", err);
     tablaBody.innerHTML = `<div class="tabla-msg" style="color:red;">Error al procesar la solicitud.</div>`;
+    seleccionLote.clear();
+    actualizarBarraLote();
     actualizarAvisoAbiertas([]);
     await actualizarResumenHoras([], fechaFiltroStr);
   }
@@ -983,13 +996,23 @@ function renderFilasTabla(lista) {
   const tablaBody = document.getElementById('tabla-body');
   if (!tablaBody) return;
 
+  // Se quitan de la selección en lote los ids que ya no están en pantalla
+  // (p.ej. han cambiado de fecha/filtro), para que la barra de edición en
+  // lote nunca cuente registros que ya no se ven.
+  const idsVisibles = new Set(lista.map(item => item.id));
+  Array.from(seleccionLote).forEach(id => { if (!idsVisibles.has(id)) seleccionLote.delete(id); });
+
   tablaBody.innerHTML = lista.map((item, idx) => {
     let rawF = String(item.fecha || '').trim();
     let fDisplay = rawF.includes('T') ? rawF.split('T')[0] : rawF.split(' ')[0];
+    const marcado = seleccionLote.has(item.id) ? 'checked' : '';
 
     return `
       <div class="tabla-grid-row tabla-row" ondblclick="cargarParaEditar(${item.id})" oncontextmenu="mostrarMenuContextual(event, ${item.id})" title="Doble clic para editar · clic derecho para más opciones">
-        <div class="celda-numero">${idx + 1}</div>
+        <div class="celda-numero celda-numero-lote">
+          <input type="checkbox" onclick="event.stopPropagation()" onchange="toggleSeleccionFila(${item.id}, this.checked)" ${marcado}>
+          <span>${idx + 1}</span>
+        </div>
         <div>${fDisplay}</div>
         <div>${item.tarea || ''}</div>
         <div>${item.proyecto || ''}</div>
@@ -1002,6 +1025,193 @@ function renderFilasTabla(lista) {
       </div>
     `;
   }).join('');
+
+  actualizarBarraLote();
+}
+
+// ------------------------------------------------------------
+// Edición en lote (selección múltiple de filas + edición/eliminación masiva)
+// ------------------------------------------------------------
+
+const TEXTOS_BARRA_LOTE = {
+  es: (n) => `${n} seleccionado${n === 1 ? '' : 's'}`,
+  gl: (n) => `${n} seleccionado${n === 1 ? '' : 's'}`,
+  en: (n) => `${n} selected`
+};
+
+function actualizarBarraLote() {
+  const barra = document.getElementById('barra-lote');
+  const contador = document.getElementById('txt-barra-lote-contador');
+  if (!barra || !contador) return;
+
+  const n = seleccionLote.size;
+  barra.style.display = n > 0 ? 'flex' : 'none';
+  const f = TEXTOS_BARRA_LOTE[idiomaActual] || TEXTOS_BARRA_LOTE.es;
+  contador.textContent = f(n);
+
+  const chkTodos = document.getElementById('chk-seleccionar-todos');
+  if (chkTodos) {
+    const idsEnPantalla = Array.from(document.querySelectorAll('#tabla-body .celda-numero-lote input[type="checkbox"]'));
+    chkTodos.checked = idsEnPantalla.length > 0 && idsEnPantalla.every(chk => chk.checked);
+  }
+}
+
+function toggleSeleccionFila(id, marcado) {
+  if (marcado) seleccionLote.add(id);
+  else seleccionLote.delete(id);
+  actualizarBarraLote();
+}
+
+function toggleSeleccionarTodos(marcarTodos) {
+  document.querySelectorAll('#tabla-body .tabla-row').forEach(fila => {
+    const chk = fila.querySelector('.celda-numero-lote input[type="checkbox"]');
+    if (!chk) return;
+    chk.checked = marcarTodos;
+  });
+  // Se reconstruye la selección a partir de lo visible en pantalla en vez de
+  // tocar seleccionLote fila a fila, para no arrastrar ids de un filtro
+  // anterior si el usuario ha filtrado el listado mientras tenía algo marcado.
+  const idsVisibles = tareasCargadasCache
+    .filter(t => aplicaFiltroInstantaneoActivo(t))
+    .map(t => t.id);
+  if (marcarTodos) {
+    idsVisibles.forEach(id => seleccionLote.add(id));
+  } else {
+    idsVisibles.forEach(id => seleccionLote.delete(id));
+  }
+  actualizarBarraLote();
+}
+
+/** Devuelve true si el registro `t` sigue visible bajo el filtro instantáneo actual (o si no hay ninguno activo). */
+function aplicaFiltroInstantaneoActivo(t) {
+  const inputFiltro = document.getElementById('filtro-listado');
+  const patron = inputFiltro ? inputFiltro.value : '';
+  if (!patron || !patron.trim()) return true;
+  const regex = crearRegexFiltro(patron);
+  if (!regex) return true;
+  return [t.tarea, t.proyecto, t.bloque, t.comentario, t.notas].some(campo => regex.test(String(campo || '')));
+}
+
+function cancelarSeleccionLote() {
+  seleccionLote.clear();
+  document.querySelectorAll('#tabla-body .celda-numero-lote input[type="checkbox"]').forEach(chk => chk.checked = false);
+  actualizarBarraLote();
+}
+
+async function eliminarSeleccionLote() {
+  const n = seleccionLote.size;
+  if (n === 0) return;
+  if (!confirm(`¿Eliminar los ${n} registros seleccionados? Esta acción no se puede deshacer.`)) return;
+
+  const ids = Array.from(seleccionLote);
+  const { error } = await supabaseClient.from(TABLA).delete().in('id', ids);
+  if (error) {
+    alert('Error de Supabase al eliminar en lote: ' + error.message);
+    return;
+  }
+  seleccionLote.clear();
+  if (rangoActivo) {
+    await cargarTareasRango(rangoActivo.desde, rangoActivo.hasta, rangoActivo.tipo);
+  } else {
+    await cargarTareas();
+  }
+  await refrescarRegistrosHoyContador();
+}
+
+function abrirEdicionLote() {
+  if (seleccionLote.size === 0) return;
+  document.getElementById('lote-tarea').value = '';
+  document.getElementById('lote-proyecto').value = '';
+  document.getElementById('lote-bloque').value = '';
+  document.getElementById('lote-comentario').value = '';
+  document.getElementById('modal-lote').style.display = 'flex';
+}
+
+function cerrarEdicionLote() {
+  document.getElementById('modal-lote').style.display = 'none';
+}
+
+async function guardarEdicionLote() {
+  const ids = Array.from(seleccionLote);
+  if (ids.length === 0) { cerrarEdicionLote(); return; }
+
+  // Solo se incluyen en el UPDATE los campos que el usuario ha rellenado;
+  // un campo en blanco significa "no tocar ese campo" en los registros
+  // seleccionados (nunca se vacía nada por accidente).
+  const cambios = {};
+  const tarea = document.getElementById('lote-tarea').value.trim();
+  const proyecto = document.getElementById('lote-proyecto').value.trim();
+  const bloque = document.getElementById('lote-bloque').value.trim();
+  const comentario = document.getElementById('lote-comentario').value.trim();
+  if (tarea) cambios.tarea = tarea;
+  if (proyecto) cambios.proyecto = proyecto;
+  if (bloque) cambios.bloque = bloque.toUpperCase();
+  if (comentario) cambios.comentario = comentario;
+
+  if (Object.keys(cambios).length === 0) {
+    alert('Rellena al menos un campo para aplicar el cambio en lote.');
+    return;
+  }
+
+  if (!confirm(`¿Aplicar estos cambios a los ${ids.length} registros seleccionados?`)) return;
+
+  const { error } = await supabaseClient.from(TABLA).update(cambios).in('id', ids);
+  if (error) {
+    alert('Error de Supabase al editar en lote: ' + error.message);
+    return;
+  }
+
+  cerrarEdicionLote();
+  seleccionLote.clear();
+  if (rangoActivo) {
+    await cargarTareasRango(rangoActivo.desde, rangoActivo.hasta, rangoActivo.tipo);
+  } else {
+    await cargarTareas();
+  }
+  await refrescarRegistrosHoyContador();
+}
+
+// ------------------------------------------------------------
+// Backup / exportación manual de datos (ver tarea 6 de la lista de mejoras).
+// Descarga TODOS los registros de la tabla (no solo los del día/rango que
+// se esté viendo) como un fichero .json, para guardarlos aparte como copia
+// de seguridad. No sustituye a un backup automático en servidor -GitHub
+// Pages no permite ejecutar nada en el servidor-, pero da una forma rápida
+// de tener una copia local cuando se necesite.
+// ------------------------------------------------------------
+async function exportarBackupCompleto() {
+  const btn = document.getElementById('btn-backup');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Generando...'; }
+
+  try {
+    const { data, error } = await supabaseClient.from(TABLA).select('*').order('fecha', { ascending: true });
+    if (error) {
+      alert('Error de Supabase al generar el backup: ' + error.message);
+      return;
+    }
+
+    const contenido = JSON.stringify({
+      generado: new Date().toISOString(),
+      tabla: TABLA,
+      totalRegistros: (data || []).length,
+      registros: data || []
+    }, null, 2);
+
+    const blob = new Blob([contenido], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const fechaSufijo = obtenerFechaHoyISO();
+    a.href = url;
+    a.download = `reghor_backup_${fechaSufijo}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    alert('Error de red al generar el backup.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Backup'; }
+  }
 }
 
 const TEXTOS_FILTRO_SIN_RESULTADOS = {
@@ -1455,6 +1665,8 @@ async function cargarTareasRango(desdeStr, hastaStr, tipo) {
       if (error) {
         console.error('Error al cargar el rango de fechas:', error);
         tablaBody.innerHTML = `<div class="tabla-msg" style="color:red;">Error Supabase: ${error.message}</div>`;
+        seleccionLote.clear();
+        actualizarBarraLote();
         actualizarAvisoAbiertas([]);
         return;
       }
@@ -1483,6 +1695,8 @@ async function cargarTareasRango(desdeStr, hastaStr, tipo) {
 
     if (tareas.length === 0) {
       tablaBody.innerHTML = `<div class="tabla-msg">No existen registros guardados entre ${desdeStr} y ${hastaStr}.</div>`;
+      seleccionLote.clear();
+      actualizarBarraLote();
     } else {
       renderFilasTabla(tareas);
     }
@@ -1492,6 +1706,8 @@ async function cargarTareasRango(desdeStr, hastaStr, tipo) {
   } catch (err) {
     console.error('Error inesperado al cargar el rango de fechas:', err);
     tablaBody.innerHTML = `<div class="tabla-msg" style="color:red;">Error al procesar la solicitud.</div>`;
+    seleccionLote.clear();
+    actualizarBarraLote();
   }
 }
 
@@ -1773,6 +1989,61 @@ async function actualizarResumenHoras(listaTareas, fechaStr) {
   elBalance.textContent = `${signoStr}${formatearMinutosAHoras(balanceMinutos)}`;
 
   elBalance.className = balanceMinutos > 0 ? 'saldo-positivo' : (balanceMinutos < 0 ? 'saldo-negativo' : 'saldo-neutro');
+
+  actualizarAvisoAnomalia(balanceMinutos, fechaStr, listaTareas.length);
+}
+
+// ------------------------------------------------------------
+// Aviso de jornada anómala: desviaciones grandes sobre la jornada teórica
+// del día, que normalmente delatan un olvido (hora fin sin corregir,
+// registro duplicado, fecha equivocada...) más que una jornada real. El
+// exceso se avisa en cualquier momento (sirve de alerta "esto no cuadra,
+// revísalo"); el defecto solo se avisa una vez el día está cerrado o ya ha
+// pasado, para no mostrar en rojo un día que sencillamente todavía se está
+// trabajando.
+// ------------------------------------------------------------
+const UMBRAL_ANOMALIA_MIN = 120; // 2 horas de desviación
+
+const TEXTOS_ANOMALIA = {
+  es: {
+    exceso: (h) => `⚠️ Jornada anómala: llevas ${h} POR ENCIMA de la jornada teórica. Revisa que las horas sean correctas.`,
+    defecto: (h) => `⚠️ Jornada anómala: este día quedó ${h} POR DEBAJO de la jornada teórica.`
+  },
+  gl: {
+    exceso: (h) => `⚠️ Xornada anómala: levas ${h} POR RIBA da xornada teórica. Revisa que as horas sexan correctas.`,
+    defecto: (h) => `⚠️ Xornada anómala: este día quedou ${h} POR DEBAIXO da xornada teórica.`
+  },
+  en: {
+    exceso: (h) => `⚠️ Unusual day: you are ${h} ABOVE the theoretical hours. Check the times are correct.`,
+    defecto: (h) => `⚠️ Unusual day: this day ended ${h} BELOW the theoretical hours.`
+  }
+};
+
+function actualizarAvisoAnomalia(balanceMinutos, fechaStr, numRegistros) {
+  const el = document.getElementById('aviso-anomalia');
+  if (!el) return;
+
+  if (!numRegistros) {
+    el.style.display = 'none';
+    return;
+  }
+
+  const t = TEXTOS_ANOMALIA[idiomaActual] || TEXTOS_ANOMALIA.es;
+
+  if (balanceMinutos > UMBRAL_ANOMALIA_MIN) {
+    el.textContent = t.exceso(formatearMinutosAHoras(balanceMinutos));
+    el.style.display = '';
+    return;
+  }
+
+  const diaYaCerradoOPasado = esDiaCerrado(fechaStr) || fechaStr < obtenerFechaHoyISO();
+  if (balanceMinutos < -UMBRAL_ANOMALIA_MIN && diaYaCerradoOPasado) {
+    el.textContent = t.defecto(formatearMinutosAHoras(Math.abs(balanceMinutos)));
+    el.style.display = '';
+    return;
+  }
+
+  el.style.display = 'none';
 }
 
 const TEXTOS_INDEX = {
@@ -1788,7 +2059,10 @@ const TEXTOS_INDEX = {
     filtroHoy: 'Hoy', filtroAyer: 'Ayer', filtroSemana: 'Esta semana', filtroSemanaAnterior: 'Semana pasada',
     filtroMes: 'Este mes', filtroMesAnterior: 'Mes pasado',
     rangoDesde: 'Desde', rangoHasta: 'Hasta', rangoFiltrar: '🔍 Filtrar',
-    rangoMes: 'Mes', rangoLimpiar: '🧹 Limpiar filtro'
+    rangoMes: 'Mes', rangoLimpiar: '🧹 Limpiar filtro',
+    backup: '💾 Backup', loteEditar: '✏️ Editar en lote', loteEliminar: '🗑️ Eliminar seleccionados', loteCancelar: '✕ Cancelar',
+    loteTitulo: 'Editar en lote', loteInfo: 'Deja un campo en blanco para no modificarlo en los registros seleccionados.',
+    loteAplicar: 'Aplicar a seleccionados'
   },
   gl: {
     titulo: 'REGHOR', fecha: 'Data', tarea: 'Tarefa', proyecto: 'Proxecto', bloque: 'Bloque',
@@ -1802,7 +2076,10 @@ const TEXTOS_INDEX = {
     filtroHoy: 'Hoxe', filtroAyer: 'Onte', filtroSemana: 'Esta semana', filtroSemanaAnterior: 'Semana pasada',
     filtroMes: 'Este mes', filtroMesAnterior: 'Mes pasado',
     rangoDesde: 'Desde', rangoHasta: 'Ata', rangoFiltrar: '🔍 Filtrar',
-    rangoMes: 'Mes', rangoLimpiar: '🧹 Limpar filtro'
+    rangoMes: 'Mes', rangoLimpiar: '🧹 Limpar filtro',
+    backup: '💾 Backup', loteEditar: '✏️ Editar en lote', loteEliminar: '🗑️ Eliminar seleccionados', loteCancelar: '✕ Cancelar',
+    loteTitulo: 'Editar en lote', loteInfo: 'Deixa un campo en branco para non modificalo nos rexistros seleccionados.',
+    loteAplicar: 'Aplicar aos seleccionados'
   },
   en: {
     titulo: 'REGHOR', fecha: 'Date', tarea: 'Task', proyecto: 'Project', bloque: 'Block',
@@ -1816,7 +2093,10 @@ const TEXTOS_INDEX = {
     filtroHoy: 'Today', filtroAyer: 'Yesterday', filtroSemana: 'This week', filtroSemanaAnterior: 'Last week',
     filtroMes: 'This month', filtroMesAnterior: 'Last month',
     rangoDesde: 'From', rangoHasta: 'To', rangoFiltrar: '🔍 Filter',
-    rangoMes: 'Month', rangoLimpiar: '🧹 Clear filter'
+    rangoMes: 'Month', rangoLimpiar: '🧹 Clear filter',
+    backup: '💾 Backup', loteEditar: '✏️ Batch edit', loteEliminar: '🗑️ Delete selected', loteCancelar: '✕ Cancel',
+    loteTitulo: 'Batch edit', loteInfo: 'Leave a field blank to leave it unchanged on the selected records.',
+    loteAplicar: 'Apply to selected'
   }
 };
 
@@ -1892,6 +2172,30 @@ function cambiarIdioma(lang) {
   if (lblRangoHasta) lblRangoHasta.textContent = t.rangoHasta;
   if (btnFiltrarRango) btnFiltrarRango.textContent = t.rangoFiltrar;
   if (btnLimpiarFiltro) btnLimpiarFiltro.textContent = t.rangoLimpiar;
+
+  const btnBackup = document.getElementById('btn-backup');
+  if (btnBackup) btnBackup.textContent = t.backup;
+  const btnLoteEditar = document.getElementById('btn-lote-editar');
+  const btnLoteEliminar = document.getElementById('btn-lote-eliminar');
+  const btnLoteCancelar = document.getElementById('btn-lote-cancelar');
+  if (btnLoteEditar) btnLoteEditar.textContent = t.loteEditar;
+  if (btnLoteEliminar) btnLoteEliminar.textContent = t.loteEliminar;
+  if (btnLoteCancelar) btnLoteCancelar.textContent = t.loteCancelar;
+  const modalLoteTitulo = document.getElementById('modal-lote-titulo');
+  const txtModalLoteInfo = document.getElementById('txt-modal-lote-info');
+  if (modalLoteTitulo) modalLoteTitulo.textContent = t.loteTitulo;
+  if (txtModalLoteInfo) txtModalLoteInfo.textContent = t.loteInfo;
+  const lblLoteTarea = document.getElementById('lbl-lote-tarea');
+  const lblLoteProyecto = document.getElementById('lbl-lote-proyecto');
+  const lblLoteBloque = document.getElementById('lbl-lote-bloque');
+  const lblLoteComentario = document.getElementById('lbl-lote-comentario');
+  if (lblLoteTarea) lblLoteTarea.textContent = t.tarea;
+  if (lblLoteProyecto) lblLoteProyecto.textContent = t.proyecto;
+  if (lblLoteBloque) lblLoteBloque.textContent = t.bloque;
+  if (lblLoteComentario) lblLoteComentario.textContent = t.comentario;
+  const btnLoteAplicar = document.getElementById('btn-lote-aplicar');
+  if (btnLoteAplicar) btnLoteAplicar.textContent = t.loteAplicar;
+  actualizarBarraLote();
 
   actualizarEstadoDiaCerrado();
   actualizarEtiquetaTeoricaSegunModo();

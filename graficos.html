@@ -4,6 +4,10 @@
   <script src="auth.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#007bff">
+  <link rel="icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
   <title>REGHOR - Análisis Gráfico</title>
   <style>
     :root {
@@ -148,11 +152,61 @@
     .tabla-entrada-salida tbody tr:hover {
       background-color: rgba(0, 123, 255, 0.08);
     }
+
+    .btn-cierre-pdf { background-color: #fd7e14; }
+    .btn-cierre-pdf:hover { background-color: #d9690a; }
+    .btn-calendario { background-color: #20c997; }
+    .btn-calendario:hover { background-color: #199d79; }
+
+    /* Vista de calendario mensual */
+    .calendario-cabecera {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .calendario-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 6px;
+    }
+    .calendario-dia-nombre {
+      text-align: center;
+      font-weight: bold;
+      font-size: 12px;
+      padding: 4px 0;
+      color: var(--text-color);
+      opacity: 0.7;
+    }
+    .calendario-celda {
+      min-height: 64px;
+      border-radius: 6px;
+      padding: 6px;
+      font-size: 11px;
+      border: 1px solid var(--border-color);
+    }
+    .calendario-celda-vacia { background: transparent; border: none; }
+    .calendario-celda .cal-dia-num { font-weight: bold; font-size: 13px; display: block; margin-bottom: 4px; }
+    .calendario-celda .cal-horas { font-variant-numeric: tabular-nums; }
+    .calendario-celda .cal-balance { font-variant-numeric: tabular-nums; font-size: 10px; opacity: 0.85; }
+
+    .cal-neutro { background: rgba(108, 117, 125, 0.12); }
+    .cal-cumplido { background: rgba(40, 167, 69, 0.22); }
+    .cal-exceso { background: rgba(23, 162, 184, 0.22); }
+    .cal-deficit { background: rgba(220, 53, 69, 0.22); }
+    .cal-pendiente { background: rgba(255, 255, 255, 0.02); }
+
+    .calendario-leyenda { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 12px; font-size: 11px; }
+    .calendario-leyenda span { display: inline-flex; align-items: center; gap: 4px; }
+    .calendario-leyenda i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
   </style>
   <!-- Supabase JS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <!-- Chart.js Engine (versión fijada: evita que una actualización mayor rompa los gráficos sin aviso) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <!-- jsPDF + autoTable (versiones fijadas), para el Cierre mensual en PDF -->
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
 
@@ -253,6 +307,8 @@
     <button class="btn-generar" id="btn-actualizar" onclick="generarGrafico()">Actualizar Gráfico</button>
     <button class="btn-generar btn-rendimiento" id="btn-rendimiento" onclick="generarGraficoRendimiento()">📊 Rendimiento de Jornada</button>
     <button class="btn-generar btn-entrada-salida" id="btn-entrada-salida" onclick="generarTablaEntradaSalida()">🕒 Entrada / Salida</button>
+    <button class="btn-generar btn-calendario" id="btn-calendario" onclick="generarCalendarioMensual()">🗓️ Calendario mensual</button>
+    <button class="btn-generar btn-cierre-pdf" id="btn-cierre-pdf" onclick="generarCierreMensualPDF()">🧾 Cierre mensual (PDF)</button>
   </div>
 
   <div class="contenedor-grafico" id="contenedor-grafico">
@@ -272,6 +328,19 @@
       </thead>
       <tbody id="cuerpo-tabla-entrada-salida"></tbody>
     </table>
+  </div>
+
+  <div class="contenedor-tabla" id="contenedor-calendario" style="display:none;">
+    <div class="calendario-cabecera">
+      <h3 id="txt-calendario-titulo" style="margin:0;">Calendario mensual</h3>
+    </div>
+    <div class="calendario-grid" id="calendario-grid"></div>
+    <div class="calendario-leyenda">
+      <span><i class="cal-cumplido"></i> <span id="leyenda-cumplido">Jornada cumplida</span></span>
+      <span><i class="cal-exceso"></i> <span id="leyenda-exceso">Por encima de la teórica</span></span>
+      <span><i class="cal-deficit"></i> <span id="leyenda-deficit">Por debajo de la teórica</span></span>
+      <span><i class="cal-neutro"></i> <span id="leyenda-neutro">Sin jornada (fin de semana/festivo)</span></span>
+    </div>
   </div>
 
   <script src="config.js"></script>
