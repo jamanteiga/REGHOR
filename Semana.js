@@ -297,12 +297,12 @@ async function cargarSemana(lunes) {
  * Fórmula de la hora de salida prevista del viernes:
  *  - Horas totales de la semana = suma de la jornada teórica de los 5 días
  *    laborables (obtenerJornadaTeoricaMinutos ya da 0 en festivo/fin de
- *    semana, 7:00 todos los días en verano, y 8:40 lunes-jueves + 7:00
- *    viernes en horario de invierno) → 41:40 en invierno sin festivos, 35:00
+ *    semana, 7:00 todos los días en verano, y 8:30 lunes-jueves + 7:00
+ *    viernes en horario de invierno) → 41:00 en invierno sin festivos, 35:00
  *    en verano sin festivos, menos las horas de cualquier festivo de Ferrol
  *    que caiga esa semana.
  *  - Horas pendientes de trabajo el viernes = horas totales de la semana -
- *    horas trabajadas de lunes a jueves (si algún día se superan las 8:40
+ *    horas trabajadas de lunes a jueves (si algún día se superan las 8:30
  *    teóricas, ese exceso ya reduce lo pendiente del viernes). Un día de
  *    lunes a jueves SIN NINGÚN registro cuenta como si se hubiera cumplido
  *    su jornada teórica -no como 0-, para no penalizar el viernes por días

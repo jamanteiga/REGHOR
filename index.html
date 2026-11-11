@@ -92,6 +92,8 @@
     .btn-cerrar:hover { background-color: #bd2130; }
     .btn-ausencia { background-color: #d6009a; color: white; border: none; }
     .btn-ausencia:hover { background-color: #b0007e; }
+    .btn-comida { background-color: #fd7e14; color: white; border: none; }
+    .btn-comida:hover { background-color: #d9690a; }
 
     /* Formulario: grid con los mismos anchos de columna que el listado de tareas */
     form, .modal-content { background: var(--card-bg); padding: 12px 20px; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); flex: 0 0 auto; }
@@ -600,6 +602,7 @@
       <a href="festivos.html" class="icon-btn" id="btn-festivos">🎌 Festivos</a>
       <a href="graficos.html" class="icon-btn" id="btn-graficos">📈 Gráficos</a>
       <a href="Semana.html" class="icon-btn" id="btn-semana">📅 Registro Semana</a>
+      <button type="button" class="icon-btn btn-comida" onclick="iniciarComida()" id="btn-comida" title="Guarda la tarea actual (si la hay) y registra la Comida desde ese momento hasta 30 minutos después">🍽️ Comida</button>
       <button type="button" class="icon-btn btn-ausencia" onclick="iniciarAusencia()" id="btn-ausencia" title="Guarda la tarea actual (si la hay) y abre un registro nuevo de ausencia con la hora de inicio actual">🚶 Ausencia</button>
       <button type="button" class="icon-btn btn-finalizar-jornada" onclick="alternarFinalizarJornada()" id="btn-finalizar-jornada" title="Impide añadir nuevas tareas para la fecha seleccionada. Las ya guardadas se pueden seguir editando o eliminando.">🔒 Finalizar jornada</button>
       <button type="button" class="icon-btn" onclick="exportarBackupCompleto()" id="btn-backup" title="Descarga una copia de seguridad (JSON) de TODOS los registros guardados en Supabase">💾 Backup</button>

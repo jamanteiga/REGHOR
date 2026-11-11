@@ -1896,6 +1896,54 @@ async function iniciarAusencia() {
   await guardarRegistroFormulario();
 }
 
+/**
+ * Botón "Comida": igual que "Ausencia" en que primero cierra (y guarda) la
+ * tarea en curso poniéndole la hora de fin a la hora actual si no la tenía
+ * ya puesta a mano. A continuación crea y guarda automáticamente un nuevo
+ * registro de "Comida" (proyecto "COM") cuya hora de inicio es ese mismo
+ * instante (el fin de la tarea anterior) y cuya hora de fin es 30 minutos
+ * más tarde.
+ */
+async function iniciarComida() {
+  const form = document.getElementById('tarea-form');
+
+  const ahora = new Date();
+  const horaActual = `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`;
+
+  const inputHoraFin = document.getElementById('horafin');
+  if (document.getElementById('horainicio').value && !inputHoraFin.value) {
+    inputHoraFin.value = horaActual;
+  }
+
+  if (form.checkValidity()) {
+    const guardadoOk = await guardarRegistroFormulario();
+    if (!guardadoOk) return;
+  }
+
+  document.getElementById('tarea-id').value = '';
+  document.getElementById('fecha').value = obtenerFechaHoyISO();
+  document.getElementById('tarea').value = 'Comida';
+  document.getElementById('proyecto').value = 'COM';
+  document.getElementById('bloque').value = 'GENERAL';
+  document.getElementById('horainicio').value = horaActual;
+  document.getElementById('horafin').value = sumarMinutosAHora(horaActual, 30);
+  document.getElementById('comentario').value = 'Comida';
+  document.getElementById('notas').value = '';
+
+  // Se guarda de inmediato: no se deja pendiente de que el usuario pulse Guardar.
+  await guardarRegistroFormulario();
+}
+
+/** Suma minutos (puede ser negativo) a una hora 'HH:MM', con vuelta de 24h. */
+function sumarMinutosAHora(horaStr, minutosExtra) {
+  const [h, m] = horaStr.split(':').map(Number);
+  let total = h * 60 + m + minutosExtra;
+  total = ((total % 1440) + 1440) % 1440;
+  const hh = String(Math.floor(total / 60)).padStart(2, '0');
+  const mm = String(total % 60).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
+
 async function borrarTarea(id) {
   if (confirm('¿Eliminar este registro?')) {
     await supabaseClient.from(TABLA).delete().eq('id', id);
@@ -2051,7 +2099,7 @@ const TEXTOS_INDEX = {
     titulo: 'REGHOR', fecha: 'Fecha', tarea: 'Tarea', proyecto: 'Proyecto', bloque: 'Bloque',
     horainicio: 'Hora inicio', horafin: 'Hora fin', comentario: 'Comentario', notas: 'Notas',
     acciones: 'Acciones', listado: 'Listado de tareas', informes: '📊 Informes', graficos: '📈 Gráficos', semana: '📅 Registro Semana',
-    ausencia: '🚶 Ausencia',
+    ausencia: '🚶 Ausencia', comida: '🍽️ Comida',
     guardar: 'Guardar', actualizar: 'Actualizar', cancelar: 'Cancelar',
     teorica: 'Jornada Teórica del Día:', total: 'Total Horas Trabajadas:', balance: 'Balance / Horas Extra:',
     menuEditar: '✏️ Editar', menuDuplicar: '📋 Duplicar', menuEliminar: '🗑️ Eliminar',
@@ -2068,7 +2116,7 @@ const TEXTOS_INDEX = {
     titulo: 'REGHOR', fecha: 'Data', tarea: 'Tarefa', proyecto: 'Proxecto', bloque: 'Bloque',
     horainicio: 'Hora inicio', horafin: 'Hora fin', comentario: 'Comentario', notas: 'Notas',
     acciones: 'Accións', listado: 'Listaxe de tarefas', informes: '📊 Informes', graficos: '📈 Gráficas', semana: '📅 Rexistro Semana',
-    ausencia: '🚶 Ausencia',
+    ausencia: '🚶 Ausencia', comida: '🍽️ Comida',
     guardar: 'Gardar', actualizar: 'Actualizar', cancelar: 'Cancelar',
     teorica: 'Xornada Teórica do Día:', total: 'Total Horas Traballadas:', balance: 'Balance / Horas Extra:',
     menuEditar: '✏️ Editar', menuDuplicar: '📋 Duplicar', menuEliminar: '🗑️ Eliminar',
@@ -2085,7 +2133,7 @@ const TEXTOS_INDEX = {
     titulo: 'REGHOR', fecha: 'Date', tarea: 'Task', proyecto: 'Project', bloque: 'Block',
     horainicio: 'Start Time', horafin: 'End Time', comentario: 'Comment', notas: 'Notes',
     acciones: 'Actions', listado: 'Task list', informes: '📊 Reports', graficos: '📈 Charts', semana: '📅 Week Log',
-    ausencia: '🚶 Absence',
+    ausencia: '🚶 Absence', comida: '🍽️ Meal',
     guardar: 'Save', actualizar: 'Update', cancelar: 'Cancel',
     teorica: 'Theoretical Day Hours:', total: 'Total Hours Worked:', balance: 'Balance / Overtime:',
     menuEditar: '✏️ Edit', menuDuplicar: '📋 Duplicate', menuEliminar: '🗑️ Delete',
@@ -2118,6 +2166,7 @@ function cambiarIdioma(lang) {
   document.getElementById('btn-graficos').textContent = t.graficos;
   document.getElementById('btn-semana').textContent = t.semana;
   document.getElementById('btn-ausencia').textContent = t.ausencia;
+  document.getElementById('btn-comida').textContent = t.comida;
   document.getElementById('btn-cancelar').textContent = t.cancelar;
 
   const idEditando = document.getElementById('tarea-id').value;
