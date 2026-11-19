@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <script src="auth.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#007bff">
+  <link rel="icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <title>REGHOR - Análisis Gráfico</title>
+  <style>
+    :root {
+      --bg-color: #f4f7f6;
+      --card-bg: #ffffff;
+      --text-color: #333333;
+      --border-color: #cccccc;
+      --header-bg: #007bff;
+    }
+
+    body.dark-mode {
+      --bg-color: #121212;
+      --card-bg: #1e1e1e;
+      --text-color: #e0e0e0;
+      --border-color: #333333;
+      --header-bg: #0b5ed7;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+    }
+
+    .header-container { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .controls-right { display: flex; gap: 10px; align-items: center; }
+
+    .icon-btn { padding: 6px 12px; cursor: pointer; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-color); font-weight: bold; }
+
+    .flag-btn { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 4px; padding: 4px 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .flag-icon { width: 24px; height: 16px; display: block; }
+
+    .btn-cerrar {
+      background-color: #dc3545;
+      color: white;
+      border: none;
+    }
+    .btn-cerrar:hover {
+      background-color: #bd2130;
+    }
+
+    .panel-filtros {
+      background: var(--card-bg);
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: flex-end;
+    }
+
+    .grupo-filtro { display: flex; flex-direction: column; flex: 1 1 120px; min-width: 110px; }
+
+    /* El grupo "Rango Rápido" (Hoy/Semana/Mes) tiene muy poco contenido; si
+       se deja crecer como el resto de grupos (flex: 1 1 120px) se estira y
+       deja un hueco enorme antes de "Desde Fecha". Con flex: 0 0 auto
+       ocupa solo su ancho natural y todo lo demás queda pegado a la
+       izquierda, con la separación normal (gap) del panel. */
+    .grupo-rango-rapido { flex: 0 0 auto; min-width: 0; }
+    .grupo-filtro label { font-weight: bold; font-size: 12px; margin-bottom: 4px; }
+    input, select { padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--card-bg); color: var(--text-color); font-size: 12px; width: 100%; box-sizing: border-box; }
+
+    .grupo-rapido {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .btn-rapido {
+      background-color: #6c757d;
+      color: white;
+      border: none;
+      padding: 6px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: bold;
+    }
+    .btn-rapido:hover {
+      background-color: #5a6268;
+    }
+
+    .btn-generar {
+      background-color: #28a745;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      height: 31px;
+      white-space: nowrap;
+    }
+    .btn-generar:hover {
+      background-color: #218838;
+    }
+    .btn-rendimiento { background-color: #6f42c1; }
+    .btn-rendimiento:hover { background-color: #59339d; }
+    .btn-entrada-salida { background-color: #17a2b8; }
+    .btn-entrada-salida:hover { background-color: #117a8b; }
+    .btn-entrada-salida-grafico { background-color: #0d6efd; }
+    .btn-entrada-salida-grafico:hover { background-color: #0b5ed7; }
+
+    .contenedor-grafico {
+      background: var(--card-bg);
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      position: relative;
+      height: 60vh;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .contenedor-tabla {
+      background: var(--card-bg);
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      width: 100%;
+      box-sizing: border-box;
+      overflow-x: auto;
+    }
+
+    .tabla-entrada-salida {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .tabla-entrada-salida th, .tabla-entrada-salida td {
+      padding: 8px 10px;
+      text-align: left;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .tabla-entrada-salida th {
+      background-color: var(--header-bg);
+      color: #fff;
+      position: sticky;
+      top: 0;
+    }
+    .tabla-entrada-salida tbody tr:hover {
+      background-color: rgba(0, 123, 255, 0.08);
+    }
+
+    .btn-cierre-pdf { background-color: #fd7e14; }
+    .btn-cierre-pdf:hover { background-color: #d9690a; }
+    .btn-calendario { background-color: #20c997; }
+    .btn-calendario:hover { background-color: #199d79; }
+
+    /* Vista de calendario mensual */
+    .calendario-cabecera {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .calendario-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 6px;
+    }
+    .calendario-dia-nombre {
+      text-align: center;
+      font-weight: bold;
+      font-size: 12px;
+      padding: 4px 0;
+      color: var(--text-color);
+      opacity: 0.7;
+    }
+    .calendario-celda {
+      min-height: 64px;
+      border-radius: 6px;
+      padding: 6px;
+      font-size: 11px;
+      border: 1px solid var(--border-color);
+    }
+    .calendario-celda-vacia { background: transparent; border: none; }
+    .calendario-celda .cal-dia-num { font-weight: bold; font-size: 13px; display: block; margin-bottom: 4px; }
+    .calendario-celda .cal-horas { font-variant-numeric: tabular-nums; }
+    .calendario-celda .cal-balance { font-variant-numeric: tabular-nums; font-size: 10px; opacity: 0.85; }
+
+    .cal-neutro { background: rgba(108, 117, 125, 0.12); }
+    .cal-cumplido { background: rgba(40, 167, 69, 0.22); }
+    .cal-exceso { background: rgba(23, 162, 184, 0.22); }
+    .cal-deficit { background: rgba(220, 53, 69, 0.22); }
+    .cal-pendiente { background: rgba(255, 255, 255, 0.02); }
+
+    .calendario-leyenda { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 12px; font-size: 11px; }
+    .calendario-leyenda span { display: inline-flex; align-items: center; gap: 4px; }
+    .calendario-leyenda i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  </style>
+  <!-- Supabase JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Chart.js Engine (versión fijada: evita que una actualización mayor rompa los gráficos sin aviso) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <!-- jsPDF + autoTable (versiones fijadas), para el Cierre mensual en PDF -->
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+
+  <div class="header-container">
+    <h1 id="txt-titulo">📈 Análisis Gráfico de Tiempos</h1>
+    <div class="controls-right">
+      <button class="flag-btn" onclick="cambiarIdioma('es')" title="Español">
+        <svg class="flag-icon" viewBox="0 0 750 500">
+          <rect width="750" height="500" fill="#c60b1e"/>
+          <rect y="125" width="750" height="250" fill="#ffc400"/>
+        </svg>
+      </button>
+
+      <button class="flag-btn" onclick="cambiarIdioma('gl')" title="Galego">
+        <svg class="flag-icon" viewBox="0 0 3 2">
+          <rect width="3" height="2" fill="#fff"/>
+          <path d="M0 0 L3 2" stroke="#009ac6" stroke-width="0.4"/>
+        </svg>
+      </button>
+
+      <button class="flag-btn" onclick="cambiarIdioma('en')" title="English">
+        <svg class="flag-icon" viewBox="0 0 60 30">
+          <rect width="60" height="30" fill="#00247d"/>
+          <path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/>
+          <path d="M0,0 L60,30 M60,0 L0,30" stroke="#cf142b" stroke-width="2"/>
+          <path d="M30,0 V30 M0,15 H60" stroke="#fff" stroke-width="10"/>
+          <path d="M30,0 V30 M0,15 H60" stroke="#cf142b" stroke-width="6"/>
+        </svg>
+      </button>
+
+      <button class="icon-btn" onclick="toggleTheme()" id="btn-theme">🌙 Oscuro</button>
+      <button class="icon-btn btn-cerrar" onclick="cerrarSesion()" id="btn-logout" title="Cerrar sesión">🔒 Salir</button>
+      <button class="icon-btn btn-cerrar" onclick="cerrarPestana()" id="btn-cerrar">❌ Cerrar</button>
+    </div>
+  </div>
+
+  <div class="panel-filtros">
+    <div class="grupo-filtro grupo-rango-rapido">
+      <label id="lbl-rango-rapido">Rango Rápido</label>
+      <div class="grupo-rapido">
+        <button class="btn-rapido" id="btn-ayer" onclick="establecerRango('ayer')">Ayer</button>
+        <button class="btn-rapido" id="btn-hoy" onclick="establecerRango('hoy')">Hoy</button>
+        <button class="btn-rapido" id="btn-semana" onclick="establecerRango('semana')">Semana</button>
+        <button class="btn-rapido" id="btn-semana-anterior" onclick="establecerRango('semana_anterior')">Semana anterior</button>
+        <button class="btn-rapido" id="btn-mes" onclick="establecerRango('mes')">Mes</button>
+        <button class="btn-rapido" id="btn-mes-anterior" onclick="establecerRango('mes_anterior')">Mes anterior</button>
+      </div>
+    </div>
+    <div class="grupo-filtro">
+      <label id="lbl-mes-graficos" for="filtro-mes-graficos">Mes</label>
+      <select id="filtro-mes-graficos" onchange="aplicarFiltroMesGraficos()">
+        <option value="">--</option>
+      </select>
+    </div>
+    <div class="grupo-filtro">
+      <label id="lbl-desde">Desde Fecha</label>
+      <input type="date" id="filtro-desde">
+    </div>
+    <div class="grupo-filtro">
+      <label id="lbl-hasta">Hasta Fecha</label>
+      <input type="date" id="filtro-hasta">
+    </div>
+    <div class="grupo-filtro">
+      <label id="lbl-proyecto">Proyecto (*)</label>
+      <input type="text" id="filtro-proyecto" value="*">
+    </div>
+    <div class="grupo-filtro">
+      <label id="lbl-tarea">Tarea (*)</label>
+      <input type="text" id="filtro-tarea" value="*">
+    </div>
+    <div class="grupo-filtro">
+      <label id="lbl-bloque">Bloque (*)</label>
+      <input type="text" id="filtro-bloque" value="*">
+    </div>
+    <div class="grupo-filtro">
+      <label id="lbl-comentarios">Comentarios (*)</label>
+      <input type="text" id="filtro-comentarios" value="*">
+    </div>
+    <div class="grupo-filtro">
+      <label id="lbl-agrupar-por">Agrupar por</label>
+      <select id="agrupar-por">
+        <option value="proyecto" id="opt-agrupar-proyecto">Proyecto</option>
+        <option value="tarea" id="opt-agrupar-tarea">Tarea</option>
+        <option value="bloque" id="opt-agrupar-bloque">Bloque</option>
+        <option value="fecha" id="opt-agrupar-fecha">Fecha</option>
+      </select>
+    </div>
+    <div class="grupo-filtro">
+      <label id="lbl-tipo-grafico">Tipo de Gráfico</label>
+      <select id="tipo-grafico">
+        <option value="bar" id="opt-tipo-bar">Barras</option>
+        <option value="line" id="opt-tipo-line">Línea</option>
+        <option value="area" id="opt-tipo-area">Área</option>
+        <option value="pie" id="opt-tipo-pie">Tarta</option>
+        <option value="doughnut" id="opt-tipo-doughnut">Rosco</option>
+      </select>
+    </div>
+    <button class="btn-generar" id="btn-actualizar" onclick="generarGrafico()">Actualizar Gráfico</button>
+    <button class="btn-generar btn-rendimiento" id="btn-rendimiento" onclick="generarGraficoRendimiento()">📊 Rendimiento de Jornada</button>
+    <button class="btn-generar btn-rendimiento" id="btn-rendimiento-evolucion" onclick="generarGraficoRendimientoEvolucion()">📈 Evolución Rendimiento</button>
+    <button class="btn-generar btn-entrada-salida" id="btn-entrada-salida" onclick="generarTablaEntradaSalida()">🕒 Entrada / Salida (tabla)</button>
+    <button class="btn-generar btn-entrada-salida-grafico" id="btn-entrada-salida-grafico" onclick="generarGraficoEntradaSalida()">📶 Entrada / Salida (gráfico)</button>
+    <button class="btn-generar btn-calendario" id="btn-calendario" onclick="generarCalendarioMensual()">🗓️ Calendario mensual</button>
+    <button class="btn-generar btn-cierre-pdf" id="btn-cierre-pdf" onclick="generarCierreMensualPDF()">🧾 Cierre mensual (PDF)</button>
+  </div>
+
+  <div class="contenedor-grafico" id="contenedor-grafico">
+    <canvas id="miGrafico"></canvas>
+  </div>
+
+  <div class="contenedor-tabla" id="contenedor-tabla-entrada-salida" style="display:none;">
+    <table class="tabla-entrada-salida">
+      <thead>
+        <tr>
+          <th id="th-fecha">Fecha</th>
+          <th id="th-dia">Día</th>
+          <th id="th-entrada">Entrada</th>
+          <th id="th-salida">Salida</th>
+          <th id="th-duracion">Duración</th>
+        </tr>
+      </thead>
+      <tbody id="cuerpo-tabla-entrada-salida"></tbody>
+    </table>
+  </div>
+
+  <div class="contenedor-tabla" id="contenedor-calendario" style="display:none;">
+    <div class="calendario-cabecera">
+      <h3 id="txt-calendario-titulo" style="margin:0;">Calendario mensual</h3>
+    </div>
+    <div class="calendario-grid" id="calendario-grid"></div>
+    <div class="calendario-leyenda">
+      <span><i class="cal-cumplido"></i> <span id="leyenda-cumplido">Jornada cumplida</span></span>
+      <span><i class="cal-exceso"></i> <span id="leyenda-exceso">Por encima de la teórica</span></span>
+      <span><i class="cal-deficit"></i> <span id="leyenda-deficit">Por debajo de la teórica</span></span>
+      <span><i class="cal-neutro"></i> <span id="leyenda-neutro">Sin jornada (fin de semana/festivo)</span></span>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="graficos.js"></script>
+</body>
+</html>

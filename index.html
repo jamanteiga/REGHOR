@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <script src="auth.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#007bff">
+  <link rel="icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <title>REGHOR</title>
+  <style>
+    :root {
+      --bg-color: #f4f7f6;
+      --card-bg: #ffffff;
+      --text-color: #333333;
+      --border-color: #cccccc;
+      --header-bg: #007bff;
+
+      /* Anchos compartidos entre el formulario y el listado de tareas,
+         para que ambos queden alineados visualmente. Con minmax() cada
+         columna se adapta (se encoge) al ancho disponible en vez de
+         quedarse fija, tirando primero de las columnas de texto libre
+         (Tarea, Proyecto, Bloque, Comentario, Notas); el scroll horizontal
+         del contenedor (más abajo) solo entra como último recurso, cuando
+         ya no queda más margen de adaptación. */
+      --w-numero: minmax(28px, 40px);
+      --w-fecha: minmax(142px, 168px);
+      --w-hora: minmax(78px, 100px);
+      --w-duracion: minmax(70px, 90px);
+      --w-acciones: minmax(150px, 210px);
+      --fr-tarea: minmax(70px, 0.8fr);
+      --fr-proyecto: minmax(60px, 0.55fr);
+      --fr-bloque: minmax(70px, 1fr);
+      --fr-comentario: minmax(90px, 2fr);
+      --fr-notas: minmax(70px, 1.1fr);
+
+      /* Altura máxima del listado antes de mostrar scroll interno */
+      --altura-listado: 60vh;
+    }
+
+    body.dark-mode {
+      --bg-color: #121212;
+      --card-bg: #1e1e1e;
+      --text-color: #e0e0e0;
+      --border-color: #333333;
+      --header-bg: #0b5ed7;
+    }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      transition: background 0.3s, color 0.3s;
+      overflow: hidden;
+    }
+
+    /* Contenedor de toda la página en columna: cada bloque ocupa solo su
+       altura natural salvo el listado de tareas, que se reparte el espacio
+       restante y es el único con scroll vertical propio (ver .tabla-body-scroll
+       más abajo). Así la página nunca necesita scroll vertical general. */
+    .page-wrap {
+      height: 100vh;
+      padding: 10px 20px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .header-container { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex: 0 0 auto; }
+    .controls-right { display: flex; gap: 10px; align-items: center; }
+
+    #txt-titulo { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; margin: 0; }
+    #txt-semana { white-space: nowrap; }
+    #reloj-actual { font-variant-numeric: tabular-nums; font-weight: bold; white-space: nowrap; }
+    #contador-efectivo { font-variant-numeric: tabular-nums; font-weight: bold; font-size: 0.6em; white-space: nowrap; }
+    #pct-rendimiento { font-variant-numeric: tabular-nums; font-weight: bold; font-size: 0.6em; white-space: nowrap; }
+    #contador-extra { font-variant-numeric: tabular-nums; font-weight: bold; font-size: 0.6em; white-space: nowrap; }
+
+    /* Banderas SVG */
+    .flag-btn { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 4px; padding: 4px 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .flag-icon { width: 24px; height: 16px; display: block; }
+
+    .icon-btn { padding: 6px 12px; cursor: pointer; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-color); font-weight: bold; text-decoration: none; font-size: 13.33px; display: inline-flex; align-items: center; }
+    .btn-cerrar { background-color: #dc3545; color: white; border: none; }
+    .btn-cerrar:hover { background-color: #bd2130; }
+    .btn-ausencia { background-color: #d6009a; color: white; border: none; }
+    .btn-ausencia:hover { background-color: #b0007e; }
+    .btn-comida { background-color: #fd7e14; color: white; border: none; }
+    .btn-comida:hover { background-color: #d9690a; }
+
+    /* Formulario: grid con los mismos anchos de columna que el listado de tareas */
+    form, .modal-content { background: var(--card-bg); padding: 12px 20px; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); flex: 0 0 auto; }
+
+    /* Por debajo de este ancho, en vez de dejar que las columnas se
+       aplasten y se solapen (pantallas o ventanas estrechas), el
+       formulario/listado hacen scroll horizontal propio, manteniendo las
+       columnas siempre legibles. */
+    form { overflow-x: auto; }
+
+    .form-grid {
+      min-width: 900px;
+      display: grid;
+      grid-template-columns:
+        var(--w-numero)
+        var(--w-fecha)
+        var(--fr-tarea)
+        var(--fr-proyecto)
+        var(--fr-bloque)
+        var(--w-hora)
+        var(--w-hora)
+        var(--fr-comentario)
+        var(--fr-notas)
+        var(--w-acciones);
+      gap: 8px;
+      align-items: end;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .form-group-btn {
+      display: flex;
+      gap: 6px;
+      align-items: flex-end;
+      min-width: 0;
+    }
+    .form-group-btn button { flex: 1; min-width: 0; }
+
+    .label-wrapper { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+    .label-wrapper label, .form-group > label { font-weight: bold; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    input, select, textarea { padding: 6px 6px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--card-bg); color: var(--text-color); font-size: 12px; width: 100%; box-sizing: border-box; transition: border-color 0.15s, box-shadow 0.15s; }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: var(--header-bg); box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25); }
+    textarea { font-family: inherit; resize: vertical; min-height: 31px; }
+
+    .btn-mini { padding: 2px 4px; font-size: 10px; cursor: pointer; border-radius: 3px; border: 1px solid var(--border-color); background: #e9ecef; color: #000; font-weight: bold; white-space: nowrap; }
+    body.dark-mode .btn-mini { background: #333; color: #fff; }
+
+    /* Campo Fecha con los botones de navegación de día anterior/siguiente a
+       cada lado. El propio <input type="date"> ocupa el espacio restante
+       (flex:1) y los botones se quedan fijos y pequeños junto a él. */
+    /* El campo Fecha "roba" 21px de ancho a la columna vacía de relleno que
+       tiene justo a la izquierda (solo ahí para alinear con el Nº del
+       listado, nunca tiene contenido propio) -así el botón ◁ queda metido
+       en ese hueco y el <input type="date"> recupera el ancho que antes
+       le quitaban los dos botones, suficiente para ver "dd/mm/aaaa" entero
+       en vez de cortarse en "dd/mm". 21px = ancho de un botón (18px) + el
+       gap (3px) que había entre ambos; la columna de relleno mide como
+       mínimo 28px más el gap de 8px del grid, así que siempre hay sitio de
+       sobra para este hueco sin invadir la columna Nº. */
+    .fecha-nav-wrapper {
+      display: flex;
+      align-items: stretch;
+      gap: 3px;
+      margin-left: -21px;
+      width: calc(100% + 21px);
+    }
+    .fecha-nav-wrapper input[type="date"] {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .btn-fecha-nav {
+      flex: 0 0 auto;
+      width: 18px;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      line-height: 1;
+      cursor: pointer;
+      border: 1px solid var(--border-color);
+      border-radius: 3px;
+      background: var(--card-bg);
+      color: var(--text-color);
+      opacity: 0.7;
+    }
+    .btn-fecha-nav:hover { opacity: 1; background-color: rgba(0, 123, 255, 0.15); }
+
+    /* Botones de acción */
+    .btn-submit {
+      background-color: #28a745;
+      color: white;
+      padding: 6px 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 12px;
+      white-space: nowrap;
+      height: 31px;
+    }
+    .btn-cancel {
+      background-color: #6c757d;
+      color: white;
+      padding: 6px 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 12px;
+      white-space: nowrap;
+      height: 31px;
+      display: none;
+    }
+
+    /* Modal Config: altura acotada a la ventana (con scroll interno en el
+       listado) pero de al menos media pantalla, para que no se quede ni
+       enorme (con muchas tareas) ni diminuta (con pocas). */
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+    .modal-content {
+      width: 350px;
+      max-width: 90%;
+      min-height: 50vh;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+    .close-modal { position: absolute; top: 12px; right: 16px; cursor: pointer; font-weight: bold; font-size: 20px; }
+    #modal-titulo { margin: 0 24px 12px 0; flex: 0 0 auto; }
+    #lista-config { flex: 1 1 auto; overflow-y: auto; margin: 0; }
+
+    /* Listado de tareas: filas en grid con los mismos anchos que el formulario,
+       más las columnas Duración y Acciones que no existen en el formulario. */
+    /* padding horizontal 20px = el mismo que usa <form>, para que las
+       columnas queden alineadas en vertical con los campos de entrada. */
+    .tabla-container {
+      background: var(--card-bg);
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      padding: 12px 20px;
+      box-sizing: border-box;
+      overflow-x: auto;
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+    .tabla-container .tabla-grid-row { flex: 0 0 auto; }
+
+    /* Mismo orden que el formulario (Fecha…Notas) y con los mismos anchos,
+       para que ambos bloques queden alineados en vertical; Duración es la
+       única columna adicional que el formulario no tiene (las acciones
+       de cada fila ahora se hacen con el menú contextual del clic derecho,
+       no ocupan columna). */
+    .tabla-grid-row {
+      min-width: 850px;
+      display: grid;
+      grid-template-columns:
+        var(--w-numero)
+        var(--w-fecha)
+        var(--fr-tarea)
+        var(--fr-proyecto)
+        var(--fr-bloque)
+        var(--w-hora)
+        var(--w-hora)
+        var(--fr-comentario)
+        var(--fr-notas)
+        var(--w-duracion);
+      gap: 8px;
+      align-items: center;
+    }
+
+    .celda-numero { text-align: center; color: var(--text-color); opacity: 0.6; font-size: 12px; }
+    .tabla-header-row .celda-numero { opacity: 1; }
+
+    .tabla-header-row {
+      background-color: var(--header-bg);
+      color: #fff;
+      font-weight: bold;
+      font-size: 13px;
+      border-radius: 6px;
+    }
+    .tabla-header-row > div {
+      position: relative;
+      padding: 8px 6px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Tirador para arrastrar y ajustar el ancho de una columna del listado
+       (y, al compartir variables CSS con el formulario, también del
+       formulario). El scroll horizontal ya existente actúa como red de
+       seguridad cuando se ensancha una columna más allá del hueco disponible. */
+    .col-resize-handle {
+      position: absolute;
+      top: 0;
+      right: -4px;
+      bottom: 0;
+      width: 10px;
+      cursor: col-resize;
+      z-index: 5;
+      touch-action: none;
+    }
+    .col-resize-handle:hover,
+    .col-resize-handle.redimensionando {
+      background-color: rgba(255, 255, 255, 0.35);
+    }
+
+    /* Solo esta zona hace scroll vertical: el resto de la página
+       (formulario, cabecera del listado y pie con los totales) permanece siempre
+       visible. Ocupa todo el espacio vertical restante de .tabla-container
+       (flex:1) en vez de una altura fija, para que la página completa quepa
+       siempre sin scroll general. min-height:0 es necesario para que el
+       flex-item pueda encogerse por debajo de su contenido y active el
+       scroll interno en vez de desbordar la página. */
+    .tabla-body-scroll {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+    }
+
+    .tabla-row > div, .tabla-footer-row > div {
+      padding: 8px 6px;
+      border-bottom: 1px solid var(--border-color);
+      font-size: 13px;
+      white-space: normal;
+      word-break: break-word;
+    }
+
+    .tabla-row { cursor: pointer; }
+    .tabla-row:nth-child(odd) { background-color: rgba(0, 123, 255, 0.08); }
+    .tabla-row:nth-child(even) { background-color: var(--card-bg); }
+    .tabla-row:hover { background-color: rgba(0, 123, 255, 0.25); }
+
+    /* Fila cuyo horario se solapa con el de otra tarea del mismo día. */
+    .tabla-row.fila-solapada { background-color: rgba(220, 53, 69, 0.18) !important; }
+    .tabla-row.fila-solapada:hover { background-color: rgba(220, 53, 69, 0.3) !important; }
+    body.dark-mode .tabla-row.fila-solapada { background-color: rgba(220, 53, 69, 0.28) !important; }
+    body.dark-mode .tabla-row.fila-solapada:hover { background-color: rgba(220, 53, 69, 0.4) !important; }
+
+    .filtro-listado-input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 8px 10px;
+      margin-bottom: 8px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background-color: var(--card-bg);
+      color: var(--text-color);
+      font-size: 13px;
+      flex: 0 0 auto;
+    }
+
+    /* Filtros rápidos de fecha sobre el propio listado (Hoy/Ayer/Semana/Mes),
+       para consultar periodos anteriores sin tener que abrir Informes. */
+    .filtros-rapidos-fila {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 8px;
+      flex: 0 0 auto;
+    }
+    .btn-filtro-rapido {
+      padding: 6px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background-color: var(--card-bg);
+      color: var(--text-color);
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .btn-filtro-rapido:hover { background-color: rgba(0, 123, 255, 0.15); }
+
+    /* Filtro de rango personalizado (Desde/Hasta) sobre el propio listado. */
+    .filtro-rango-personalizado-fila {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 8px;
+      font-size: 12px;
+      flex: 0 0 auto;
+    }
+    .filtro-rango-personalizado-fila .rango-campo {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex: 0 0 auto;
+    }
+    .filtro-rango-personalizado-fila label { color: var(--text-color); white-space: nowrap; }
+    .filtro-rango-personalizado-fila input[type="date"],
+    .filtro-rango-personalizado-fila select#filtro-mes {
+      width: 150px;
+      flex: 0 0 auto;
+      padding: 5px 8px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background-color: var(--card-bg);
+      color: var(--text-color);
+      font-size: 12px;
+    }
+    .btn-filtrar-rango { font-weight: bold; }
+    .btn-limpiar-filtro { background-color: #6c757d; color: #fff; }
+    .btn-limpiar-filtro:hover { background-color: #565e64; }
+
+    .aviso-rango-activo {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background: #cfe2ff;
+      color: #084298;
+      border: 1px solid #9ec5fe;
+      padding: 8px 14px;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      font-size: 13px;
+      font-weight: bold;
+      flex: 0 0 auto;
+    }
+    body.dark-mode .aviso-rango-activo {
+      background: #002855;
+      color: #9ec5fe;
+      border-color: #0a3f7a;
+    }
+    .btn-volver-hoy {
+      padding: 4px 10px;
+      border: 1px solid #9ec5fe;
+      border-radius: 6px;
+      background-color: transparent;
+      color: inherit;
+      font-size: 12px;
+      font-weight: bold;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-volver-hoy:hover { background-color: rgba(255, 255, 255, 0.25); }
+
+    /* Menú contextual (clic derecho) que sustituye a los antiguos botones
+       Editar/Duplicar/Eliminar de cada fila. */
+    #menu-contextual {
+      display: none;
+      position: fixed;
+      z-index: 2000;
+      min-width: 150px;
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+      padding: 4px;
+      font-size: 13px;
+    }
+    #menu-contextual button {
+      display: block;
+      width: 100%;
+      text-align: left;
+      background: none;
+      border: none;
+      padding: 8px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      color: var(--text-color);
+      font-size: 13px;
+    }
+    #menu-contextual button:hover { background-color: rgba(0, 123, 255, 0.15); }
+    #menu-contextual button.opcion-eliminar:hover { background-color: rgba(220, 53, 69, 0.15); color: #dc3545; }
+    #menu-contextual hr { border: none; border-top: 1px solid var(--border-color); margin: 4px 0; }
+
+    .tabla-msg { padding: 12px; color: var(--text-color); }
+
+    #txt-listado { margin: 4px 0; font-size: 18px; flex: 0 0 auto; }
+
+    .tabla-footer-row { font-weight: bold; background-color: rgba(0, 123, 255, 0.08); }
+    .tabla-footer-row.row-extra { background-color: rgba(40, 167, 69, 0.12); }
+    .tabla-footer-row .footer-label { grid-column: 2 / 10; text-align: right; }
+    .tabla-footer-row .footer-value { grid-column: 10 / 11; }
+
+    .saldo-positivo { color: #28a745; font-weight: bold; }
+    .saldo-negativo { color: #dc3545; font-weight: bold; }
+    .saldo-neutro { color: #6c757d; font-weight: bold; }
+
+    .aviso-abiertas {
+      background: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffe69c;
+      padding: 8px 14px;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      font-size: 13px;
+      font-weight: bold;
+      flex: 0 0 auto;
+    }
+    body.dark-mode .aviso-abiertas {
+      background: #4d3800;
+      color: #ffe69c;
+      border-color: #6b5300;
+    }
+
+    .btn-finalizar-jornada { background-color: #6c757d; color: #fff; border: none; }
+    .btn-finalizar-jornada:hover { background-color: #565e64; }
+    .btn-finalizar-jornada.btn-dia-cerrado { background-color: #198754; }
+    .btn-finalizar-jornada.btn-dia-cerrado:hover { background-color: #146c43; }
+
+    .aviso-dia-cerrado {
+      background: #e2e3e5;
+      color: #41464b;
+      border: 1px solid #c4c8cb;
+      padding: 8px 14px;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      font-size: 13px;
+      font-weight: bold;
+      flex: 0 0 auto;
+    }
+    body.dark-mode .aviso-dia-cerrado {
+      background: #2b2f33;
+      color: #d3d6d8;
+      border-color: #495057;
+    }
+
+    /* Aviso de jornada anómala (desviación grande sobre la jornada teórica). */
+    .aviso-anomalia {
+      background: #f8d7da;
+      color: #842029;
+      border: 1px solid #f5c2c7;
+      padding: 8px 14px;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      font-size: 13px;
+      font-weight: bold;
+      flex: 0 0 auto;
+    }
+    body.dark-mode .aviso-anomalia {
+      background: #4d1a1f;
+      color: #f5c2c7;
+      border-color: #842029;
+    }
+
+    /* Aviso de registros pendientes de sincronizar (modo offline). */
+    .aviso-offline {
+      background: #fff3cd;
+      color: #664d03;
+      border: 1px solid #ffecb5;
+      padding: 8px 14px;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      font-size: 13px;
+      font-weight: bold;
+      flex: 0 0 auto;
+    }
+    body.dark-mode .aviso-offline {
+      background: #4d3d02;
+      color: #ffe69c;
+      border-color: #664d03;
+    }
+
+    /* Aviso de tarea sin cerrar (sin hora de fin) en un día anterior a hoy. */
+    .aviso-tarea-abierta {
+      background: #cfe2ff;
+      color: #084298;
+      border: 1px solid #b6d4fe;
+      padding: 8px 14px;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      font-size: 13px;
+      font-weight: bold;
+      flex: 0 0 auto;
+    }
+    body.dark-mode .aviso-tarea-abierta {
+      background: #0a2a56;
+      color: #b6d4fe;
+      border-color: #084298;
+    }
+
+    /* Edición en lote: casilla en la columna Nº y barra flotante de acciones. */
+    .celda-numero-lote {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+    .celda-numero-lote input[type="checkbox"] {
+      width: auto;
+      margin: 0;
+      cursor: pointer;
+    }
+    .barra-lote {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background: #0b5ed7;
+      color: #fff;
+      padding: 8px 14px;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      font-size: 13px;
+      font-weight: bold;
+      flex: 0 0 auto;
+    }
+    .barra-lote .barra-lote-botones { display: flex; gap: 8px; }
+    .barra-lote button {
+      padding: 5px 10px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: bold;
+      background-color: rgba(255,255,255,0.15);
+      color: #fff;
+    }
+    .barra-lote button:hover { background-color: rgba(255,255,255,0.3); }
+    .barra-lote .btn-lote-eliminar { background-color: #dc3545; }
+    .barra-lote .btn-lote-eliminar:hover { background-color: #bd2130; }
+
+    #modal-lote .form-group { margin-bottom: 10px; }
+    #modal-lote .form-group label { display: block; font-weight: bold; font-size: 12px; margin-bottom: 4px; }
+    #modal-lote small { display: block; opacity: 0.7; margin-top: 2px; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<div class="page-wrap">
+
+  <div class="header-container">
+    <h1 id="txt-titulo">
+      <span id="txt-semana"></span>
+      <span id="txt-fecha-dia"></span>
+      <span id="reloj-actual"></span>
+      <span id="contador-efectivo" title="Tiempo efectivo de trabajo desde el inicio de la jornada"></span>
+      <span id="pct-rendimiento" title="% de rendimiento de hoy (horas en BAC2 / jornada teórica)"></span>
+      <span id="contador-extra" title="Tiempo extra desde las 16:00" style="display:none;"></span>
+    </h1>
+
+    <div class="controls-right">
+      <!-- Botones de navegación externa -->
+      <a href="informes.html" class="icon-btn" id="btn-informes">📊 Informes</a>
+      <a href="gantt.html" class="icon-btn" id="btn-gantt">📅 Gantt</a>
+      <a href="festivos.html" class="icon-btn" id="btn-festivos">🎌 Festivos</a>
+      <a href="graficos.html" class="icon-btn" id="btn-graficos">📈 Gráficos</a>
+      <a href="Semana.html" class="icon-btn" id="btn-semana">📅 Registro Semana</a>
+      <button type="button" class="icon-btn btn-comida" onclick="iniciarComida()" id="btn-comida" title="Guarda la tarea actual (si la hay) y registra la Comida desde ese momento hasta 30 minutos después">🍽️ Comida</button>
+      <button type="button" class="icon-btn btn-ausencia" onclick="iniciarAusencia()" id="btn-ausencia" title="Guarda la tarea actual (si la hay) y abre un registro nuevo de ausencia con la hora de inicio actual">🚶 Ausencia</button>
+      <button type="button" class="icon-btn btn-finalizar-jornada" onclick="alternarFinalizarJornada()" id="btn-finalizar-jornada" title="Impide añadir nuevas tareas para la fecha seleccionada. Las ya guardadas se pueden seguir editando o eliminando.">🔒 Finalizar jornada</button>
+      <button type="button" class="icon-btn" onclick="exportarBackupCompleto()" id="btn-backup" title="Descarga una copia de seguridad (JSON) de TODOS los registros guardados en Supabase">💾 Backup</button>
+      <button type="button" class="icon-btn" onclick="configurarRecordatorioSalida()" id="btn-recordatorio-salida" title="Configura un aviso (mientras esta pestaña esté abierta) si a cierta hora sigue sin cerrarse ninguna tarea hoy">🔔 Recordatorio</button>
+
+      <!-- Bandera España SVG -->
+      <button class="flag-btn" onclick="cambiarIdioma('es')" title="Español">
+        <svg class="flag-icon" viewBox="0 0 750 500">
+          <rect width="750" height="500" fill="#c60b1e"/>
+          <rect y="125" width="750" height="250" fill="#ffc400"/>
+        </svg>
+      </button>
+
+      <!-- Bandera Galicia SVG -->
+      <button class="flag-btn" onclick="cambiarIdioma('gl')" title="Galego">
+        <svg class="flag-icon" viewBox="0 0 3 2">
+          <rect width="3" height="2" fill="#fff"/>
+          <path d="M0 0 L3 2" stroke="#009ac6" stroke-width="0.4"/>
+        </svg>
+      </button>
+
+      <!-- Bandera Reino Unido SVG -->
+      <button class="flag-btn" onclick="cambiarIdioma('en')" title="English">
+        <svg class="flag-icon" viewBox="0 0 60 30">
+          <rect width="60" height="30" fill="#00247d"/>
+          <path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/>
+          <path d="M0,0 L60,30 M60,0 L0,30" stroke="#cf142b" stroke-width="2"/>
+          <path d="M30,0 V30 M0,15 H60" stroke="#fff" stroke-width="10"/>
+          <path d="M30,0 V30 M0,15 H60" stroke="#cf142b" stroke-width="6"/>
+        </svg>
+      </button>
+
+      <button class="icon-btn" onclick="toggleTheme()" id="btn-theme">🌙 Oscuro</button>
+      <button class="icon-btn btn-cerrar" onclick="cerrarSesion()" id="btn-logout" title="Cerrar sesión">🔒 Salir</button>
+    </div>
+  </div>
+
+  <form id="tarea-form">
+    <input type="hidden" id="tarea-id">
+
+    <div class="form-grid">
+      <!-- Columna vacía: solo de relleno, para alinear el formulario con la
+           columna "Nº" del listado (ese número es autonumérico, no un campo
+           que se rellene al dar de alta una tarea). -->
+      <div class="form-group" aria-hidden="true"></div>
+
+      <div class="form-group">
+        <label for="fecha" id="lbl-fecha">Fecha</label>
+        <div class="fecha-nav-wrapper">
+          <button type="button" class="btn-fecha-nav" id="btn-fecha-anterior" onclick="cambiarFechaDia(-1)" title="Día anterior" aria-label="Día anterior">◁</button>
+          <input type="date" id="fecha" onchange="cargarTareas()" required>
+          <button type="button" class="btn-fecha-nav" id="btn-fecha-siguiente" onclick="cambiarFechaDia(1)" title="Día siguiente" aria-label="Día siguiente">▷</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <div class="label-wrapper">
+          <label for="tarea" id="lbl-tarea">Tarea</label>
+          <button type="button" class="btn-mini" onclick="abrirConfig('tareas')">+config</button>
+        </div>
+        <select id="tarea" onchange="manejarCambioTarea()" required>
+          <option value="PREVIAS">PREVIAS</option>
+          <option value="AOYV">AOYV</option>
+          <option value="Revisión de unidades abiertas UA">Revisión de unidades abiertas UA</option>
+          <option value="Comentarios con Ghita para coordinación">Comentarios con Ghita para coordinación</option>
+          <option value="Actualización de contraseñas sistema">Actualización de contraseñas sistema</option>
+          <option value="Píldora ciberseguridad #27">Píldora ciberseguridad #27</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <div class="label-wrapper">
+          <label for="proyecto" id="lbl-proyecto">Proyecto</label>
+          <button type="button" class="btn-mini" onclick="abrirConfig('proyectos')">+config</button>
+        </div>
+        <select id="proyecto" required>
+          <option value="BAC2">BAC2</option>
+          <option value="DES">DES</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="bloque" id="lbl-bloque">Bloque</label>
+        <input type="text" id="bloque" placeholder="Ej: B242-PI-SB4" style="text-transform:uppercase;" oninput="this.value = this.value.toUpperCase();">
+      </div>
+
+      <div class="form-group">
+        <div class="label-wrapper">
+          <label for="horainicio" id="lbl-horainicio">Hora inicio</label>
+          <div>
+            <button type="button" class="btn-mini" onclick="setHoraActual('horainicio')">⏱️</button>
+            <button type="button" class="btn-mini" onclick="copiarHoraFinAnterior()">📋</button>
+          </div>
+        </div>
+        <input type="time" id="horainicio" required>
+      </div>
+
+      <div class="form-group">
+        <div class="label-wrapper">
+          <label for="horafin" id="lbl-horafin">Hora fin</label>
+          <button type="button" class="btn-mini" onclick="setHoraActual('horafin')">⏱️</button>
+        </div>
+        <input type="time" id="horafin" required>
+      </div>
+
+      <div class="form-group">
+        <label for="comentario" id="lbl-comentario">Comentario</label>
+        <textarea id="comentario" rows="2"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="notas" id="lbl-notas">Notas</label>
+        <textarea id="notas" rows="2" style="text-transform:uppercase;" oninput="this.value = this.value.toUpperCase();"></textarea>
+      </div>
+
+      <div class="form-group-btn">
+        <button type="submit" id="btn-guardar" class="btn-submit">Guardar</button>
+        <button type="button" id="btn-cancelar" class="btn-cancel" onclick="resetearFormulario()">Cancelar</button>
+      </div>
+    </div>
+  </form>
+
+  <div id="aviso-abiertas" class="aviso-abiertas" style="display:none;"></div>
+  <div id="aviso-dia-cerrado" class="aviso-dia-cerrado" style="display:none;"></div>
+  <div id="aviso-anomalia" class="aviso-anomalia" style="display:none;"></div>
+  <div id="aviso-offline" class="aviso-offline" style="display:none;"></div>
+  <div id="aviso-tarea-abierta" class="aviso-tarea-abierta" style="display:none;"></div>
+
+  <h2 id="txt-listado">Listado de tareas</h2>
+
+  <div class="filtros-rapidos-fila">
+    <button type="button" class="btn-filtro-rapido" id="btn-filtro-hoy" onclick="aplicarFiltroRapido('hoy')">Hoy</button>
+    <button type="button" class="btn-filtro-rapido" id="btn-filtro-ayer" onclick="aplicarFiltroRapido('ayer')">Ayer</button>
+    <button type="button" class="btn-filtro-rapido" id="btn-filtro-semana" onclick="aplicarFiltroRapido('semana')">Esta semana</button>
+    <button type="button" class="btn-filtro-rapido" id="btn-filtro-semana-anterior" onclick="aplicarFiltroRapido('semana_anterior')">Semana pasada</button>
+    <button type="button" class="btn-filtro-rapido" id="btn-filtro-mes" onclick="aplicarFiltroRapido('mes')">Este mes</button>
+    <button type="button" class="btn-filtro-rapido" id="btn-filtro-mes-anterior" onclick="aplicarFiltroRapido('mes_anterior')">Mes pasado</button>
+  </div>
+
+  <div class="filtro-rango-personalizado-fila">
+    <span class="rango-campo">
+      <label id="lbl-rango-mes" for="filtro-mes">Mes</label>
+      <select id="filtro-mes" onchange="aplicarFiltroMes()">
+        <option value="" id="opt-filtro-mes-vacio">--</option>
+      </select>
+    </span>
+    <span class="rango-campo">
+      <label id="lbl-rango-desde" for="filtro-rango-desde">Desde</label>
+      <input type="date" id="filtro-rango-desde">
+    </span>
+    <span class="rango-campo">
+      <label id="lbl-rango-hasta" for="filtro-rango-hasta">Hasta</label>
+      <input type="date" id="filtro-rango-hasta">
+    </span>
+    <button type="button" class="btn-filtro-rapido btn-filtrar-rango" id="btn-filtrar-rango" onclick="aplicarFiltroRangoPersonalizado()">🔍 Filtrar</button>
+    <button type="button" class="btn-filtro-rapido btn-limpiar-filtro" id="btn-limpiar-filtro" onclick="limpiarFiltroRango()">🧹 Limpiar filtro</button>
+  </div>
+
+  <div id="aviso-rango-activo" class="aviso-rango-activo" style="display:none;"></div>
+
+  <input type="text" id="filtro-listado" class="filtro-listado-input"
+         placeholder="🔎 Filtrar por tarea, proyecto, bloque, comentario o notas... (usa * como comodín)"
+         oninput="aplicarFiltroInstantaneo()" autocomplete="off">
+
+  <div id="barra-lote" class="barra-lote">
+    <span id="txt-barra-lote-contador">0 seleccionados</span>
+    <div class="barra-lote-botones">
+      <button type="button" id="btn-lote-editar" onclick="abrirEdicionLote()">✏️ Editar en lote</button>
+      <button type="button" id="btn-lote-eliminar" class="btn-lote-eliminar" onclick="eliminarSeleccionLote()">🗑️ Eliminar seleccionados</button>
+      <button type="button" id="btn-lote-cancelar" onclick="cancelarSeleccionLote()">✕ Cancelar</button>
+    </div>
+  </div>
+
+  <div class="tabla-container">
+    <div class="tabla-grid-row tabla-header-row">
+      <div class="celda-numero celda-numero-lote" id="th-numero">
+        <input type="checkbox" id="chk-seleccionar-todos" onchange="toggleSeleccionarTodos(this.checked)" title="Seleccionar todos">
+      </div>
+      <div id="th-fecha">Fecha<span class="col-resize-handle" data-col="fecha"></span></div>
+      <div id="th-tarea">Tarea<span class="col-resize-handle" data-col="tarea"></span></div>
+      <div id="th-proyecto">Proyecto<span class="col-resize-handle" data-col="proyecto"></span></div>
+      <div id="th-bloque">Bloque<span class="col-resize-handle" data-col="bloque"></span></div>
+      <div id="th-inicio">Hora inicio</div>
+      <div id="th-fin">Hora fin<span class="col-resize-handle" data-col="hora"></span></div>
+      <div id="th-comentario">Comentario<span class="col-resize-handle" data-col="comentario"></span></div>
+      <div id="th-notas">Notas<span class="col-resize-handle" data-col="notas"></span></div>
+      <div id="th-duracion">Duración</div>
+    </div>
+
+    <!-- Único bloque con scroll vertical propio: el resto de la página
+         (formulario, cabecera de columnas y pie con los totales) es siempre visible. -->
+    <div class="tabla-body-scroll">
+      <div id="tabla-body"></div>
+    </div>
+
+    <div class="tabla-grid-row tabla-footer-row">
+      <div class="footer-label" id="txt-teorica-label">Jornada Teórica del Día:</div>
+      <div class="footer-value" id="total-teorica">00:00</div>
+    </div>
+    <div class="tabla-grid-row tabla-footer-row">
+      <div class="footer-label" id="txt-total-label">Total Horas Trabajadas:</div>
+      <div class="footer-value" id="total-duracion">00:00</div>
+    </div>
+    <div class="tabla-grid-row tabla-footer-row row-extra">
+      <div class="footer-label" id="txt-balance-label">Balance / Horas Extra:</div>
+      <div class="footer-value" id="total-balance">00:00</div>
+    </div>
+  </div>
+
+</div>
+<!-- /.page-wrap -->
+
+  <!-- Modal Config -->
+  <div id="modal-config" class="modal">
+    <div class="modal-content">
+      <span class="close-modal" onclick="cerrarConfig()">&times;</span>
+      <h3 id="modal-titulo">Configuración</h3>
+      <div style="display:flex; gap:5px; margin-bottom:10px;">
+        <input type="text" id="nuevo-valor-config" placeholder="Nuevo valor...">
+        <button type="button" onclick="agregarOpcionConfig()">Añadir</button>
+      </div>
+      <ul id="lista-config" style="list-style:none; padding:0;"></ul>
+    </div>
+  </div>
+
+  <!-- Modal Edición en lote -->
+  <div id="modal-lote" class="modal">
+    <div class="modal-content">
+      <span class="close-modal" onclick="cerrarEdicionLote()">&times;</span>
+      <h3 id="modal-lote-titulo">Editar en lote</h3>
+      <p id="txt-modal-lote-info" style="font-size:12px; opacity:0.8;">Deja un campo en blanco para no modificarlo en los registros seleccionados.</p>
+      <div class="form-group">
+        <label for="lote-tarea" id="lbl-lote-tarea">Tarea</label>
+        <input type="text" id="lote-tarea" placeholder="(sin cambios)">
+      </div>
+      <div class="form-group">
+        <label for="lote-proyecto" id="lbl-lote-proyecto">Proyecto</label>
+        <input type="text" id="lote-proyecto" placeholder="(sin cambios)">
+      </div>
+      <div class="form-group">
+        <label for="lote-bloque" id="lbl-lote-bloque">Bloque</label>
+        <input type="text" id="lote-bloque" placeholder="(sin cambios)" style="text-transform:uppercase;" oninput="this.value = this.value.toUpperCase();">
+      </div>
+      <div class="form-group">
+        <label for="lote-comentario" id="lbl-lote-comentario">Comentario</label>
+        <input type="text" id="lote-comentario" placeholder="(sin cambios)">
+      </div>
+      <div style="display:flex; gap:8px; margin-top:10px;">
+        <button type="button" class="btn-submit" id="btn-lote-aplicar" onclick="guardarEdicionLote()">Aplicar a seleccionados</button>
+        <button type="button" class="btn-cancel" style="display:inline-block;" onclick="cerrarEdicionLote()">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Menú contextual (clic derecho) de cada fila del listado -->
+  <div id="menu-contextual">
+    <button type="button" id="menu-opcion-editar" onclick="accionMenuContextual('editar')">✏️ Editar</button>
+    <button type="button" id="menu-opcion-duplicar" onclick="accionMenuContextual('duplicar')">📋 Duplicar</button>
+    <hr>
+    <button type="button" id="menu-opcion-eliminar" class="opcion-eliminar" onclick="accionMenuContextual('eliminar')">🗑️ Eliminar</button>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,2655 @@
+// SUPABASE_URL, SUPABASE_KEY, supabaseClient y TABLA ahora viven en config.js
+
+// Las 46 Tareas predefinidas
+const TAREAS_DEFAULT = [
+  "Actualización de planos realizados", "Análisis especificaciones cliente",
+  "Anidado de ficheros 1000's", "Anidado de ficheros 2000's", "Anidado de ficheros 3000's", "Anidado de ficheros 4000's", "Anidado de ficheros 6000's",
+  "AOYV", "Arranque sesión remota", "Ausencia no recuperable", "Ausencia recuperable", "Comida",
+  "Consulta técnica", "Descanso 20'", "Descanso 30'", "Espera de nueva tarea", "Fuera escritorio", "Generación .e2", "Generación .e3",
+  "Generación de lotes de planchas", "Generación de previas", "Generación de secuencias de corte",
+  "Maquillaje .e2 1000's", "Maquillaje .e2 2000's", "Maquillaje .e2 3000's", "Maquillaje .e2 4000's",
+  "Maquillaje .e2 6000's", "Maquillaje de previas", "Maquillaje de UA", "Maquillaje de UL", "Modificación planos GR",
+  "Modificaciones en planos", "Nueva tarea", "Píldora de ciberseguridad", "Plano previas", "Problemas red en servidores cliente",
+  "Procedimientos", "Productos intermedios", "Programación", "Reunión por Teams", "Reinstalación software", "Revisión de comentarios", "Revisión de paneles",
+  "Revisión de unidades abiertas UA", "Revisión de unidades lineales UL", "Revisión grupos", "Revisión maquillaje 1000's",
+  "Revisión maquillaje 2000's", "Revisión maquillaje 3000's", "Revisión maquillaje 4000's",
+  "Revisión maquillaje 6000's", "Revisión previas", "Revisión SB", "Revisión SB E", "Revisión SB L", "Solicitada nueva tarea", "Varios"
+];
+
+// Los 15 Proyectos predefinidos
+const PROYECTOS_DEFAULT = [
+  "ABAC", "BAC2", "BLOR", "COM", "DES", "FES", "FOR", "FSS", "INFO", "INT", "MAN", "NAV", "PROC", "PROG", "VAC"
+];
+
+/**
+ * Fusiona en una lista ya guardada en localStorage (tareas o proyectos) los
+ * valores nuevos que se vayan incorporando en cada actualización de la app.
+ * Si el navegador todavía no tiene esa lista guardada (instalación nueva),
+ * no hace nada aquí: se usará directamente el array *_DEFAULT correspondiente,
+ * que ya incluye los valores nuevos. Cada bloque de migración se aplica una
+ * única vez (su propia clave en localStorage marca si ya se aplicó), así que
+ * si luego borras alguno con el botón 🗑️ no vuelve a aparecer solo, y añadir
+ * un bloque nuevo en el futuro no repite los anteriores.
+ */
+function aplicarMigracionesLista(claveLista, migraciones) {
+  let lista = JSON.parse(localStorage.getItem(claveLista));
+  if (!lista) return null;
+
+  let huboCambios = false;
+  migraciones.forEach(migracion => {
+    if (!localStorage.getItem(migracion.clave)) {
+      migracion.valores.forEach(v => {
+        if (!lista.includes(v)) {
+          lista.push(v);
+          huboCambios = true;
+        }
+      });
+      localStorage.setItem(migracion.clave, '1');
+    }
+  });
+  if (huboCambios) {
+    localStorage.setItem(claveLista, JSON.stringify(lista));
+  }
+  return lista;
+}
+
+const MIGRACIONES_TAREAS = [
+  { clave: 'cfg_migracion_tareas_2026_09', valores: ["Fuera escritorio", "Varios", "Nueva tarea", "Revisión grupos", "Revisión previas", "Maquillaje de previas"] },
+  { clave: 'cfg_migracion_tareas_2026_09_v2', valores: ["Ausencia no recuperable", "Ausencia recuperable"] },
+  { clave: 'cfg_migracion_tareas_2026_09_v3', valores: ["Arranque sesión remota"] },
+  { clave: 'cfg_migracion_tareas_2026_09_v4', valores: ["Píldora de ciberseguridad", "Consulta técnica"] },
+  { clave: 'cfg_migracion_tareas_2026_09_v5', valores: ["Anidado de ficheros 1000's", "Anidado de ficheros 2000's", "Anidado de ficheros 4000's", "Anidado de ficheros 6000's", "Actualización de planos realizados"] },
+  { clave: 'cfg_migracion_tareas_2026_09_v6', valores: ["Procedimientos", "Revisión SB E", "Revisión SB L", "Revisión SB"] }
+];
+
+const MIGRACIONES_PROYECTOS = [
+  { clave: 'cfg_migracion_proyectos_2026_09', valores: ["FES"] },
+  { clave: 'cfg_migracion_proyectos_2026_09_v2', valores: ["PROC"] },
+  { clave: 'cfg_migracion_proyectos_2026_11', valores: ["FSS"] }
+];
+
+// Cargar desde LocalStorage si existen (con las migraciones ya fusionadas) o usar los por defecto
+let configData = {
+  tareas: aplicarMigracionesLista('cfg_tareas', MIGRACIONES_TAREAS) || TAREAS_DEFAULT,
+  proyectos: aplicarMigracionesLista('cfg_proyectos', MIGRACIONES_PROYECTOS) || PROYECTOS_DEFAULT
+};
+
+let tipoConfigActual = '';
+let idiomaActual = 'es';
+let tareasCargadasCache = [];
+
+// null en la vista normal de un solo día; {desde, hasta, tipo} cuando el
+// listado está mostrando un rango de fechas (filtros rápidos Semana/Mes).
+let rangoActivo = null;
+
+// ------------------------------------------------------------
+// Edición en lote: ids (Supabase) de las filas actualmente marcadas con su
+// casilla, para editar o eliminar varios registros a la vez (ver
+// toggleSeleccionFila, abrirEdicionLote, eliminarSeleccionLote más abajo).
+// ------------------------------------------------------------
+let seleccionLote = new Set();
+
+// ------------------------------------------------------------
+// Registro automático "AOYV" al empezar el día (ver iniciarRegistroAOYV).
+// registroAOYVAbiertoId: id en Supabase del registro AOYV todavía "abierto"
+// (sin que se haya guardado ninguna tarea real después), o null si no hay
+// ninguno. intervaloTickerAOYV: temporizador que va actualizando su hora
+// fin sola mientras siga abierto.
+// ------------------------------------------------------------
+let registroAOYVAbiertoId = null;
+let registroAOYVHoraInicio = null;
+let intervaloTickerAOYV = null;
+let creandoRegistroAOYV = false;
+const TAREA_AOYV = 'AOYV';
+const PROYECTO_AOYV = 'DES';
+const BLOQUE_AOYV = 'GENERAL';
+
+// DIAS_SEMANA, MESES, formatearFechaISO, obtenerFechaHoyISO,
+// obtenerJornadaTeoricaMinutos y obtenerDescansoMinutos viven ahora en
+// config.js (compartidos con informes.js y Semana.js, para que no se
+// desincronicen entre páginas).
+
+/**
+ * Número de semana ISO-8601 (lunes como primer día, la semana 1 es la que
+ * contiene el primer jueves del año) del día indicado.
+ */
+function obtenerNumeroSemanaISO(fecha) {
+  const d = new Date(Date.UTC(fecha.getFullYear(), fecha.getMonth(), fecha.getDate()));
+  const diaSemanaISO = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - diaSemanaISO);
+  const inicioAnio = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d - inicioAnio) / 86400000) + 1) / 7);
+}
+
+const TEXTOS_SEMANA_NUM = { es: 'Semana', gl: 'Semana', en: 'Week' };
+
+/**
+ * Muestra en la cabecera la semana del año en curso, el día y la fecha de
+ * hoy (sin el nombre "REGHOR"), con la primera letra del día en mayúscula,
+ * y deja preparado el hueco del reloj en vivo (ver iniciarRelojEnVivo).
+ */
+function actualizarTituloConDia() {
+  const hoy = new Date();
+  const nombreDia = DIAS_SEMANA[idiomaActual][hoy.getDay()];
+  const nombreDiaCap = nombreDia.charAt(0).toUpperCase() + nombreDia.slice(1);
+  const nombreMes = MESES[idiomaActual][hoy.getMonth()];
+  const dia = hoy.getDate();
+  const anio = hoy.getFullYear();
+  const numSemana = obtenerNumeroSemanaISO(hoy);
+  const textoSemana = TEXTOS_SEMANA_NUM[idiomaActual] || TEXTOS_SEMANA_NUM.es;
+
+  const fechaTexto = (idiomaActual === 'en')
+    ? `${nombreDiaCap}, ${nombreMes} ${dia}, ${anio}`
+    : `${nombreDiaCap} ${dia} de ${nombreMes} de ${anio}`;
+
+  const elSemana = document.getElementById('txt-semana');
+  const elFecha = document.getElementById('txt-fecha-dia');
+  if (elSemana) elSemana.textContent = `${textoSemana} ${numSemana} ·`;
+  if (elFecha) elFecha.textContent = fechaTexto;
+}
+
+/**
+ * Color del reloj en vivo de la cabecera según la hora: rojo hasta las
+ * 10:00 (cubre también la entrada, aprox. 06:30), naranja de 10:00 a 14:00,
+ * verde de 14:00 a 17:00 y rojo de nuevo a partir de las 17:00.
+ */
+function colorRelojSegunHora(fecha) {
+  const minutosDelDia = fecha.getHours() * 60 + fecha.getMinutes();
+  if (minutosDelDia >= 17 * 60) return '#dc3545';
+  if (minutosDelDia >= 14 * 60) return '#28a745';
+  if (minutosDelDia >= 10 * 60) return '#fd7e14';
+  return '#dc3545';
+}
+
+/**
+ * Segundos transcurridos EN BRUTO (sin descontar pausas) desde que empezó
+ * la jornada de hoy -hora de inicio del primer registro- hasta "ahora".
+ * Devuelve null si hoy todavía no hay ningún registro (la jornada no ha
+ * empezado). A diferencia de calcularTiempoEfectivoSegundos, aquí no se
+ * descuentan las pausas: es el tiempo total transcurrido desde que se
+ * empezó a trabajar, use en lo que se use ese tiempo.
+ */
+function calcularSegundosDesdeInicioJornada(ahora) {
+  const registros = registrosHoyContadorCache;
+  if (!registros || registros.length === 0) return null;
+
+  const [h, m] = registros[0].horainicio.split(':').map(Number);
+  const inicioJornadaMin = h * 60 + m;
+  const minutosAhora = ahora.getHours() * 60 + ahora.getMinutes() + ahora.getSeconds() / 60;
+  const minutos = Math.max(0, minutosAhora - inicioJornadaMin);
+  return Math.floor(minutos * 60);
+}
+
+/**
+ * Contador (hh:mm:ss, siempre en verde) del tiempo transcurrido desde que
+ * empezó la jornada de hoy. Se para y queda a "+00:00:00" en cuanto se
+ * pulsa "Finalizar jornada"; al Reabrir jornada vuelve a contar en vivo
+ * desde el inicio real de la jornada (no desde cero). Antes de que haya
+ * ningún registro hoy, queda vacío y oculto.
+ */
+function actualizarContadorExtra(ahora) {
+  const el = document.getElementById('contador-extra');
+  if (!el) return;
+
+  const hoyStr = obtenerFechaHoyISO();
+  if (esDiaCerrado(hoyStr)) {
+    el.textContent = '+00:00:00';
+    el.style.color = '#28a745';
+    el.style.display = '';
+    return;
+  }
+
+  const segundos = calcularSegundosDesdeInicioJornada(ahora);
+  if (segundos === null) {
+    el.textContent = '';
+    el.style.display = 'none';
+    return;
+  }
+
+  el.textContent = `+${formatearSegundosComoHHMMSS(segundos)}`;
+  el.style.color = '#28a745';
+  el.style.display = '';
+}
+
+/** Actualiza el texto (h:mm:ss) y el color del reloj en vivo de la cabecera, y el contador de tiempo extra desde las 16:00. */
+function actualizarRelojEnVivo() {
+  const el = document.getElementById('reloj-actual');
+  if (!el) return;
+  const ahora = new Date();
+  const horas = ahora.getHours();
+  const minutos = String(ahora.getMinutes()).padStart(2, '0');
+  const segundos = String(ahora.getSeconds()).padStart(2, '0');
+  el.textContent = `${horas}:${minutos}:${segundos}`;
+  el.style.color = colorRelojSegunHora(ahora);
+
+  // Cada bloque envuelto por separado: un fallo en uno (p.ej. el contador
+  // de rendimiento) nunca debe impedir que el resto de la cabecera se seguir
+  // actualizando cada segundo.
+  try { actualizarContadorEfectivoYRendimiento(ahora); } catch (e) { console.error('Error en el contador de tiempo efectivo/% rendimiento:', e); }
+  try { actualizarContadorExtra(ahora); } catch (e) { console.error('Error en el contador de tiempo extra:', e); }
+}
+
+/** Pone en marcha el reloj en vivo de la cabecera (arranque inmediato + cada segundo). */
+function iniciarRelojEnVivo() {
+  actualizarRelojEnVivo();
+  setInterval(actualizarRelojEnVivo, 1000);
+}
+
+// ------------------------------------------------------------
+// Recordatorio de fichar la salida: si, pasada cierta hora configurable, hoy
+// todavía no se ha cerrado ninguna tarea (hora de inicio sin hora de fin),
+// avisa una vez al día mientras esta pestaña esté abierta (Notification API,
+// con alert() como alternativa si no hay permiso concedido).
+// ------------------------------------------------------------
+
+const CLAVE_RECORDATORIO_SALIDA_ACTIVO = 'reghor_recordatorio_salida_activo';
+const CLAVE_RECORDATORIO_SALIDA_HORA = 'reghor_recordatorio_salida_hora';
+const CLAVE_RECORDATORIO_SALIDA_AVISADO = 'reghor_recordatorio_salida_avisado'; // fecha ISO del último aviso
+const HORA_RECORDATORIO_SALIDA_DEFECTO = '16:00';
+
+const TEXTOS_RECORDATORIO = {
+  es: {
+    preguntaActivar: 'Recordatorio de fichar salida: ¿quieres activarlo?\n\nMientras esta pestaña esté abierta, si pasada cierta hora hoy sigue habiendo una tarea sin cerrar, se mostrará un aviso (una vez al día).',
+    preguntaHora: (actual) => `¿A partir de qué hora quieres el aviso? (formato HH:MM)`,
+    horaInvalida: 'Hora no válida. Usa el formato HH:MM, por ejemplo 16:00.',
+    activado: (hora) => `🔔 Recordatorio activado a partir de las ${hora}.`,
+    desactivado: '🔔 Recordatorio desactivado.',
+    confirmarDesactivar: '¿Desactivar el recordatorio de fichar salida?',
+    tituloAviso: 'REGHOR — Recordatorio',
+    cuerpoAviso: (hora) => `Son las ${hora} y hoy todavía tienes una tarea sin cerrar (sin hora de fin).`
+  },
+  gl: {
+    preguntaActivar: 'Recordatorio de fichar saída: queres activalo?\n\nMentres esta lapela estea aberta, se pasada certa hora hoxe segue habendo unha tarefa sen pechar, mostrarase un aviso (unha vez ao día).',
+    preguntaHora: (actual) => `A partir de que hora queres o aviso? (formato HH:MM)`,
+    horaInvalida: 'Hora non válida. Usa o formato HH:MM, por exemplo 16:00.',
+    activado: (hora) => `🔔 Recordatorio activado a partir das ${hora}.`,
+    desactivado: '🔔 Recordatorio desactivado.',
+    confirmarDesactivar: 'Desactivar o recordatorio de fichar saída?',
+    tituloAviso: 'REGHOR — Recordatorio',
+    cuerpoAviso: (hora) => `Son as ${hora} e hoxe aínda tes unha tarefa sen pechar (sen hora de fin).`
+  },
+  en: {
+    preguntaActivar: 'Clock-out reminder: do you want to turn it on?\n\nWhile this tab stays open, if past a certain time today there is still an unclosed task, a reminder will be shown (once a day).',
+    preguntaHora: (actual) => `From what time do you want the reminder? (HH:MM format)`,
+    horaInvalida: 'Invalid time. Use HH:MM format, e.g. 16:00.',
+    activado: (hora) => `🔔 Reminder turned on from ${hora}.`,
+    desactivado: '🔔 Reminder turned off.',
+    confirmarDesactivar: 'Turn off the clock-out reminder?',
+    tituloAviso: 'REGHOR — Reminder',
+    cuerpoAviso: (hora) => `It's ${hora} and today you still have an unclosed task (no end time).`
+  }
+};
+
+/** Botón de cabecera: configura (activa/desactiva/cambia la hora de) el recordatorio de fichar salida. */
+function configurarRecordatorioSalida() {
+  const t = TEXTOS_RECORDATORIO[idiomaActual] || TEXTOS_RECORDATORIO.es;
+  const activoActual = localStorage.getItem(CLAVE_RECORDATORIO_SALIDA_ACTIVO) === '1';
+
+  if (activoActual) {
+    if (!confirm(t.confirmarDesactivar)) return;
+    localStorage.setItem(CLAVE_RECORDATORIO_SALIDA_ACTIVO, '0');
+    alert(t.desactivado);
+    return;
+  }
+
+  if (!confirm(t.preguntaActivar)) return;
+
+  const horaActual = localStorage.getItem(CLAVE_RECORDATORIO_SALIDA_HORA) || HORA_RECORDATORIO_SALIDA_DEFECTO;
+  const entrada = prompt(t.preguntaHora(horaActual), horaActual);
+  if (entrada === null) return; // Cancelado: no se activa.
+
+  const horaLimpia = entrada.trim();
+  if (!/^\d{1,2}:\d{2}$/.test(horaLimpia)) {
+    alert(t.horaInvalida);
+    return;
+  }
+  const [hh, mm] = horaLimpia.split(':').map(Number);
+  if (hh > 23 || mm > 59) {
+    alert(t.horaInvalida);
+    return;
+  }
+  const horaNormalizada = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+
+  localStorage.setItem(CLAVE_RECORDATORIO_SALIDA_ACTIVO, '1');
+  localStorage.setItem(CLAVE_RECORDATORIO_SALIDA_HORA, horaNormalizada);
+  // Al reactivar/cambiar la hora, se permite que pueda volver a avisar hoy mismo.
+  localStorage.removeItem(CLAVE_RECORDATORIO_SALIDA_AVISADO);
+
+  if (window.Notification && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+
+  alert(t.activado(horaNormalizada));
+}
+
+/** Muestra el aviso de recordatorio (Notification API si hay permiso concedido; si no, alert()). */
+function mostrarAvisoRecordatorioSalida(horaNormalizada) {
+  const t = TEXTOS_RECORDATORIO[idiomaActual] || TEXTOS_RECORDATORIO.es;
+  if (window.Notification && Notification.permission === 'granted') {
+    try {
+      new Notification(t.tituloAviso, { body: t.cuerpoAviso(horaNormalizada) });
+      return;
+    } catch (e) {
+      console.error('Error al mostrar la notificación del recordatorio de salida:', e);
+    }
+  }
+  alert(`${t.tituloAviso}\n\n${t.cuerpoAviso(horaNormalizada)}`);
+}
+
+/**
+ * Comprueba (cada minuto, mientras la pestaña esté abierta) si toca avisar:
+ * recordatorio activado, hoy es día de trabajo, ya ha pasado la hora
+ * configurada, sigue habiendo una tarea de hoy sin cerrar (usando la caché
+ * de registrosHoyContadorCache, que se refresca al cargar y tras cada
+ * guardado/borrado), y todavía no se ha avisado hoy.
+ */
+function comprobarRecordatorioSalida() {
+  if (localStorage.getItem(CLAVE_RECORDATORIO_SALIDA_ACTIVO) !== '1') return;
+
+  const hoyStr = obtenerFechaHoyISO();
+  if (localStorage.getItem(CLAVE_RECORDATORIO_SALIDA_AVISADO) === hoyStr) return;
+
+  if (obtenerJornadaTeoricaMinutos(hoyStr) <= 0) return; // Festivo/fin de semana: no avisar.
+
+  const horaNormalizada = localStorage.getItem(CLAVE_RECORDATORIO_SALIDA_HORA) || HORA_RECORDATORIO_SALIDA_DEFECTO;
+  const ahora = new Date();
+  const [hh, mm] = horaNormalizada.split(':').map(Number);
+  const limite = new Date(ahora);
+  limite.setHours(hh, mm, 0, 0);
+  if (ahora < limite) return;
+
+  const hayTareaAbiertaHoy = registrosHoyContadorCache.some(r => r.horainicio && !r.horafin);
+  if (!hayTareaAbiertaHoy) return;
+
+  localStorage.setItem(CLAVE_RECORDATORIO_SALIDA_AVISADO, hoyStr);
+  mostrarAvisoRecordatorioSalida(horaNormalizada);
+}
+
+/** Pone en marcha la comprobación periódica del recordatorio de salida (cada minuto). */
+function iniciarRecordatorioSalida() {
+  comprobarRecordatorioSalida();
+  setInterval(comprobarRecordatorioSalida, 60 * 1000);
+}
+
+// ------------------------------------------------------------
+// Contador de tiempo efectivo de la jornada + % de rendimiento (cabecera).
+// Ambos se recalculan cada segundo (iniciarRelojEnVivo) a partir de una
+// caché de los registros de HOY (independiente de lo que se esté viendo en
+// el listado, que puede estar mostrando otro día u otro rango), que se
+// refresca cada vez que se guarda o borra un registro.
+// ------------------------------------------------------------
+
+// Tareas que pausan el contador de tiempo efectivo (no cuentan como trabajo).
+const TAREAS_PAUSA_CONTADOR = ["Fuera escritorio", "Comida", "Descanso 20'", "Descanso 30'", "Espera de nueva tarea"];
+
+// PROYECTOS_RENDIMIENTO y calcularPorcentajeRendimiento() viven en config.js
+// (compartidos con graficos.js).
+
+let registrosHoyContadorCache = [];
+
+/** Refresca la caché de registros de HOY usada por el contador de tiempo efectivo y el % de rendimiento. */
+async function refrescarRegistrosHoyContador() {
+  if (!supabaseClient) return;
+  const hoyStr = obtenerFechaHoyISO();
+  try {
+    const { data, error } = await supabaseClient
+      .from(TABLA)
+      .select('tarea,proyecto,horainicio,horafin')
+      .ilike('fecha', `%${hoyStr}%`);
+    if (error || !data) return;
+    registrosHoyContadorCache = data
+      .filter(r => r.horainicio)
+      .sort((a, b) => String(a.horainicio).localeCompare(String(b.horainicio)));
+  } catch (e) {
+    console.error('Error al refrescar los registros de hoy para el contador:', e);
+  }
+}
+
+/** Minutos transcurridos entre 'HH:MM' y el instante "ahora" (mismo día). */
+function minutosHastaAhora(horaStr, ahora) {
+  if (!horaStr) return 0;
+  const [h, m] = horaStr.split(':').map(Number);
+  const minutosAhora = ahora.getHours() * 60 + ahora.getMinutes() + ahora.getSeconds() / 60;
+  return Math.max(0, minutosAhora - (h * 60 + m));
+}
+
+/**
+ * Segundos de tiempo efectivo transcurridos desde que empezó la jornada de
+ * hoy (hora de inicio del primer registro), descontando los intervalos en
+ * tareas de pausa (TAREAS_PAUSA_CONTADOR) -incluido el tramo en curso, si la
+ * última tarea registrada es una pausa y todavía no tiene hora de fin-.
+ * Devuelve null si hoy todavía no hay ningún registro (la jornada no ha empezado).
+ */
+function calcularTiempoEfectivoSegundos(ahora) {
+  const registros = registrosHoyContadorCache;
+  if (!registros || registros.length === 0) return null;
+
+  const inicioJornadaMin = (() => {
+    const [h, m] = registros[0].horainicio.split(':').map(Number);
+    return h * 60 + m;
+  })();
+  const minutosAhora = ahora.getHours() * 60 + ahora.getMinutes() + ahora.getSeconds() / 60;
+  if (minutosAhora <= inicioJornadaMin) return 0;
+
+  let minutosPausa = 0;
+  registros.forEach((reg, idx) => {
+    if (!TAREAS_PAUSA_CONTADOR.includes(reg.tarea)) return;
+    if (reg.horafin) {
+      minutosPausa += obtenerMinutosDuracion(reg.horainicio, reg.horafin);
+    } else if (idx === registros.length - 1) {
+      // Pausa en curso (todavía sin hora de fin): sigue acumulando en tiempo real.
+      minutosPausa += minutosHastaAhora(reg.horainicio, ahora);
+    }
+  });
+
+  const minutosEfectivos = Math.max(0, (minutosAhora - inicioJornadaMin) - minutosPausa);
+  return Math.floor(minutosEfectivos * 60);
+}
+
+/** Minutos de hoy registrados en los proyectos de rendimiento (BLOR o BAC2), incluido el tramo en curso si la última tarea es de uno de esos proyectos y aún no tiene hora de fin. */
+function calcularMinutosRendimientoHoy(ahora) {
+  const registros = registrosHoyContadorCache;
+  if (!registros || registros.length === 0) return 0;
+  // PROYECTOS_RENDIMIENTO vive en config.js; si por error se ha sustituido
+  // app.js sin sustituir también config.js a la vez, esto evita un
+  // ReferenceError que rompería el reloj de la cabecera entero.
+  if (typeof PROYECTOS_RENDIMIENTO === 'undefined') return 0;
+
+  let minutos = 0;
+  registros.forEach((reg, idx) => {
+    if (!PROYECTOS_RENDIMIENTO.includes(reg.proyecto)) return;
+    if (reg.horafin) {
+      minutos += obtenerMinutosDuracion(reg.horainicio, reg.horafin);
+    } else if (idx === registros.length - 1) {
+      minutos += minutosHastaAhora(reg.horainicio, ahora);
+    }
+  });
+  return minutos;
+}
+
+/**
+ * Minutos registrados en los proyectos de rendimiento (BLOR o BAC2) dentro
+ * de una lista de registros YA CERRADA de un día que no es hoy (por eso no
+ * hay "tramo en curso" que sumar en vivo: ese día no está pasando ahora
+ * mismo). Se usa para recalcular el Rto de la cabecera cuando se navega a
+ * un día distinto del actual con el selector de fecha.
+ */
+function calcularMinutosRendimientoDeLista(lista) {
+  if (!lista || lista.length === 0) return 0;
+  if (typeof PROYECTOS_RENDIMIENTO === 'undefined') return 0;
+
+  let minutos = 0;
+  lista.forEach(reg => {
+    if (!PROYECTOS_RENDIMIENTO.includes(reg.proyecto)) return;
+    minutos += obtenerMinutosDuracion(reg.horainicio, reg.horafin);
+  });
+  return minutos;
+}
+
+/** Formatea segundos totales como 'hh:mm:ss' (con las horas a 2 cifras). */
+function formatearSegundosComoHHMMSS(totalSegundos) {
+  const segundos = Math.max(0, Math.floor(totalSegundos || 0));
+  const hh = String(Math.floor(segundos / 3600)).padStart(2, '0');
+  const mm = String(Math.floor((segundos % 3600) / 60)).padStart(2, '0');
+  const ss = String(segundos % 60).padStart(2, '0');
+  return `${hh}:${mm}:${ss}`;
+}
+
+/**
+ * Devuelve la fecha (YYYY-MM-DD) del día actualmente activo en el listado de
+ * abajo -el que se ve en el selector de Fecha-, o null si en vez de un solo
+ * día hay un rango de varios días activo (rangoActivo), caso en el que no
+ * hay un único día para el que calcular el Rto de la cabecera.
+ */
+function obtenerFechaDiaActivo() {
+  if (rangoActivo) return null;
+  const inputFecha = document.getElementById('fecha');
+  const valor = inputFecha ? inputFecha.value.trim() : '';
+  return valor || obtenerFechaHoyISO();
+}
+
+/** Actualiza el contador de tiempo efectivo (hh:mm:ss, siempre de HOY) y el % de rendimiento de la cabecera. */
+function actualizarContadorEfectivoYRendimiento(ahora) {
+  const elContador = document.getElementById('contador-efectivo');
+  const elPorcentaje = document.getElementById('pct-rendimiento');
+  if (!elContador && !elPorcentaje) return;
+
+  const segundosEfectivos = calcularTiempoEfectivoSegundos(ahora);
+  if (elContador) {
+    elContador.textContent = formatearSegundosComoHHMMSS(segundosEfectivos || 0);
+  }
+
+  if (elPorcentaje) {
+    // Se muestra siempre con el prefijo "Rto=", aunque no haya valor calculable
+    // (fin de semana/festivo, o config.js desfasado sin las funciones nuevas),
+    // para que quede claro que el indicador existe y solo falta dato ("--%")
+    // en vez de dejar el hueco en blanco, que parece "no implementado".
+    if (typeof calcularPorcentajeRendimiento !== 'function') {
+      elPorcentaje.textContent = 'Rto=--%';
+    } else {
+      const hoyStr = obtenerFechaHoyISO();
+      const diaActivo = obtenerFechaDiaActivo();
+
+      let minutosRendimiento;
+      let fechaParaCalculo;
+      if (diaActivo === null) {
+        // Hay un rango de varios días activo (Esta semana, Este mes...): el
+        // Rto de la cabecera es un indicador de UN día, no tiene un valor
+        // único que mostrar para un periodo completo (para eso está el
+        // gráfico de Rendimiento en graficos.html).
+        elPorcentaje.textContent = 'Rto=--%';
+        return;
+      } else if (diaActivo === hoyStr) {
+        // Viendo hoy: en vivo, incluyendo el tramo en curso si la última
+        // tarea todavía no tiene hora de fin.
+        minutosRendimiento = calcularMinutosRendimientoHoy(ahora);
+        fechaParaCalculo = hoyStr;
+      } else {
+        // Viendo un día distinto de hoy: recalculado a partir de los
+        // registros de ESE día, ya cargados en el listado de abajo (no está
+        // "en curso", así que no hay tramo en vivo que sumar).
+        minutosRendimiento = calcularMinutosRendimientoDeLista(tareasCargadasCache);
+        fechaParaCalculo = diaActivo;
+      }
+
+      const pct = calcularPorcentajeRendimiento(minutosRendimiento, fechaParaCalculo);
+      elPorcentaje.textContent = (pct === null) ? 'Rto=--%' : `Rto=${Math.round(pct)}%`;
+    }
+  }
+}
+
+// ------------------------------------------------------------
+// Columnas redimensionables (arrastrar el borde derecho de la cabecera).
+// Cada tirador fija en píxeles la variable CSS compartida de esa columna
+// (sustituyendo su minmax() original), lo que también ensancha/encoge la
+// misma columna en el formulario de arriba, ya que ambos comparten
+// variable. El scroll horizontal ya existente actúa de red de seguridad
+// si una columna crece más que el hueco disponible.
+// ------------------------------------------------------------
+const COLUMNAS_REDIMENSIONABLES = {
+  fecha:      { variable: '--w-fecha',       min: 70, max: 220 },
+  tarea:      { variable: '--fr-tarea',      min: 70, max: 420 },
+  proyecto:   { variable: '--fr-proyecto',   min: 55, max: 320 },
+  bloque:     { variable: '--fr-bloque',     min: 60, max: 320 },
+  hora:       { variable: '--w-hora',        min: 60, max: 160 },
+  comentario: { variable: '--fr-comentario', min: 80, max: 520 },
+  notas:      { variable: '--fr-notas',      min: 60, max: 420 }
+};
+const CLAVE_ANCHOS_COLUMNAS = 'reghor_anchos_columnas';
+
+/**
+ * Restaura, si las hay, las anchuras de columna que el usuario dejó
+ * guardadas en una sesión anterior.
+ */
+function aplicarAnchosColumnasGuardados() {
+  let anchos;
+  try {
+    anchos = JSON.parse(localStorage.getItem(CLAVE_ANCHOS_COLUMNAS));
+  } catch (e) {
+    anchos = null;
+  }
+  if (!anchos) return;
+
+  Object.keys(anchos).forEach(clave => {
+    const col = COLUMNAS_REDIMENSIONABLES[clave];
+    if (col && Number.isFinite(anchos[clave])) {
+      document.documentElement.style.setProperty(col.variable, `${anchos[clave]}px`);
+    }
+  });
+}
+
+function guardarAnchoColumna(clave, anchoPx) {
+  let anchos;
+  try {
+    anchos = JSON.parse(localStorage.getItem(CLAVE_ANCHOS_COLUMNAS)) || {};
+  } catch (e) {
+    anchos = {};
+  }
+  anchos[clave] = Math.round(anchoPx);
+  localStorage.setItem(CLAVE_ANCHOS_COLUMNAS, JSON.stringify(anchos));
+}
+
+function inicializarRedimensionColumnas() {
+  document.querySelectorAll('.col-resize-handle').forEach(handle => {
+    handle.addEventListener('mousedown', (event) => {
+      const clave = handle.dataset.col;
+      const col = COLUMNAS_REDIMENSIONABLES[clave];
+      if (!col) return;
+
+      event.preventDefault();
+      const celda = handle.parentElement;
+      const anchoInicial = celda ? celda.getBoundingClientRect().width : 100;
+      const xInicial = event.clientX;
+      handle.classList.add('redimensionando');
+
+      function alMover(e) {
+        const delta = e.clientX - xInicial;
+        const nuevoAncho = Math.max(col.min, Math.min(col.max, anchoInicial + delta));
+        document.documentElement.style.setProperty(col.variable, `${nuevoAncho}px`);
+      }
+      function alSoltar() {
+        document.removeEventListener('mousemove', alMover);
+        document.removeEventListener('mouseup', alSoltar);
+        handle.classList.remove('redimensionando');
+        const valorActual = getComputedStyle(document.documentElement).getPropertyValue(col.variable).trim();
+        const px = parseFloat(valorActual);
+        if (Number.isFinite(px)) guardarAnchoColumna(clave, px);
+      }
+      document.addEventListener('mousemove', alMover);
+      document.addEventListener('mouseup', alSoltar);
+    });
+  });
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  aplicarAnchosColumnasGuardados();
+  inicializarRedimensionColumnas();
+
+  poblarSelects();
+  poblarSelectorMeses();
+  actualizarTituloConDia();
+
+  const inputFecha = document.getElementById('fecha');
+  if (inputFecha) {
+    inputFecha.addEventListener('change', () => cargarTareas());
+  }
+
+  // Cargar el listado de tareas ya guardadas es lo prioritario: se hace
+  // ANTES que cualquier función añadida más adelante (reloj en vivo,
+  // contador de tiempo efectivo/% de rendimiento...), para que un fallo en
+  // una de esas funciones más nuevas (por ejemplo, por tener mezclados
+  // ficheros de versiones distintas) nunca pueda impedir que se vean las
+  // tareas ya guardadas: NO se han borrado, solo no se cargarían en pantalla.
+  if (supabaseClient) {
+    await cargarTareas();
+  } else {
+    document.getElementById('tabla-body').innerHTML = '<div class="tabla-msg" style="color:red;">⚠️ Error al inicializar Supabase.</div>';
+  }
+
+  try {
+    await refrescarRegistrosHoyContador();
+    iniciarRelojEnVivo();
+    iniciarRecordatorioSalida();
+  } catch (e) {
+    console.error('Error al iniciar el reloj/contador de la cabecera (no afecta al listado de tareas, ya cargado arriba):', e);
+  }
+
+  // Modo offline: por si quedaron registros pendientes de una sesión
+  // anterior (se cerró el navegador sin recuperar la conexión), se intenta
+  // subirlos ahora; y de nuevo automáticamente en cuanto el navegador avise
+  // de que ha vuelto la conexión a internet.
+  actualizarAvisoOffline();
+  sincronizarColaOffline();
+
+  comprobarTareaAbiertaDiaAnterior();
+});
+
+window.addEventListener('online', () => {
+  sincronizarColaOffline();
+});
+
+function ordenarLista(array) {
+  return array.sort((a, b) => a.localeCompare(b, idiomaActual, { sensitivity: 'base' }));
+}
+
+function poblarSelects() {
+  const selTarea = document.getElementById('tarea');
+  const selProyecto = document.getElementById('proyecto');
+
+  configData.tareas = ordenarLista(configData.tareas);
+  configData.proyectos = ordenarLista(configData.proyectos);
+
+  // Opción en blanco al principio de ambos desplegables: así, tras guardar
+  // un registro (resetearFormulario), Tarea y Proyecto pueden quedar sin
+  // selección en vez de "heredar" el primer valor de la lista.
+  if (selTarea) {
+    selTarea.innerHTML = '<option value=""></option>' + configData.tareas.map(t => `<option value="${t}">${t}</option>`).join('');
+    sincronizarComentario();
+  }
+
+  if (selProyecto) {
+    selProyecto.innerHTML = '<option value=""></option>' + configData.proyectos.map(p => `<option value="${p}">${p}</option>`).join('');
+    if (configData.proyectos.includes('BAC2')) {
+      selProyecto.value = 'BAC2';
+    }
+  }
+}
+
+function sincronizarComentario() {
+  const selTarea = document.getElementById('tarea');
+  const inputComentario = document.getElementById('comentario');
+  if (selTarea && inputComentario && selTarea.value) {
+    inputComentario.value = selTarea.value;
+  }
+}
+
+// Tareas que, al seleccionarlas, se autocompletan y se guardan solas.
+const TAREAS_AUTOGUARDADO = ["Comida", "Descanso 30'"];
+
+/**
+ * Manejador del onchange del desplegable "Tarea". Además de sincronizar el
+ * comentario (como siempre), si se selecciona "Comida" o "Descanso 30'" y
+ * NO se está editando un registro ya existente, se autocompleta proyecto
+ * "COM", bloque "GENERAL", hora de inicio la hora actual y hora de fin esa
+ * misma hora + 30 minutos, y se guarda automáticamente sin necesidad de
+ * pulsar "Guardar". Si se está editando un registro (tarea-id con valor),
+ * solo se autocompletan los campos, para no sobrescribir sin querer una
+ * tarea ya guardada con un simple cambio de desplegable.
+ */
+async function manejarCambioTarea() {
+  sincronizarComentario();
+
+  const tareaSeleccionada = document.getElementById('tarea').value;
+  if (!TAREAS_AUTOGUARDADO.includes(tareaSeleccionada)) return;
+
+  const ahora = new Date();
+  const horaActual = `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`;
+  const finMinutos = (ahora.getHours() * 60 + ahora.getMinutes() + 30) % 1440;
+  const horaFinCalc = `${String(Math.floor(finMinutos / 60)).padStart(2, '0')}:${String(finMinutos % 60).padStart(2, '0')}`;
+
+  document.getElementById('proyecto').value = 'COM';
+  document.getElementById('bloque').value = 'GENERAL';
+  document.getElementById('horainicio').value = horaActual;
+  document.getElementById('horafin').value = horaFinCalc;
+
+  const editando = document.getElementById('tarea-id').value;
+  if (!editando) {
+    await guardarRegistroFormulario();
+  }
+}
+
+function abrirConfig(tipo) {
+  tipoConfigActual = tipo;
+  document.getElementById('modal-titulo').textContent = `Configurar ${tipo}`;
+  renderListaConfig();
+  document.getElementById('modal-config').style.display = 'flex';
+}
+
+function cerrarConfig() {
+  document.getElementById('modal-config').style.display = 'none';
+}
+
+function renderListaConfig() {
+  const ul = document.getElementById('lista-config');
+  configData[tipoConfigActual] = ordenarLista(configData[tipoConfigActual]);
+
+  ul.innerHTML = configData[tipoConfigActual].map((item, idx) => `
+    <li style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+      <span>${item}</span>
+      <button type="button" class="btn-mini" onclick="eliminarOpcionConfig(${idx})">🗑️</button>
+    </li>
+  `).join('');
+}
+
+function agregarOpcionConfig() {
+  const input = document.getElementById('nuevo-valor-config');
+  const val = input.value.trim();
+  if (val && !configData[tipoConfigActual].includes(val)) {
+    configData[tipoConfigActual].push(val);
+    configData[tipoConfigActual] = ordenarLista(configData[tipoConfigActual]);
+    localStorage.setItem(`cfg_${tipoConfigActual}`, JSON.stringify(configData[tipoConfigActual]));
+    input.value = '';
+    renderListaConfig();
+    poblarSelects();
+  }
+}
+
+function eliminarOpcionConfig(idx) {
+  configData[tipoConfigActual].splice(idx, 1);
+  localStorage.setItem(`cfg_${tipoConfigActual}`, JSON.stringify(configData[tipoConfigActual]));
+  renderListaConfig();
+  poblarSelects();
+}
+
+function setHoraActual(inputId) {
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  document.getElementById(inputId).value = `${hh}:${mm}`;
+}
+
+// Hora de entrada habitual: se usa como hora de inicio por defecto cuando
+// se empieza una jornada nueva (no hay ningún registro todavía hoy), en vez
+// de heredar la hora de fin de la última tarea del día anterior.
+const HORA_INICIO_JORNADA_DEFECTO = '06:40';
+
+/** Hora actual como 'HH:MM' (con ceros a la izquierda). */
+function horaActualHHMM() {
+  const ahora = new Date();
+  return `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`;
+}
+
+/**
+ * Registro automático que arranca la jornada solo: si al entrar en la app
+ * (o al volver a la fecha de hoy) todavía no hay NINGÚN registro hoy, se
+ * crea y GUARDA DIRECTAMENTE en Supabase -sin esperar a que se pulse
+ * Guardar- un primer registro con Tarea "AOYV", Proyecto "DES" y Bloque
+ * "GENERAL", con la hora de inicio = el momento en que se ha detectado que
+ * el día estaba vacío (la "hora de entrada" a la app). Su hora fin se va
+ * actualizando sola cada minuto (ver iniciarTickerAOYV) mientras no se
+ * guarde ninguna tarea real; en cuanto eso ocurra, se cierra automáticamente
+ * (ver cerrarRegistroAOYVSiProcede, llamado desde guardarRegistroFormulario).
+ */
+async function iniciarRegistroAOYV(fechaStr) {
+  if (creandoRegistroAOYV || !supabaseClient) return;
+  creandoRegistroAOYV = true;
+  try {
+    // Justo antes de crear el AOYV se vuelve a comprobar en Supabase -no solo
+    // en la caché local de esta pestaña- si entretanto ya se ha creado algún
+    // registro para este día. Esto evita que dos pestañas o sesiones abiertas
+    // a la vez (cada una viendo "0 registros hoy" con su propia consulta)
+    // acaben creando CADA UNA su propio AOYV duplicado, que luego tiquetean
+    // en paralelo y descuadran la Entrada/Duración de la semana. No elimina
+    // del todo la ventana de carrera -no hay forma de hacerlo 100% atómico
+    // sin una restricción a nivel de base de datos (p.ej. un índice único
+        // parcial en (fecha, tarea) para tarea = 'AOYV')-, pero la reduce al
+    // mínimo imprescindible, justo antes del insert.
+    const { data: existentes, error: errorComprobacion } = await supabaseClient
+      .from(TABLA)
+      .select('*')
+      .ilike('fecha', `%${fechaStr}%`);
+
+    if (errorComprobacion) {
+      console.error('Error al comprobar registros existentes antes de crear el AOYV:', errorComprobacion);
+      return;
+    }
+
+    if (existentes && existentes.length > 0) {
+      // Alguien se nos ha adelantado en la carrera. Si lo único que hay es el
+      // propio AOYV (creado por otra pestaña/sesión en ese mismo instante),
+      // nos enganchamos a ese registro en vez de crear uno nuevo. Si ya hay
+      // una tarea real (o varios registros), no se crea nada: se deja tal
+      // cual y se refresca la pantalla con lo que realmente hay guardado.
+      if (existentes.length === 1 && existentes[0].tarea === TAREA_AOYV) {
+        registroAOYVAbiertoId = existentes[0].id;
+        registroAOYVHoraInicio = existentes[0].horainicio;
+        iniciarTickerAOYV();
+      }
+      await cargarTareas();
+      return;
+    }
+
+    const horaActual = horaActualHHMM();
+    const registro = {
+      fecha: fechaStr,
+      tarea: TAREA_AOYV,
+      proyecto: PROYECTO_AOYV,
+      bloque: BLOQUE_AOYV,
+      horainicio: horaActual,
+      horafin: horaActual,
+      comentario: TAREA_AOYV,
+      notas: ''
+    };
+
+    const { data, error } = await supabaseClient.from(TABLA).insert([registro]).select();
+    if (error) {
+      console.error('Error al crear el registro automático AOYV:', error);
+      return;
+    }
+
+    const filaCreada = (data && data[0]) || null;
+    if (filaCreada && filaCreada.id != null) {
+      registroAOYVAbiertoId = filaCreada.id;
+      registroAOYVHoraInicio = filaCreada.horainicio;
+      iniciarTickerAOYV();
+    }
+
+    await cargarTareas();
+  } finally {
+    creandoRegistroAOYV = false;
+  }
+}
+
+/** Va actualizando en Supabase (cada minuto) la hora fin del registro AOYV todavía abierto, mientras se siga viendo el día de hoy. */
+function iniciarTickerAOYV() {
+  if (intervaloTickerAOYV) return;
+  intervaloTickerAOYV = setInterval(async () => {
+    if (!registroAOYVAbiertoId || !supabaseClient) {
+      detenerTickerAOYV();
+      return;
+    }
+    const hoyStr = obtenerFechaHoyISO();
+    const inputFecha = document.getElementById('fecha');
+    const fechaVista = inputFecha ? inputFecha.value.trim() : hoyStr;
+    // Si ya no se está viendo el día de hoy (se navegó a otra fecha o a un
+    // rango), no se toca la pantalla, pero el registro sigue actualizándose
+    // en segundo plano en Supabase.
+    const actualizarPantalla = (fechaVista === hoyStr && !rangoActivo);
+
+    const horaActual = horaActualHHMM();
+    try {
+      await supabaseClient.from(TABLA).update({ horafin: horaActual }).eq('id', registroAOYVAbiertoId);
+    } catch (e) {
+      console.error('Error al actualizar la hora fin del registro AOYV en curso:', e);
+      return;
+    }
+
+    if (actualizarPantalla) {
+      const registro = tareasCargadasCache.find(t => t.id === registroAOYVAbiertoId);
+      if (registro) {
+        registro.horafin = horaActual;
+        renderFilasTabla(tareasCargadasCache);
+        await actualizarResumenHoras(tareasCargadasCache, hoyStr);
+      }
+    }
+  }, 60000);
+}
+
+function detenerTickerAOYV() {
+  if (intervaloTickerAOYV) {
+    clearInterval(intervaloTickerAOYV);
+    intervaloTickerAOYV = null;
+  }
+}
+
+/**
+ * Si hay un registro AOYV todavía abierto y se va a guardar una tarea NUEVA
+ * (no una edición) y distinta del propio AOYV, se cierra justo antes con la
+ * hora de inicio de esa tarea nueva como su hora fin -así no queda ni un
+ * hueco ni un solape entre el AOYV y la primera tarea real del día-. Se
+ * llama ANTES de comprobar solapes de horario, para que esa comprobación ya
+ * vea el AOYV cerrado con el horario correcto.
+ */
+async function cerrarRegistroAOYVSiProcede(esNuevo, fechaStr, tareaNueva, horaInicioNueva) {
+  if (!registroAOYVAbiertoId || !esNuevo || !horaInicioNueva) return;
+  if (fechaStr !== obtenerFechaHoyISO()) return;
+  if (tareaNueva === TAREA_AOYV) return;
+
+  // Si por lo que sea la tarea nueva empieza ANTES de que el propio AOYV
+  // arrancara (p.ej. se ha tecleado a mano una hora de inicio anterior a la
+  // de apertura de la app), no se fuerza su hora fin a un valor anterior a
+  // su propia hora de inicio -dejaría un registro con horafin < horainicio-:
+  // simplemente se deja de controlar, tal cual estaba.
+  if (registroAOYVHoraInicio && horaInicioNueva < registroAOYVHoraInicio) {
+    detenerTickerAOYV();
+    registroAOYVAbiertoId = null;
+    registroAOYVHoraInicio = null;
+    return;
+  }
+
+  try {
+    await supabaseClient.from(TABLA).update({ horafin: horaInicioNueva }).eq('id', registroAOYVAbiertoId);
+  } catch (e) {
+    console.error('Error al cerrar el registro AOYV al guardar una tarea real:', e);
+  }
+  detenerTickerAOYV();
+  registroAOYVAbiertoId = null;
+  registroAOYVHoraInicio = null;
+}
+
+async function copiarHoraFinAnterior() {
+  if (!supabaseClient) return;
+  try {
+    const { data, error } = await supabaseClient
+      .from(TABLA)
+      .select('fecha,horafin')
+      .order('id', { ascending: false })
+      .limit(1);
+
+    if (error || !data || data.length === 0 || !data[0].horafin) {
+      alert('No se encontró ninguna hora fin registrada.');
+      return;
+    }
+
+    let fechaUltimo = String(data[0].fecha || '').trim();
+    if (fechaUltimo.includes('T')) fechaUltimo = fechaUltimo.split('T')[0];
+    if (fechaUltimo.includes(' ')) fechaUltimo = fechaUltimo.split(' ')[0];
+
+    // Si el último registro guardado es de HOY, se sigue encadenando desde
+    // su hora de fin (como siempre). Si es de un día anterior -se está
+    // empezando una jornada nueva-, esa hora de fin era la hora de SALIDA
+    // del día anterior y no tiene sentido como hora de entrada de hoy: se
+    // usa la hora de entrada habitual (06:40).
+    const hoyStr = obtenerFechaHoyISO();
+    document.getElementById('horainicio').value =
+      (fechaUltimo === hoyStr) ? data[0].horafin : HORA_INICIO_JORNADA_DEFECTO;
+  } catch(e) {
+    alert("Error de conexión al consultar Supabase.");
+  }
+}
+
+/**
+ * Mueve el campo Fecha un día hacia atrás (delta=-1) o hacia adelante
+ * (delta=1) -botones ◁/▷ junto al campo- y recarga el listado para ese
+ * nuevo día, igual que si se hubiera elegido a mano en el selector.
+ */
+function cambiarFechaDia(delta) {
+  const inputFecha = document.getElementById('fecha');
+  const base = parsearFechaLocal(inputFecha.value) || parsearFechaLocal(obtenerFechaHoyISO());
+  base.setDate(base.getDate() + delta);
+  inputFecha.value = formatearFechaISO(base);
+  cargarTareas();
+}
+
+async function cargarTareas() {
+  rangoActivo = null;
+  actualizarEtiquetaRangoActivo();
+  actualizarEtiquetaTeoricaSegunModo();
+  const btnFinalizarJornada = document.getElementById('btn-finalizar-jornada');
+  if (btnFinalizarJornada) btnFinalizarJornada.disabled = false;
+
+  const tablaBody = document.getElementById('tabla-body');
+  tablaBody.innerHTML = '<div class="tabla-msg">Cargando datos desde Supabase...</div>';
+
+  const inputFecha = document.getElementById('fecha');
+  let fechaFiltroStr = inputFecha ? inputFecha.value.trim() : '';
+
+  // Si al entrar en la app el campo Fecha está vacío, se pone SIEMPRE la
+  // fecha de hoy (nunca la del último registro guardado, que podía ser de
+  // un día anterior si hoy todavía no se ha apuntado nada).
+  if (!fechaFiltroStr) {
+    fechaFiltroStr = obtenerFechaHoyISO();
+    if (inputFecha) {
+      inputFecha.value = fechaFiltroStr;
+    }
+  }
+
+  actualizarEstadoDiaCerrado();
+
+  // Si se deja de ver el día de hoy, el AOYV -si seguía abierto- sigue
+  // actualizándose solo en Supabase en segundo plano (iniciarTickerAOYV),
+  // pero se para de tocar la pantalla hasta que se vuelva a hoy.
+  const hoyStrActual = obtenerFechaHoyISO();
+
+  try {
+    const { data: tareas, error } = await supabaseClient
+      .from(TABLA)
+      .select('*')
+      .ilike('fecha', `%${fechaFiltroStr}%`);
+
+    if (error) {
+      console.error("Error al cargar registros:", error);
+      tablaBody.innerHTML = `<div class="tabla-msg" style="color:red;">Error Supabase: ${error.message}</div>`;
+      // Se vacía la caché de tareas del día: si no, un día sin datos (por un
+      // error) seguiría mostrando -para cálculos como el Rto de la cabecera-
+      // los registros del último día que sí se cargó con éxito.
+      tareasCargadasCache = [];
+      seleccionLote.clear();
+      actualizarBarraLote();
+      actualizarAvisoAbiertas([]);
+      await actualizarResumenHoras([], fechaFiltroStr);
+      return;
+    }
+
+    if (!tareas || tareas.length === 0) {
+      tablaBody.innerHTML = `<div class="tabla-msg">No existen registros guardados para la fecha ${fechaFiltroStr}.</div>`;
+      // Igual que arriba: sin esto, un día vacío heredaba en silencio la
+      // caché del día anterior (p.ej. el Rto de la cabecera seguía mostrando
+      // el % de un día distinto al que realmente se está viendo).
+      tareasCargadasCache = [];
+      seleccionLote.clear();
+      actualizarBarraLote();
+      actualizarAvisoAbiertas([]);
+      await actualizarResumenHoras([], fechaFiltroStr);
+      // Jornada que empieza sola: solo en el día de hoy y si no está cerrado.
+      if (fechaFiltroStr === hoyStrActual && !esDiaCerrado(fechaFiltroStr)) {
+        await iniciarRegistroAOYV(fechaFiltroStr);
+      }
+      return;
+    }
+
+    // De más tarde a más temprano según la hora de inicio -la última tarea
+    // registrada aparece arriba del todo- (a igualdad de hora, la más
+    // reciente, con id más alto, también va primero).
+    tareas.sort((a, b) => {
+      const horaA = a.horainicio || '';
+      const horaB = b.horainicio || '';
+      if (horaA !== horaB) return horaA > horaB ? -1 : 1;
+      return (b.id || 0) - (a.id || 0);
+    });
+    tareasCargadasCache = tareas;
+    actualizarAvisoAbiertas(tareas);
+
+    // Si el único registro de hoy es el AOYV automático (p.ej. tras recargar
+    // la página con el navegador), se retoma su seguimiento -sigue siendo el
+    // "cajón" abierto hasta que se guarde una tarea real-. En cualquier otro
+    // caso (ya hay una tarea real, o se está viendo otro día) se deja de
+    // controlar un id que ya no aplica.
+    if (fechaFiltroStr === hoyStrActual && tareas.length === 1 && tareas[0].tarea === TAREA_AOYV && !esDiaCerrado(fechaFiltroStr)) {
+      registroAOYVAbiertoId = tareas[0].id;
+      registroAOYVHoraInicio = tareas[0].horainicio;
+      iniciarTickerAOYV();
+    } else if (fechaFiltroStr === hoyStrActual && registroAOYVAbiertoId != null && !tareas.some(t => t.id === registroAOYVAbiertoId)) {
+      // El AOYV que se estaba controlando ya no existe (se borró a mano).
+      detenerTickerAOYV();
+      registroAOYVAbiertoId = null;
+      registroAOYVHoraInicio = null;
+    }
+
+    // Al recargar la fecha se limpia el filtro instantáneo, para no ocultar
+    // por sorpresa registros del nuevo día bajo un texto de filtro que ya
+    // no tiene sentido.
+    const inputFiltroListado = document.getElementById('filtro-listado');
+    if (inputFiltroListado) inputFiltroListado.value = '';
+
+    renderFilasTabla(tareas);
+
+    await actualizarResumenHoras(tareas, fechaFiltroStr);
+
+  } catch(err) {
+    console.error("Error inesperado en cargarTareas:", err);
+    tablaBody.innerHTML = `<div class="tabla-msg" style="color:red;">Error al procesar la solicitud.</div>`;
+    seleccionLote.clear();
+    actualizarBarraLote();
+    actualizarAvisoAbiertas([]);
+    await actualizarResumenHoras([], fechaFiltroStr);
+  }
+}
+
+/**
+ * Pinta las filas del listado a partir de una lista de registros ya
+ * decidida por quien llama (el día completo, o el resultado de aplicar el
+ * filtro instantáneo). El índice (idx + 1) es un número de fila puramente
+ * visual, calculado en el navegador a partir de la posición en la lista
+ * recibida: no se guarda en Supabase ni depende del id real del registro.
+ */
+const TEXTOS_SOLAPE = {
+  es: '⚠️ El horario de esta tarea se solapa con el de otra tarea del mismo día.',
+  gl: '⚠️ O horario desta tarefa solápase co doutra tarefa do mesmo día.',
+  en: '⚠️ This task\'s time range overlaps with another task on the same day.'
+};
+
+/**
+ * Devuelve el conjunto de ids de 'lista' cuyo horario se solapa con el de
+ * otro registro del MISMO día (agrupando por fecha primero: dos tareas de
+ * días distintos nunca "se solapan" aunque sus horas coincidan). Normalmente
+ * no debería haber ninguno -guardarRegistroFormulario ya lo impide al
+ * guardar-, pero sirve de red de seguridad para datos antiguos (de antes de
+ * ese control) o guardados por otra vía (edición en lote, importación CSV,
+ * sincronización de la cola offline), que no pasan por esa comprobación.
+ */
+function calcularIdsSolapados(lista) {
+  const porFecha = {};
+  lista.forEach(item => {
+    if (!item.horainicio || !item.horafin) return;
+    let f = String(item.fecha || '').trim();
+    if (f.includes('T')) f = f.split('T')[0];
+    if (f.includes(' ')) f = f.split(' ')[0];
+    if (!porFecha[f]) porFecha[f] = [];
+    porFecha[f].push(item);
+  });
+
+  const idsSolapados = new Set();
+  Object.values(porFecha).forEach(items => {
+    for (let i = 0; i < items.length; i++) {
+      for (let j = i + 1; j < items.length; j++) {
+        const a = items[i], b = items[j];
+        const aIni = obtenerMinutosDuracion('00:00', a.horainicio);
+        const aFin = obtenerMinutosDuracion('00:00', a.horafin);
+        const bIni = obtenerMinutosDuracion('00:00', b.horainicio);
+        const bFin = obtenerMinutosDuracion('00:00', b.horafin);
+        if (aIni < bFin && bIni < aFin) {
+          idsSolapados.add(a.id);
+          idsSolapados.add(b.id);
+        }
+      }
+    }
+  });
+  return idsSolapados;
+}
+
+function renderFilasTabla(lista) {
+  const tablaBody = document.getElementById('tabla-body');
+  if (!tablaBody) return;
+
+  // Se quitan de la selección en lote los ids que ya no están en pantalla
+  // (p.ej. han cambiado de fecha/filtro), para que la barra de edición en
+  // lote nunca cuente registros que ya no se ven.
+  const idsVisibles = new Set(lista.map(item => item.id));
+  Array.from(seleccionLote).forEach(id => { if (!idsVisibles.has(id)) seleccionLote.delete(id); });
+
+  const idsSolapados = calcularIdsSolapados(lista);
+  const tSolape = TEXTOS_SOLAPE[idiomaActual] || TEXTOS_SOLAPE.es;
+
+  tablaBody.innerHTML = lista.map((item, idx) => {
+    let rawF = String(item.fecha || '').trim();
+    let fDisplay = rawF.includes('T') ? rawF.split('T')[0] : rawF.split(' ')[0];
+    const marcado = seleccionLote.has(item.id) ? 'checked' : '';
+    const solapada = idsSolapados.has(item.id);
+    const claseSolape = solapada ? ' fila-solapada' : '';
+    const tituloBase = 'Doble clic para editar · clic derecho para más opciones';
+    const titulo = solapada ? `${tSolape} ${tituloBase}` : tituloBase;
+
+    return `
+      <div class="tabla-grid-row tabla-row${claseSolape}" ondblclick="cargarParaEditar(${item.id})" oncontextmenu="mostrarMenuContextual(event, ${item.id})" title="${titulo}">
+        <div class="celda-numero celda-numero-lote">
+          <input type="checkbox" onclick="event.stopPropagation()" onchange="toggleSeleccionFila(${item.id}, this.checked)" ${marcado}>
+          <span>${solapada ? '⚠️ ' : ''}${idx + 1}</span>
+        </div>
+        <div>${fDisplay}</div>
+        <div>${item.tarea || ''}</div>
+        <div>${item.proyecto || ''}</div>
+        <div>${item.bloque || ''}</div>
+        <div>${item.horainicio || ''}</div>
+        <div>${item.horafin || ''}</div>
+        <div>${item.comentario || ''}</div>
+        <div>${item.notas || ''}</div>
+        <div><strong>${calcularDuracion(item.horainicio, item.horafin)}</strong></div>
+      </div>
+    `;
+  }).join('');
+
+  actualizarBarraLote();
+}
+
+// ------------------------------------------------------------
+// Edición en lote (selección múltiple de filas + edición/eliminación masiva)
+// ------------------------------------------------------------
+
+const TEXTOS_BARRA_LOTE = {
+  es: (n) => `${n} seleccionado${n === 1 ? '' : 's'}`,
+  gl: (n) => `${n} seleccionado${n === 1 ? '' : 's'}`,
+  en: (n) => `${n} selected`
+};
+
+function actualizarBarraLote() {
+  const barra = document.getElementById('barra-lote');
+  const contador = document.getElementById('txt-barra-lote-contador');
+  if (!barra || !contador) return;
+
+  const n = seleccionLote.size;
+  barra.style.display = n > 0 ? 'flex' : 'none';
+  const f = TEXTOS_BARRA_LOTE[idiomaActual] || TEXTOS_BARRA_LOTE.es;
+  contador.textContent = f(n);
+
+  const chkTodos = document.getElementById('chk-seleccionar-todos');
+  if (chkTodos) {
+    const idsEnPantalla = Array.from(document.querySelectorAll('#tabla-body .celda-numero-lote input[type="checkbox"]'));
+    chkTodos.checked = idsEnPantalla.length > 0 && idsEnPantalla.every(chk => chk.checked);
+  }
+}
+
+function toggleSeleccionFila(id, marcado) {
+  if (marcado) seleccionLote.add(id);
+  else seleccionLote.delete(id);
+  actualizarBarraLote();
+}
+
+function toggleSeleccionarTodos(marcarTodos) {
+  document.querySelectorAll('#tabla-body .tabla-row').forEach(fila => {
+    const chk = fila.querySelector('.celda-numero-lote input[type="checkbox"]');
+    if (!chk) return;
+    chk.checked = marcarTodos;
+  });
+  // Se reconstruye la selección a partir de lo visible en pantalla en vez de
+  // tocar seleccionLote fila a fila, para no arrastrar ids de un filtro
+  // anterior si el usuario ha filtrado el listado mientras tenía algo marcado.
+  const idsVisibles = tareasCargadasCache
+    .filter(t => aplicaFiltroInstantaneoActivo(t))
+    .map(t => t.id);
+  if (marcarTodos) {
+    idsVisibles.forEach(id => seleccionLote.add(id));
+  } else {
+    idsVisibles.forEach(id => seleccionLote.delete(id));
+  }
+  actualizarBarraLote();
+}
+
+/** Devuelve true si el registro `t` sigue visible bajo el filtro instantáneo actual (o si no hay ninguno activo). */
+function aplicaFiltroInstantaneoActivo(t) {
+  const inputFiltro = document.getElementById('filtro-listado');
+  const patron = inputFiltro ? inputFiltro.value : '';
+  if (!patron || !patron.trim()) return true;
+  const regex = crearRegexFiltro(patron);
+  if (!regex) return true;
+  return [t.tarea, t.proyecto, t.bloque, t.comentario, t.notas].some(campo => regex.test(String(campo || '')));
+}
+
+function cancelarSeleccionLote() {
+  seleccionLote.clear();
+  document.querySelectorAll('#tabla-body .celda-numero-lote input[type="checkbox"]').forEach(chk => chk.checked = false);
+  actualizarBarraLote();
+}
+
+async function eliminarSeleccionLote() {
+  const n = seleccionLote.size;
+  if (n === 0) return;
+  if (!confirm(`¿Eliminar los ${n} registros seleccionados? Esta acción no se puede deshacer.`)) return;
+
+  const ids = Array.from(seleccionLote);
+  const { error } = await supabaseClient.from(TABLA).delete().in('id', ids);
+  if (error) {
+    alert('Error de Supabase al eliminar en lote: ' + error.message);
+    return;
+  }
+  seleccionLote.clear();
+  if (rangoActivo) {
+    await cargarTareasRango(rangoActivo.desde, rangoActivo.hasta, rangoActivo.tipo);
+  } else {
+    await cargarTareas();
+  }
+  await refrescarRegistrosHoyContador();
+}
+
+function abrirEdicionLote() {
+  if (seleccionLote.size === 0) return;
+  document.getElementById('lote-tarea').value = '';
+  document.getElementById('lote-proyecto').value = '';
+  document.getElementById('lote-bloque').value = '';
+  document.getElementById('lote-comentario').value = '';
+  document.getElementById('modal-lote').style.display = 'flex';
+}
+
+function cerrarEdicionLote() {
+  document.getElementById('modal-lote').style.display = 'none';
+}
+
+async function guardarEdicionLote() {
+  const ids = Array.from(seleccionLote);
+  if (ids.length === 0) { cerrarEdicionLote(); return; }
+
+  // Solo se incluyen en el UPDATE los campos que el usuario ha rellenado;
+  // un campo en blanco significa "no tocar ese campo" en los registros
+  // seleccionados (nunca se vacía nada por accidente).
+  const cambios = {};
+  const tarea = document.getElementById('lote-tarea').value.trim();
+  const proyecto = document.getElementById('lote-proyecto').value.trim();
+  const bloque = document.getElementById('lote-bloque').value.trim();
+  const comentario = document.getElementById('lote-comentario').value.trim();
+  if (tarea) cambios.tarea = tarea;
+  if (proyecto) cambios.proyecto = proyecto;
+  if (bloque) cambios.bloque = bloque.toUpperCase();
+  if (comentario) cambios.comentario = comentario;
+
+  if (Object.keys(cambios).length === 0) {
+    alert('Rellena al menos un campo para aplicar el cambio en lote.');
+    return;
+  }
+
+  if (!confirm(`¿Aplicar estos cambios a los ${ids.length} registros seleccionados?`)) return;
+
+  const { error } = await supabaseClient.from(TABLA).update(cambios).in('id', ids);
+  if (error) {
+    alert('Error de Supabase al editar en lote: ' + error.message);
+    return;
+  }
+
+  cerrarEdicionLote();
+  seleccionLote.clear();
+  if (rangoActivo) {
+    await cargarTareasRango(rangoActivo.desde, rangoActivo.hasta, rangoActivo.tipo);
+  } else {
+    await cargarTareas();
+  }
+  await refrescarRegistrosHoyContador();
+}
+
+// ------------------------------------------------------------
+// Backup / exportación manual de datos (ver tarea 6 de la lista de mejoras).
+// Descarga TODOS los registros de la tabla (no solo los del día/rango que
+// se esté viendo) como un fichero .json, para guardarlos aparte como copia
+// de seguridad. No sustituye a un backup automático en servidor -GitHub
+// Pages no permite ejecutar nada en el servidor-, pero da una forma rápida
+// de tener una copia local cuando se necesite.
+// ------------------------------------------------------------
+async function exportarBackupCompleto() {
+  const btn = document.getElementById('btn-backup');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Generando...'; }
+
+  try {
+    const { data, error } = await supabaseClient.from(TABLA).select('*').order('fecha', { ascending: true });
+    if (error) {
+      alert('Error de Supabase al generar el backup: ' + error.message);
+      return;
+    }
+
+    const contenido = JSON.stringify({
+      generado: new Date().toISOString(),
+      tabla: TABLA,
+      totalRegistros: (data || []).length,
+      registros: data || []
+    }, null, 2);
+
+    const blob = new Blob([contenido], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const fechaSufijo = obtenerFechaHoyISO();
+    a.href = url;
+    a.download = `reghor_backup_${fechaSufijo}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    alert('Error de red al generar el backup.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Backup'; }
+  }
+}
+
+const TEXTOS_FILTRO_SIN_RESULTADOS = {
+  es: 'Ningún registro coincide con el filtro.',
+  gl: 'Ningún rexistro coincide co filtro.',
+  en: 'No records match the filter.'
+};
+
+/**
+ * Filtro instantáneo sobre el listado ya cargado del día (no vuelve a
+ * consultar Supabase): busca el texto escrito en tarea, proyecto, bloque,
+ * comentario y notas, sin distinguir mayúsculas/minúsculas ni acentos vs
+ * no acentos exactos (comparación simple en minúsculas). Con el campo
+ * vacío se restaura el listado completo del día.
+ */
+function aplicarFiltroInstantaneo() {
+  const input = document.getElementById('filtro-listado');
+  const tablaBody = document.getElementById('tabla-body');
+  if (!input || !tablaBody) return;
+
+  const textoOriginal = input.value.trim();
+
+  if (!textoOriginal) {
+    renderFilasTabla(tareasCargadasCache);
+    return;
+  }
+
+  // Si el texto incluye '*' se activa el comodín (igual que en Informes,
+  // vía crearRegexFiltro de config.js): '*' equivale a "cualquier texto" y
+  // la coincidencia es con el campo COMPLETO, no con una parte cualquiera
+  // -p.ej. "factura*" solo casa con lo que EMPIEZA por "factura"; para "en
+  // cualquier posición" hay que escribir "*factura*"-. Sin '*' se mantiene
+  // la búsqueda de siempre: contiene el texto en cualquier posición.
+  let coincide;
+  if (textoOriginal.includes('*')) {
+    const regexComodin = crearRegexFiltro(textoOriginal);
+    coincide = (campo) => regexComodin.test(String(campo || ''));
+  } else {
+    const texto = textoOriginal.toLowerCase();
+    coincide = (campo) => String(campo || '').toLowerCase().includes(texto);
+  }
+
+  const filtradas = tareasCargadasCache.filter(item =>
+    coincide(item.tarea) || coincide(item.proyecto) || coincide(item.bloque) ||
+    coincide(item.comentario) || coincide(item.notas)
+  );
+
+  if (filtradas.length === 0) {
+    const texto_msg = TEXTOS_FILTRO_SIN_RESULTADOS[idiomaActual] || TEXTOS_FILTRO_SIN_RESULTADOS.es;
+    tablaBody.innerHTML = `<div class="tabla-msg">${texto_msg}</div>`;
+    return;
+  }
+
+  renderFilasTabla(filtradas);
+}
+
+const TEXTOS_AVISO_ABIERTA = {
+  es: (n) => n === 1 ? '⚠️ Tienes 1 tarea sin hora de fin. Recuerda cerrarla.' : `⚠️ Tienes ${n} tareas sin hora de fin. Recuerda cerrarlas.`,
+  gl: (n) => n === 1 ? '⚠️ Tes 1 tarefa sen hora de fin. Lembra pechala.' : `⚠️ Tes ${n} tarefas sen hora de fin. Lembra pechalas.`,
+  en: (n) => n === 1 ? '⚠️ You have 1 task without an end time. Remember to close it.' : `⚠️ You have ${n} tasks without an end time. Remember to close them.`
+};
+
+/**
+ * Aviso visible sobre el listado cuando alguna tarea del día tiene hora de
+ * inicio pero no hora de fin (lo habitual tras usar el botón "Ausencia" y
+ * no volver a cerrarla). Se recalcula cada vez que se recarga el listado y
+ * también al cambiar de idioma, para que el texto quede siempre correcto.
+ */
+function actualizarAvisoAbiertas(listaTareas) {
+  const el = document.getElementById('aviso-abiertas');
+  if (!el) return;
+
+  const abiertas = (listaTareas || []).filter(t => t.horainicio && !t.horafin);
+  if (abiertas.length === 0) {
+    el.style.display = 'none';
+    el.textContent = '';
+    return;
+  }
+
+  const detalle = abiertas.map(t => `${t.horainicio} ${t.tarea || ''}`.trim()).join(', ');
+  const construirTexto = TEXTOS_AVISO_ABIERTA[idiomaActual] || TEXTOS_AVISO_ABIERTA.es;
+  el.textContent = `${construirTexto(abiertas.length)} (${detalle})`;
+  el.style.display = 'block';
+}
+
+/**
+ * Vuelca los datos de un registro guardado en el formulario de entrada.
+ * No toca el campo oculto tarea-id: quien llama decide si el envío
+ * resultante debe actualizar (editar) o crear un registro nuevo (duplicar).
+ */
+function poblarFormularioDesdeRegistro(registro) {
+  let rawF = String(registro.fecha || '').trim();
+  let fDisplay = rawF.includes('T') ? rawF.split('T')[0] : rawF.split(' ')[0];
+
+  document.getElementById('fecha').value = fDisplay;
+  document.getElementById('tarea').value = registro.tarea || '';
+  document.getElementById('proyecto').value = registro.proyecto || '';
+  document.getElementById('bloque').value = registro.bloque || '';
+  document.getElementById('horainicio').value = registro.horainicio || '';
+  document.getElementById('horafin').value = registro.horafin || '';
+  document.getElementById('comentario').value = registro.comentario || '';
+  document.getElementById('notas').value = registro.notas || '';
+}
+
+function cargarParaEditar(id) {
+  const registro = tareasCargadasCache.find(t => t.id === id);
+  if (!registro) return;
+
+  poblarFormularioDesdeRegistro(registro);
+  document.getElementById('tarea-id').value = registro.id;
+
+  const btnGuardar = document.getElementById('btn-guardar');
+  btnGuardar.textContent = TEXTOS_INDEX[idiomaActual].actualizar;
+  btnGuardar.style.backgroundColor = '#ffc107';
+  btnGuardar.style.color = '#000';
+  document.getElementById('btn-cancelar').style.display = 'inline-block';
+}
+
+/**
+ * Carga un registro existente en el formulario pero SIN su id, de modo que
+ * al guardar se cree un registro nuevo en la base de datos en lugar de
+ * actualizar el original (útil para repetir una tarea similar).
+ */
+function cargarParaDuplicar(id) {
+  const registro = tareasCargadasCache.find(t => t.id === id);
+  if (!registro) return;
+
+  poblarFormularioDesdeRegistro(registro);
+  document.getElementById('tarea-id').value = '';
+
+  const btnGuardar = document.getElementById('btn-guardar');
+  btnGuardar.textContent = TEXTOS_INDEX[idiomaActual].guardar;
+  btnGuardar.style.backgroundColor = '#28a745';
+  btnGuardar.style.color = '#fff';
+  document.getElementById('btn-cancelar').style.display = 'inline-block';
+
+  document.getElementById('horainicio').focus();
+}
+
+function resetearFormulario() {
+  document.getElementById('tarea-id').value = '';
+  // Tarea y Proyecto también quedan sin seleccionar tras guardar (opción en
+  // blanco añadida en poblarSelects), igual que Bloque/Comentario/Notas: no
+  // se deja ningún valor "heredado" del registro recién guardado.
+  document.getElementById('tarea').value = '';
+  document.getElementById('proyecto').value = '';
+  document.getElementById('bloque').value = '';
+  document.getElementById('horainicio').value = '';
+  document.getElementById('horafin').value = '';
+  document.getElementById('comentario').value = '';
+  document.getElementById('notas').value = '';
+
+  const btnGuardar = document.getElementById('btn-guardar');
+  btnGuardar.textContent = TEXTOS_INDEX[idiomaActual].guardar;
+  btnGuardar.style.backgroundColor = '#28a745';
+  btnGuardar.style.color = '#fff';
+  document.getElementById('btn-cancelar').style.display = 'none';
+}
+
+/**
+ * Busca, entre las tareas ya guardadas ese mismo día en Supabase, alguna
+ * cuyo rango horario se solape con [horaInicio, horaFin). Dos rangos se
+ * solapan si cada uno empieza antes de que el otro termine; los que solo
+ * se tocan por un extremo (una acaba a las 10:00 y la otra empieza a las
+ * 10:00) NO cuentan como solape. Se excluye el propio registro (idExcluir)
+ * cuando se está editando, y se ignoran las tareas todavía sin hora de fin
+ * (no se puede saber su rango real). Devuelve el registro en conflicto, o
+ * null si no hay ninguno o si algo falla al consultar.
+ */
+async function existeSolapeHorario(fechaStr, horaInicio, horaFin, idExcluir) {
+  if (!supabaseClient || !fechaStr || !horaInicio || !horaFin) return null;
+
+  try {
+    const { data, error } = await supabaseClient
+      .from(TABLA)
+      .select('id,tarea,horainicio,horafin')
+      .ilike('fecha', `%${fechaStr}%`);
+
+    if (error || !data) return null;
+
+    const inicioNuevo = obtenerMinutosDuracion('00:00', horaInicio);
+    const finNuevo = obtenerMinutosDuracion('00:00', horaFin);
+
+    return data.find(r => {
+      if (idExcluir && String(r.id) === String(idExcluir)) return false;
+      if (!r.horainicio || !r.horafin) return false;
+      const inicioOtro = obtenerMinutosDuracion('00:00', r.horainicio);
+      const finOtro = obtenerMinutosDuracion('00:00', r.horafin);
+      return inicioNuevo < finOtro && inicioOtro < finNuevo;
+    }) || null;
+  } catch (e) {
+    console.error('Error al comprobar solapes de horario:', e);
+    return null;
+  }
+}
+
+/**
+ * Guarda (inserta o actualiza, según tarea-id) el registro que haya
+ * actualmente en el formulario. Devuelve true si se guardó correctamente,
+ * false si hubo algún error o si la validación de horas no pasa. Se usa
+ * tanto desde el submit del formulario como desde iniciarFueraEscritorio().
+ */
+const CLAVE_DIAS_CERRADOS = 'reghor_dias_cerrados';
+
+function obtenerDiasCerrados() {
+  try {
+    return JSON.parse(localStorage.getItem(CLAVE_DIAS_CERRADOS)) || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function esDiaCerrado(fechaStr) {
+  return obtenerDiasCerrados().includes(fechaStr);
+}
+
+const TEXTOS_DIA_CERRADO = {
+  es: '🔒 Este día está cerrado (jornada finalizada). No se pueden añadir nuevas tareas, pero sí editar o eliminar las ya guardadas.',
+  gl: '🔒 Este día está pechado (xornada finalizada). Non se poden engadir novas tarefas, pero si editar ou eliminar as xa gardadas.',
+  en: '🔒 This day is closed (end of day). No new tasks can be added, but existing ones can still be edited or deleted.'
+};
+const TEXTOS_BOTON_FINALIZAR = { es: '🔒 Finalizar jornada', gl: '🔒 Rematar xornada', en: '🔒 End day' };
+const TEXTOS_BOTON_REABRIR = { es: '🔓 Reabrir jornada', gl: '🔓 Reabrir xornada', en: '🔓 Reopen day' };
+const TEXTOS_CONFIRMAR_FINALIZAR = {
+  es: '¿Finalizar la jornada de este día? A partir de ahora no se podrán añadir nuevas tareas para esta fecha (sí se podrán seguir editando o eliminando las ya guardadas).',
+  gl: '¿Rematar a xornada deste día? A partir de agora non se poderán engadir novas tarefas para esta data (sí se poderán seguir editando ou eliminando as xa gardadas).',
+  en: 'End the day for this date? From now on no new tasks can be added for this date (existing ones can still be edited or deleted).'
+};
+
+/**
+ * Refleja en la UI si la fecha actualmente seleccionada en el formulario
+ * está cerrada: muestra/oculta el aviso y cambia el texto/acción del botón
+ * Finalizar/Reabrir jornada.
+ */
+function actualizarEstadoDiaCerrado() {
+  const fechaStr = document.getElementById('fecha').value.trim();
+  const aviso = document.getElementById('aviso-dia-cerrado');
+  const btn = document.getElementById('btn-finalizar-jornada');
+  if (!aviso || !btn) return;
+
+  const cerrado = esDiaCerrado(fechaStr);
+  aviso.style.display = cerrado ? 'block' : 'none';
+  aviso.textContent = TEXTOS_DIA_CERRADO[idiomaActual] || TEXTOS_DIA_CERRADO.es;
+  btn.textContent = cerrado
+    ? (TEXTOS_BOTON_REABRIR[idiomaActual] || TEXTOS_BOTON_REABRIR.es)
+    : (TEXTOS_BOTON_FINALIZAR[idiomaActual] || TEXTOS_BOTON_FINALIZAR.es);
+  btn.classList.toggle('btn-dia-cerrado', cerrado);
+}
+
+/**
+ * Alterna el cierre/reapertura de la jornada de la fecha seleccionada en el
+ * formulario. Cerrar el día no borra ni bloquea los registros ya guardados:
+ * solo impide crear NUEVOS registros para esa fecha (ver guardarRegistroFormulario).
+ */
+function alternarFinalizarJornada() {
+  const fechaStr = document.getElementById('fecha').value.trim();
+  if (!fechaStr) return;
+
+  const dias = obtenerDiasCerrados();
+  const idx = dias.indexOf(fechaStr);
+
+  if (idx >= 0) {
+    dias.splice(idx, 1);
+  } else {
+    const texto = TEXTOS_CONFIRMAR_FINALIZAR[idiomaActual] || TEXTOS_CONFIRMAR_FINALIZAR.es;
+    if (!confirm(texto)) return;
+    dias.push(fechaStr);
+  }
+  // Si la fecha finalizada/reabierta es la de hoy, actualizarContadorExtra
+  // (llamado cada segundo desde iniciarRelojEnVivo) recalcula solo con
+  // mirar esDiaCerrado(hoy): a "+00:00:00" al finalizar, en vivo al reabrir.
+
+  localStorage.setItem(CLAVE_DIAS_CERRADOS, JSON.stringify(dias));
+  actualizarEstadoDiaCerrado();
+}
+
+// ------------------------------------------------------------
+// Filtros rápidos de fecha sobre el propio listado (Hoy/Ayer/Semana
+// actual/Semana anterior/Mes actual/Mes pasado), para consultar periodos
+// anteriores sin tener que abrir Informes. Hoy y Ayer reutilizan la vista
+// normal de un solo día (cargarTareas); el resto carga un rango de varios
+// días con totales agregados del periodo.
+// ------------------------------------------------------------
+const TEXTOS_ETIQUETA_RANGO = {
+  semana: { es: 'Semana actual', gl: 'Semana actual', en: 'This week' },
+  semana_anterior: { es: 'Semana anterior', gl: 'Semana anterior', en: 'Last week' },
+  mes: { es: 'Mes actual', gl: 'Mes actual', en: 'This month' },
+  mes_anterior: { es: 'Mes pasado', gl: 'Mes pasado', en: 'Last month' },
+  personalizado: { es: 'Rango personalizado', gl: 'Intervalo personalizado', en: 'Custom range' }
+};
+const TEXTOS_VOLVER_HOY = { es: '✕ Volver a hoy', gl: '✕ Volver a hoxe', en: '✕ Back to today' };
+const TEXTOS_TEORICA_MODO = {
+  dia: { es: 'Jornada Teórica del Día:', gl: 'Xornada Teórica do Día:', en: 'Theoretical Day Hours:' },
+  periodo: { es: 'Jornada Teórica del Periodo:', gl: 'Xornada Teórica do Período:', en: 'Theoretical Period Hours:' }
+};
+
+/** 'YYYY-MM-DD' → 'DD/MM/YYYY', solo para mostrar (sin depender de otras páginas). */
+function formatearFechaCorta(fechaISO) {
+  const partes = String(fechaISO || '').split('-');
+  return partes.length === 3 ? `${partes[2]}/${partes[1]}/${partes[0]}` : (fechaISO || '');
+}
+
+function aplicarFiltroRapido(tipo) {
+  const { desde, hasta } = calcularRangoFechas(tipo);
+
+  if (tipo === 'hoy' || tipo === 'ayer') {
+    document.getElementById('fecha').value = desde;
+    cargarTareas();
+    return;
+  }
+
+  cargarTareasRango(desde, hasta, tipo);
+}
+
+const TEXTOS_RANGO_INVALIDO = {
+  es: '❌ Introduce una fecha "Desde" y una fecha "Hasta" válidas, con "Desde" igual o anterior a "Hasta".',
+  gl: '❌ Introduce unha data "Desde" e unha data "Ata" válidas, con "Desde" igual ou anterior a "Ata".',
+  en: '❌ Enter a valid "From" and "To" date, with "From" on or before "To".'
+};
+
+/** Filtro de rango personalizado (Desde/Hasta) del listado, para consultar cualquier periodo sin ir a Informes. */
+function aplicarFiltroRangoPersonalizado() {
+  const desde = document.getElementById('filtro-rango-desde').value.trim();
+  const hasta = document.getElementById('filtro-rango-hasta').value.trim();
+
+  if (!desde || !hasta || desde > hasta) {
+    alert(TEXTOS_RANGO_INVALIDO[idiomaActual] || TEXTOS_RANGO_INVALIDO.es);
+    return;
+  }
+
+  cargarTareasRango(desde, hasta, 'personalizado');
+}
+
+/**
+ * Rellena el desplegable "Mes" con todos los meses de enero al mes actual
+ * (ambos incluidos) del año en curso, en el idioma activo. Se vuelve a
+ * llamar al cambiar de idioma para traducir las etiquetas.
+ */
+function poblarSelectorMeses() {
+  const sel = document.getElementById('filtro-mes');
+  if (!sel) return;
+
+  const hoy = new Date();
+  const anio = hoy.getFullYear();
+  const mesActual = hoy.getMonth(); // 0-indexado
+  const meses = MESES[idiomaActual] || MESES.es;
+
+  const valorPrevio = sel.value;
+  let opciones = '<option value="" id="opt-filtro-mes-vacio">--</option>';
+  for (let m = 0; m <= mesActual; m++) {
+    const valor = `${anio}-${String(m + 1).padStart(2, '0')}`;
+    const etiqueta = meses[m].charAt(0).toUpperCase() + meses[m].slice(1);
+    opciones += `<option value="${valor}">${etiqueta}</option>`;
+  }
+  sel.innerHTML = opciones;
+  if (valorPrevio) sel.value = valorPrevio;
+}
+
+/** Filtra el listado al mes elegido en el desplegable "Mes" (del 1 al último día de ese mes). */
+function aplicarFiltroMes() {
+  const valor = document.getElementById('filtro-mes').value; // 'YYYY-MM'
+  if (!valor) return;
+  const [anio, mes] = valor.split('-').map(Number);
+  const desde = formatearFechaISO(new Date(anio, mes - 1, 1));
+  const hasta = formatearFechaISO(new Date(anio, mes, 0));
+  cargarTareasRango(desde, hasta, 'personalizado');
+}
+
+/**
+ * Deja el formulario de filtro (Desde/Hasta/Mes y el texto de búsqueda) como
+ * al principio -vacío, solo el formato-, sin tocar qué periodo está viendo
+ * ahora mismo el listado (a diferencia de "✕ Volver a hoy", que sí cambia la
+ * vista a la jornada de hoy).
+ */
+function limpiarFiltroRango() {
+  const inputDesde = document.getElementById('filtro-rango-desde');
+  const inputHasta = document.getElementById('filtro-rango-hasta');
+  const selMes = document.getElementById('filtro-mes');
+  const inputTexto = document.getElementById('filtro-listado');
+  if (inputDesde) inputDesde.value = '';
+  if (inputHasta) inputHasta.value = '';
+  if (selMes) selMes.value = '';
+  if (inputTexto) {
+    inputTexto.value = '';
+    aplicarFiltroInstantaneo();
+  }
+}
+
+/** Cambia el rótulo "Jornada Teórica del..." según se esté en vista de un solo día o de un rango. */
+function actualizarEtiquetaTeoricaSegunModo() {
+  const el = document.getElementById('txt-teorica-label');
+  if (!el) return;
+  const modo = rangoActivo ? 'periodo' : 'dia';
+  el.textContent = (TEXTOS_TEORICA_MODO[modo][idiomaActual] || TEXTOS_TEORICA_MODO[modo].es);
+}
+
+/** Muestra u oculta el aviso de rango activo con su etiqueta y el botón para volver a la vista diaria. */
+function actualizarEtiquetaRangoActivo() {
+  const aviso = document.getElementById('aviso-rango-activo');
+  if (!aviso) return;
+
+  if (!rangoActivo) {
+    aviso.style.display = 'none';
+    aviso.innerHTML = '';
+    return;
+  }
+
+  const etiquetaObj = TEXTOS_ETIQUETA_RANGO[rangoActivo.tipo];
+  const etiqueta = etiquetaObj ? (etiquetaObj[idiomaActual] || etiquetaObj.es) : rangoActivo.tipo;
+  const volverTexto = TEXTOS_VOLVER_HOY[idiomaActual] || TEXTOS_VOLVER_HOY.es;
+
+  aviso.style.display = 'flex';
+  aviso.innerHTML = `<span>📆 ${etiqueta}: ${formatearFechaCorta(rangoActivo.desde)} – ${formatearFechaCorta(rangoActivo.hasta)}</span><button type="button" class="btn-volver-hoy" onclick="aplicarFiltroRapido('hoy')">${volverTexto}</button>`;
+}
+
+/**
+ * Carga en el listado todos los registros entre desdeStr y hastaStr (ambos
+ * incluidos), sustituyendo la vista normal de un solo día. Pagina con
+ * .range() igual que informes.js, por si el periodo (p.ej. un mes) tuviera
+ * más de 1000 registros.
+ */
+async function cargarTareasRango(desdeStr, hastaStr, tipo) {
+  rangoActivo = { desde: desdeStr, hasta: hastaStr, tipo };
+  actualizarEtiquetaRangoActivo();
+  actualizarEtiquetaTeoricaSegunModo();
+
+  const btnFinalizarJornada = document.getElementById('btn-finalizar-jornada');
+  if (btnFinalizarJornada) btnFinalizarJornada.disabled = true;
+  const avisoDiaCerrado = document.getElementById('aviso-dia-cerrado');
+  if (avisoDiaCerrado) avisoDiaCerrado.style.display = 'none';
+
+  const inputFiltroListado = document.getElementById('filtro-listado');
+  if (inputFiltroListado) inputFiltroListado.value = '';
+
+  const tablaBody = document.getElementById('tabla-body');
+  tablaBody.innerHTML = '<div class="tabla-msg">Cargando datos desde Supabase...</div>';
+
+  try {
+    const TAMANO_PAGINA = 1000;
+    let tareas = [];
+    let desdeIndice = 0;
+
+    while (true) {
+      const { data: pagina, error } = await supabaseClient
+        .from(TABLA)
+        .select('*')
+        .gte('fecha', desdeStr)
+        .lte('fecha', hastaStr)
+        .range(desdeIndice, desdeIndice + TAMANO_PAGINA - 1);
+
+      if (error) {
+        console.error('Error al cargar el rango de fechas:', error);
+        tablaBody.innerHTML = `<div class="tabla-msg" style="color:red;">Error Supabase: ${error.message}</div>`;
+        seleccionLote.clear();
+        actualizarBarraLote();
+        actualizarAvisoAbiertas([]);
+        return;
+      }
+
+      tareas = tareas.concat(pagina || []);
+      if (!pagina || pagina.length < TAMANO_PAGINA) break;
+      desdeIndice += TAMANO_PAGINA;
+    }
+
+    // Orden cronológico inverso: la fecha más reciente primero y, dentro de
+    // cada fecha, de más tarde a más temprano por hora de inicio -la última
+    // tarea registrada aparece arriba del todo-, igual que en la vista de un
+    // solo día (cargarTareas).
+    tareas.sort((a, b) => {
+      const fechaA = String(a.fecha || '');
+      const fechaB = String(b.fecha || '');
+      if (fechaA !== fechaB) return fechaA > fechaB ? -1 : 1;
+      const horaA = a.horainicio || '';
+      const horaB = b.horainicio || '';
+      if (horaA !== horaB) return horaA > horaB ? -1 : 1;
+      return (b.id || 0) - (a.id || 0);
+    });
+
+    tareasCargadasCache = tareas;
+    actualizarAvisoAbiertas(tareas);
+
+    if (tareas.length === 0) {
+      tablaBody.innerHTML = `<div class="tabla-msg">No existen registros guardados entre ${desdeStr} y ${hastaStr}.</div>`;
+      seleccionLote.clear();
+      actualizarBarraLote();
+    } else {
+      renderFilasTabla(tareas);
+    }
+
+    actualizarResumenRango(tareas, desdeStr, hastaStr);
+
+  } catch (err) {
+    console.error('Error inesperado al cargar el rango de fechas:', err);
+    tablaBody.innerHTML = `<div class="tabla-msg" style="color:red;">Error al procesar la solicitud.</div>`;
+    seleccionLote.clear();
+    actualizarBarraLote();
+  }
+}
+
+/**
+ * Totales agregados de un rango de varios días: jornada teórica = suma de
+ * la jornada teórica de cada día natural del periodo (festivos/fines de
+ * semana ya cuentan 0 automáticamente, tengan o no registros); horas
+ * trabajadas = suma por día de las horas brutas menos el descanso de ese
+ * día (igual criterio que informes.js), sumado luego entre todos los días
+ * con datos; balance = trabajadas - teórica.
+ */
+function actualizarResumenRango(tareas, desdeStr, hastaStr) {
+  let teoricoTotal = 0;
+  let cursor = parsearFechaLocal(desdeStr);
+  const fin = parsearFechaLocal(hastaStr);
+  while (cursor && fin && cursor <= fin) {
+    teoricoTotal += obtenerJornadaTeoricaMinutos(formatearFechaISO(cursor));
+    cursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 1);
+  }
+
+  const minutosPorDia = {};
+  tareas.forEach(item => {
+    let fechaKey = String(item.fecha || '').trim();
+    if (fechaKey.includes('T')) fechaKey = fechaKey.split('T')[0];
+    if (fechaKey.includes(' ')) fechaKey = fechaKey.split(' ')[0];
+    minutosPorDia[fechaKey] = (minutosPorDia[fechaKey] || 0) + obtenerMinutosDuracion(item.horainicio, item.horafin);
+  });
+
+  let totalTrabajado = 0;
+  Object.keys(minutosPorDia).forEach(fechaKey => {
+    let minutosDia = minutosPorDia[fechaKey];
+    if (minutosDia > 0) {
+      minutosDia = Math.max(0, minutosDia - obtenerDescansoMinutos(fechaKey));
+    }
+    totalTrabajado += minutosDia;
+  });
+
+  const balanceMinutos = totalTrabajado - teoricoTotal;
+
+  document.getElementById('total-teorica').textContent = formatearMinutosAHoras(teoricoTotal);
+  document.getElementById('total-duracion').textContent = formatearMinutosAHoras(totalTrabajado);
+
+  const elBalance = document.getElementById('total-balance');
+  const signoStr = balanceMinutos > 0 ? '+' : '';
+  elBalance.textContent = `${signoStr}${formatearMinutosAHoras(balanceMinutos)}`;
+  elBalance.className = balanceMinutos > 0 ? 'saldo-positivo' : (balanceMinutos < 0 ? 'saldo-negativo' : 'saldo-neutro');
+}
+
+// ------------------------------------------------------------
+// Modo offline: si al guardar falla la conexión con Supabase (no un error
+// lógico de Supabase, sino un fallo de red: sin internet, DNS caído, etc.),
+// el registro no se pierde: se guarda en localStorage y se reintenta solo
+// en cuanto vuelva la conexión (evento 'online') o al volver a abrir/recargar
+// la página. Cada entrada de la cola lleva su propio registro completo más,
+// si era una edición, el id a actualizar.
+// ------------------------------------------------------------
+const CLAVE_COLA_OFFLINE = 'reghor_cola_offline';
+
+function obtenerColaOffline() {
+  try {
+    return JSON.parse(localStorage.getItem(CLAVE_COLA_OFFLINE)) || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function guardarColaOffline(cola) {
+  try {
+    localStorage.setItem(CLAVE_COLA_OFFLINE, JSON.stringify(cola));
+  } catch (e) {
+    console.error('No se pudo guardar la cola offline en localStorage:', e);
+  }
+}
+
+const TEXTOS_OFFLINE = {
+  es: {
+    encolado: (n) => `📴 Sin conexión: el registro se ha guardado en este dispositivo y se subirá solo en cuanto vuelva la red (pendientes: ${n}).`,
+    pendientes: (n) => `📴 Tienes ${n} registro(s) pendiente(s) de subir a Supabase en cuanto haya conexión.`,
+    sincronizado: (n) => `✅ Se ${n === 1 ? 'ha' : 'han'} subido ${n} registro(s) que estaban pendientes.`
+  },
+  gl: {
+    encolado: (n) => `📴 Sen conexión: o rexistro gardouse neste dispositivo e subirase só en canto volva a rede (pendentes: ${n}).`,
+    pendientes: (n) => `📴 Tes ${n} rexistro(s) pendente(s) de subir a Supabase en canto haxa conexión.`,
+    sincronizado: (n) => `✅ Subiuse${n === 1 ? '' : 'ron'} ${n} rexistro(s) que estaban pendentes.`
+  },
+  en: {
+    encolado: (n) => `📴 Offline: the record was saved on this device and will upload automatically once the connection is back (pending: ${n}).`,
+    pendientes: (n) => `📴 You have ${n} record(s) still pending upload to Supabase once there's a connection.`,
+    sincronizado: (n) => `✅ Uploaded ${n} record(s) that were pending.`
+  }
+};
+
+/** Añade un registro a la cola offline (con su id si era una edición). */
+function encolarRegistroOffline(registro, id) {
+  const cola = obtenerColaOffline();
+  cola.push({ registro, id: id || null, encoladoEn: new Date().toISOString() });
+  guardarColaOffline(cola);
+  actualizarAvisoOffline();
+}
+
+function actualizarAvisoOffline() {
+  const el = document.getElementById('aviso-offline');
+  if (!el) return;
+  const n = obtenerColaOffline().length;
+  const t = TEXTOS_OFFLINE[idiomaActual] || TEXTOS_OFFLINE.es;
+  if (n > 0) {
+    el.textContent = t.pendientes(n);
+    el.style.display = '';
+  } else {
+    el.style.display = 'none';
+  }
+}
+
+/**
+ * Intenta subir a Supabase, en orden, todos los registros de la cola
+ * offline. Se llama al recuperar conexión (evento 'online') y al cargar la
+ * página (por si quedaron pendientes de una sesión anterior). Si alguno
+ * falla (sigue sin haber red de verdad, por ejemplo), se detiene ahí y deja
+ * el resto en la cola para el siguiente intento -nunca se descarta nada-.
+ */
+async function sincronizarColaOffline() {
+  if (!supabaseClient) return;
+  let cola = obtenerColaOffline();
+  if (cola.length === 0) return;
+
+  let subidos = 0;
+  while (cola.length > 0) {
+    const entrada = cola[0];
+    try {
+      const response = entrada.id
+        ? await supabaseClient.from(TABLA).update(entrada.registro).eq('id', entrada.id)
+        : await supabaseClient.from(TABLA).insert([entrada.registro]);
+      if (response.error) {
+        // Error lógico de Supabase (no de red): se descarta esta entrada
+        // -reintentarla sin cambios fallaría siempre igual- pero se sigue
+        // con el resto de la cola.
+        console.error('No se pudo sincronizar un registro pendiente (se descarta):', response.error.message, entrada);
+        cola.shift();
+        continue;
+      }
+    } catch (err) {
+      // Sigue sin haber conexión de verdad: se deja la cola tal cual para
+      // el próximo intento.
+      break;
+    }
+    cola.shift();
+    subidos++;
+  }
+
+  guardarColaOffline(cola);
+  actualizarAvisoOffline();
+
+  if (subidos > 0) {
+    const t = TEXTOS_OFFLINE[idiomaActual] || TEXTOS_OFFLINE.es;
+    console.log(t.sincronizado(subidos));
+    if (rangoActivo) {
+      await cargarTareasRango(rangoActivo.desde, rangoActivo.hasta, rangoActivo.tipo);
+    } else {
+      await cargarTareas();
+    }
+  }
+}
+
+// ------------------------------------------------------------
+// Aviso de tarea sin cerrar en un día ANTERIOR a hoy: si un registro tiene
+// hora de inicio pero no hora de fin y su fecha ya pasó, lo más probable es
+// que se olvidara cerrar antes de irse (la última tarea del día). Se
+// comprueba al cargar la página (ventana de los últimos 60 días, de sobra
+// para un olvido normal) y se ofrece un enlace directo a ese día para
+// corregirlo con doble clic, igual que cualquier otro registro.
+// ------------------------------------------------------------
+const TEXTOS_TAREA_ABIERTA = {
+  es: (fecha, tarea) => `🕒 Tienes una tarea sin cerrar (sin hora de fin) el ${fecha}${tarea ? ` — "${tarea}"` : ''}.`,
+  gl: (fecha, tarea) => `🕒 Tes unha tarefa sen pechar (sen hora de fin) o ${fecha}${tarea ? ` — "${tarea}"` : ''}.`,
+  en: (fecha, tarea) => `🕒 You have an unclosed task (no end time) on ${fecha}${tarea ? ` — "${tarea}"` : ''}.`
+};
+const TEXTOS_TAREA_ABIERTA_LINK = { es: 'Ir a ese día', gl: 'Ir a ese día', en: 'Go to that day' };
+
+/** Lleva el formulario/listado a 'fechaStr' (ej. desde el aviso de tarea abierta). */
+function irAFecha(fechaStr) {
+  document.getElementById('fecha').value = fechaStr;
+  cargarTareas();
+}
+
+async function comprobarTareaAbiertaDiaAnterior() {
+  if (!supabaseClient) return;
+  const el = document.getElementById('aviso-tarea-abierta');
+  if (!el) return;
+
+  const hoyStr = obtenerFechaHoyISO();
+  const hace60Dias = new Date();
+  hace60Dias.setDate(hace60Dias.getDate() - 60);
+  const desdeStr = formatearFechaISO(hace60Dias);
+
+  try {
+    const { data, error } = await supabaseClient
+      .from(TABLA)
+      .select('fecha,tarea,horainicio,horafin')
+      .gte('fecha', desdeStr)
+      .lt('fecha', hoyStr);
+    if (error || !data) return;
+
+    const abiertas = data.filter(r => r.horainicio && !r.horafin);
+    if (abiertas.length === 0) {
+      el.style.display = 'none';
+      return;
+    }
+    abiertas.sort((a, b) => (a.fecha < b.fecha ? 1 : -1));
+    const masReciente = abiertas[0];
+    const t = TEXTOS_TAREA_ABIERTA[idiomaActual] || TEXTOS_TAREA_ABIERTA.es;
+    const tLink = TEXTOS_TAREA_ABIERTA_LINK[idiomaActual] || TEXTOS_TAREA_ABIERTA_LINK.es;
+    let fechaMostrada = masReciente.fecha;
+    const d = parsearFechaLocal(masReciente.fecha);
+    if (d) fechaMostrada = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+
+    el.innerHTML = '';
+    el.appendChild(document.createTextNode(t(fechaMostrada, masReciente.tarea) + ' '));
+    const enlace = document.createElement('a');
+    enlace.href = '#';
+    enlace.textContent = tLink;
+    enlace.style.textDecoration = 'underline';
+    enlace.onclick = (ev) => { ev.preventDefault(); irAFecha(masReciente.fecha); };
+    el.appendChild(enlace);
+    if (abiertas.length > 1) {
+      el.appendChild(document.createTextNode(` (+${abiertas.length - 1})`));
+    }
+    el.style.display = '';
+  } catch (e) {
+    console.error('No se pudo comprobar si hay tareas sin cerrar de días anteriores:', e);
+  }
+}
+
+async function guardarRegistroFormulario() {
+  const id = document.getElementById('tarea-id').value;
+  const fechaStr = document.getElementById('fecha').value.trim();
+  const horaInicio = document.getElementById('horainicio').value;
+  const horaFin = document.getElementById('horafin').value;
+
+  if (!id && esDiaCerrado(fechaStr)) {
+    alert('❌ ' + (TEXTOS_DIA_CERRADO[idiomaActual] || TEXTOS_DIA_CERRADO.es));
+    return false;
+  }
+
+  if (horaInicio && horaFin && horaFin < horaInicio) {
+    alert('❌ Error: La Hora Fin no puede ser anterior a la Hora Inicio.');
+    return false;
+  }
+
+  // Guarda de seguridad: si se va a CREAR un registro nuevo con una fecha
+  // POSTERIOR a hoy, se pide confirmación antes de guardar. En un parte de
+  // horas casi nunca tiene sentido registrar una fecha futura -salvo que se
+  // haya tecleado mal a mano (p.ej. "2026" en vez de "2025" al escribir el
+  // año)-, y ese es justo el tipo de error que puede dejar una tarea real
+  // archivada bajo una fecha equivocada, apareciendo luego como si fuese
+  // trabajo "del futuro".
+  if (!id && fechaStr > obtenerFechaHoyISO()) {
+    const confirmarFutura = confirm(
+      `⚠️ La fecha introducida (${fechaStr}) es POSTERIOR a la de hoy.\n¿Seguro que quieres guardar esta tarea con esa fecha? (revisa que el año sea correcto)`
+    );
+    if (!confirmarFutura) return false;
+  }
+
+  // Si esto es una tarea NUEVA (no una edición) y todavía hay un AOYV
+  // abierto de hoy, se cierra ahora mismo -antes de comprobar solapes-, para
+  // que la comprobación de abajo ya vea su horario definitivo.
+  if (!id) {
+    await cerrarRegistroAOYVSiProcede(true, fechaStr, document.getElementById('tarea').value, horaInicio);
+  }
+
+  if (horaInicio && horaFin) {
+    const conflicto = await existeSolapeHorario(fechaStr, horaInicio, horaFin, id);
+    if (conflicto) {
+      alert(`❌ Error: El horario (${horaInicio}-${horaFin}) se solapa con otra tarea ya registrada ese día: ${conflicto.horainicio}-${conflicto.horafin} (${conflicto.tarea || 'sin nombre'}).`);
+      return false;
+    }
+  }
+
+  const registro = {
+    fecha: fechaStr,
+    tarea: document.getElementById('tarea').value,
+    proyecto: document.getElementById('proyecto').value,
+    // Bloque y Notas se guardan siempre en mayúsculas (el propio campo ya
+    // las fuerza mientras se escribe; esto es un cierre de seguridad para
+    // valores pegados o autocompletados sin pasar por el oninput).
+    bloque: document.getElementById('bloque').value.toUpperCase(),
+    horainicio: horaInicio,
+    horafin: horaFin,
+    comentario: document.getElementById('comentario').value,
+    notas: document.getElementById('notas').value.toUpperCase()
+  };
+
+  try {
+    let response;
+    if (id) {
+      response = await supabaseClient.from(TABLA).update(registro).eq('id', id);
+    } else {
+      response = await supabaseClient.from(TABLA).insert([registro]);
+    }
+
+    if (response.error) {
+      alert('Error de Supabase: ' + response.error.message);
+      return false;
+    } else {
+      resetearFormulario();
+      // Si se estaba viendo un rango (Semana/Mes), se recarga ese mismo
+      // rango en vez de volver a la vista de un solo día, para no perder
+      // de vista el resto de registros del periodo tras guardar/editar uno.
+      if (rangoActivo) {
+        await cargarTareasRango(rangoActivo.desde, rangoActivo.hasta, rangoActivo.tipo);
+      } else {
+        await cargarTareas();
+      }
+      // El contador de tiempo efectivo y el % de rendimiento de la cabecera
+      // siempre reflejan HOY, sea cual sea el día/rango que se esté viendo.
+      await refrescarRegistrosHoyContador();
+      // Por si el registro guardado era justo la tarea abierta de un día
+      // anterior que el aviso estaba señalando.
+      comprobarTareaAbiertaDiaAnterior();
+      return true;
+    }
+  } catch (err) {
+    // Fallo de red real (sin conexión, DNS caído, etc., no un error lógico
+    // de Supabase): no se pierde el registro, se guarda en este dispositivo
+    // y se sube solo en cuanto vuelva la conexión (sincronizarColaOffline).
+    encolarRegistroOffline(registro, id || null);
+    const t = TEXTOS_OFFLINE[idiomaActual] || TEXTOS_OFFLINE.es;
+    alert(t.encolado(obtenerColaOffline().length));
+    resetearFormulario();
+    return true;
+  }
+}
+
+document.getElementById('tarea-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  await guardarRegistroFormulario();
+});
+
+/**
+ * Botón "Ausencia": si el formulario tiene una tarea en curso (con hora de
+ * inicio pero todavía sin hora de fin, porque es la tarea que se estaba
+ * haciendo justo antes de levantarse), se le rellena automáticamente la
+ * hora de fin con la hora actual y se guarda (igual que pulsar
+ * Guardar/Actualizar), para no perder ese registro. Si el formulario ya
+ * tenía hora de fin puesta a mano, se respeta tal cual. A continuación se
+ * crea y guarda automáticamente (sin esperar a que el usuario pulse
+ * Guardar) un nuevo registro de ausencia con fecha de hoy, tarea "Fuera
+ * escritorio", proyecto "FES" y tanto la hora de inicio como la hora de
+ * fin puestas a la hora actual (marcador de que la ausencia empieza ahora
+ * mismo); más tarde, al volver, se corrige a mano la hora de fin real
+ * editando ese mismo registro (doble clic sobre la fila).
+ */
+async function iniciarAusencia() {
+  const form = document.getElementById('tarea-form');
+
+  const ahora = new Date();
+  const horaActual = `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`;
+
+  const inputHoraFin = document.getElementById('horafin');
+  if (document.getElementById('horainicio').value && !inputHoraFin.value) {
+    inputHoraFin.value = horaActual;
+  }
+
+  if (form.checkValidity()) {
+    const guardadoOk = await guardarRegistroFormulario();
+    if (!guardadoOk) return;
+  }
+
+  document.getElementById('tarea-id').value = '';
+  document.getElementById('fecha').value = obtenerFechaHoyISO();
+  document.getElementById('tarea').value = 'Fuera escritorio';
+  document.getElementById('proyecto').value = 'FES';
+  document.getElementById('bloque').value = 'GENERAL';
+  document.getElementById('horainicio').value = horaActual;
+  document.getElementById('horafin').value = horaActual;
+  document.getElementById('comentario').value = 'Ausencia';
+  document.getElementById('notas').value = '';
+
+  // Se guarda de inmediato: no se deja pendiente de que el usuario pulse Guardar.
+  await guardarRegistroFormulario();
+}
+
+/**
+ * Botón "Comida": igual que "Ausencia" en que primero cierra (y guarda) la
+ * tarea en curso poniéndole la hora de fin a la hora actual si no la tenía
+ * ya puesta a mano. A continuación crea y guarda automáticamente un nuevo
+ * registro de "Comida" (proyecto "COM") cuya hora de inicio es ese mismo
+ * instante (el fin de la tarea anterior) y cuya hora de fin es 30 minutos
+ * más tarde.
+ */
+async function iniciarComida() {
+  const form = document.getElementById('tarea-form');
+
+  const ahora = new Date();
+  const horaActual = `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`;
+
+  const inputHoraFin = document.getElementById('horafin');
+  if (document.getElementById('horainicio').value && !inputHoraFin.value) {
+    inputHoraFin.value = horaActual;
+  }
+
+  if (form.checkValidity()) {
+    const guardadoOk = await guardarRegistroFormulario();
+    if (!guardadoOk) return;
+  }
+
+  document.getElementById('tarea-id').value = '';
+  document.getElementById('fecha').value = obtenerFechaHoyISO();
+  document.getElementById('tarea').value = 'Comida';
+  document.getElementById('proyecto').value = 'COM';
+  document.getElementById('bloque').value = 'GENERAL';
+  document.getElementById('horainicio').value = horaActual;
+  document.getElementById('horafin').value = sumarMinutosAHora(horaActual, 30);
+  document.getElementById('comentario').value = 'Comida';
+  document.getElementById('notas').value = '';
+
+  // Se guarda de inmediato: no se deja pendiente de que el usuario pulse Guardar.
+  await guardarRegistroFormulario();
+}
+
+/** Suma minutos (puede ser negativo) a una hora 'HH:MM', con vuelta de 24h. */
+function sumarMinutosAHora(horaStr, minutosExtra) {
+  const [h, m] = horaStr.split(':').map(Number);
+  let total = h * 60 + m + minutosExtra;
+  total = ((total % 1440) + 1440) % 1440;
+  const hh = String(Math.floor(total / 60)).padStart(2, '0');
+  const mm = String(total % 60).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
+
+async function borrarTarea(id) {
+  if (confirm('¿Eliminar este registro?')) {
+    await supabaseClient.from(TABLA).delete().eq('id', id);
+    if (rangoActivo) {
+      await cargarTareasRango(rangoActivo.desde, rangoActivo.hasta, rangoActivo.tipo);
+    } else {
+      cargarTareas();
+    }
+    await refrescarRegistrosHoyContador();
+  }
+}
+
+// ------------------------------------------------------------
+// Menú contextual (clic derecho) de cada fila: sustituye a los antiguos
+// botones Editar/Duplicar/Eliminar de cada registro, para dejar la
+// pantalla más limpia.
+// ------------------------------------------------------------
+let idMenuContextual = null;
+
+function mostrarMenuContextual(event, id) {
+  event.preventDefault();
+  event.stopPropagation();
+  idMenuContextual = id;
+
+  const menu = document.getElementById('menu-contextual');
+  if (!menu) return;
+
+  menu.style.display = 'block';
+  const anchoMenu = menu.offsetWidth || 160;
+  const altoMenu = menu.offsetHeight || 120;
+  const x = Math.max(4, Math.min(event.clientX, window.innerWidth - anchoMenu - 8));
+  const y = Math.max(4, Math.min(event.clientY, window.innerHeight - altoMenu - 8));
+  menu.style.left = `${x}px`;
+  menu.style.top = `${y}px`;
+}
+
+function ocultarMenuContextual() {
+  const menu = document.getElementById('menu-contextual');
+  if (menu) menu.style.display = 'none';
+  idMenuContextual = null;
+}
+
+function accionMenuContextual(accion) {
+  const id = idMenuContextual;
+  ocultarMenuContextual();
+  if (id == null) return;
+
+  if (accion === 'editar') cargarParaEditar(id);
+  else if (accion === 'duplicar') cargarParaDuplicar(id);
+  else if (accion === 'eliminar') borrarTarea(id);
+}
+
+document.addEventListener('click', (e) => {
+  const menu = document.getElementById('menu-contextual');
+  if (menu && menu.style.display === 'block' && !menu.contains(e.target)) {
+    ocultarMenuContextual();
+  }
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') ocultarMenuContextual();
+});
+document.addEventListener('scroll', () => ocultarMenuContextual(), true);
+
+async function actualizarResumenHoras(listaTareas, fechaStr) {
+  let totalMinutosReales = 0;
+
+  listaTareas.forEach(item => {
+    totalMinutosReales += obtenerMinutosDuracion(item.horainicio, item.horafin);
+  });
+
+  // Descuento de 00:30 (lunes a jueves, periodo 1 sept - 30 jun) sobre las
+  // horas realmente trabajadas. El balance de horas extra, al calcularse a
+  // partir de este total, hereda automáticamente el mismo descuento.
+  if (totalMinutosReales > 0) {
+    const descanso = obtenerDescansoMinutos(fechaStr);
+    totalMinutosReales = Math.max(0, totalMinutosReales - descanso);
+  }
+
+  // En viernes, la jornada teórica del día es la que realmente queda
+  // pendiente tras lo ya trabajado de lunes a jueves esa semana (ver
+  // obtenerJornadaTeoricaAjustada en config.js); el resto de días usa la
+  // jornada teórica fija de siempre.
+  const minutosTeoricos = await obtenerJornadaTeoricaAjustada(fechaStr);
+  const balanceMinutos = totalMinutosReales - minutosTeoricos;
+
+  document.getElementById('total-teorica').textContent = formatearMinutosAHoras(minutosTeoricos);
+  document.getElementById('total-duracion').textContent = formatearMinutosAHoras(totalMinutosReales);
+
+  const elBalance = document.getElementById('total-balance');
+  const signoStr = balanceMinutos > 0 ? '+' : '';
+  elBalance.textContent = `${signoStr}${formatearMinutosAHoras(balanceMinutos)}`;
+
+  elBalance.className = balanceMinutos > 0 ? 'saldo-positivo' : (balanceMinutos < 0 ? 'saldo-negativo' : 'saldo-neutro');
+
+  actualizarAvisoAnomalia(balanceMinutos, fechaStr, listaTareas.length);
+}
+
+// ------------------------------------------------------------
+// Aviso de jornada anómala: desviaciones grandes sobre la jornada teórica
+// del día, que normalmente delatan un olvido (hora fin sin corregir,
+// registro duplicado, fecha equivocada...) más que una jornada real. El
+// exceso se avisa en cualquier momento (sirve de alerta "esto no cuadra,
+// revísalo"); el defecto solo se avisa una vez el día está cerrado o ya ha
+// pasado, para no mostrar en rojo un día que sencillamente todavía se está
+// trabajando.
+// ------------------------------------------------------------
+const UMBRAL_ANOMALIA_MIN = 120; // 2 horas de desviación
+
+const TEXTOS_ANOMALIA = {
+  es: {
+    exceso: (h) => `⚠️ Jornada anómala: llevas ${h} POR ENCIMA de la jornada teórica. Revisa que las horas sean correctas.`,
+    defecto: (h) => `⚠️ Jornada anómala: este día quedó ${h} POR DEBAJO de la jornada teórica.`
+  },
+  gl: {
+    exceso: (h) => `⚠️ Xornada anómala: levas ${h} POR RIBA da xornada teórica. Revisa que as horas sexan correctas.`,
+    defecto: (h) => `⚠️ Xornada anómala: este día quedou ${h} POR DEBAIXO da xornada teórica.`
+  },
+  en: {
+    exceso: (h) => `⚠️ Unusual day: you are ${h} ABOVE the theoretical hours. Check the times are correct.`,
+    defecto: (h) => `⚠️ Unusual day: this day ended ${h} BELOW the theoretical hours.`
+  }
+};
+
+function actualizarAvisoAnomalia(balanceMinutos, fechaStr, numRegistros) {
+  const el = document.getElementById('aviso-anomalia');
+  if (!el) return;
+
+  if (!numRegistros) {
+    el.style.display = 'none';
+    return;
+  }
+
+  const t = TEXTOS_ANOMALIA[idiomaActual] || TEXTOS_ANOMALIA.es;
+
+  if (balanceMinutos > UMBRAL_ANOMALIA_MIN) {
+    el.textContent = t.exceso(formatearMinutosAHoras(balanceMinutos));
+    el.style.display = '';
+    return;
+  }
+
+  const diaYaCerradoOPasado = esDiaCerrado(fechaStr) || fechaStr < obtenerFechaHoyISO();
+  if (balanceMinutos < -UMBRAL_ANOMALIA_MIN && diaYaCerradoOPasado) {
+    el.textContent = t.defecto(formatearMinutosAHoras(Math.abs(balanceMinutos)));
+    el.style.display = '';
+    return;
+  }
+
+  el.style.display = 'none';
+}
+
+const TEXTOS_INDEX = {
+  es: {
+    titulo: 'REGHOR', fecha: 'Fecha', tarea: 'Tarea', proyecto: 'Proyecto', bloque: 'Bloque',
+    horainicio: 'Hora inicio', horafin: 'Hora fin', comentario: 'Comentario', notas: 'Notas',
+    acciones: 'Acciones', listado: 'Listado de tareas', informes: '📊 Informes', graficos: '📈 Gráficos', semana: '📅 Registro Semana',
+    ausencia: '🚶 Ausencia', comida: '🍽️ Comida',
+    guardar: 'Guardar', actualizar: 'Actualizar', cancelar: 'Cancelar',
+    teorica: 'Jornada Teórica del Día:', total: 'Total Horas Trabajadas:', balance: 'Balance / Horas Extra:',
+    menuEditar: '✏️ Editar', menuDuplicar: '📋 Duplicar', menuEliminar: '🗑️ Eliminar',
+    filtroPlaceholder: '🔎 Filtrar por tarea, proyecto, bloque, comentario o notas... (usa * como comodín)',
+    filtroHoy: 'Hoy', filtroAyer: 'Ayer', filtroSemana: 'Esta semana', filtroSemanaAnterior: 'Semana pasada',
+    filtroMes: 'Este mes', filtroMesAnterior: 'Mes pasado',
+    rangoDesde: 'Desde', rangoHasta: 'Hasta', rangoFiltrar: '🔍 Filtrar',
+    rangoMes: 'Mes', rangoLimpiar: '🧹 Limpiar filtro',
+    backup: '💾 Backup', loteEditar: '✏️ Editar en lote', loteEliminar: '🗑️ Eliminar seleccionados', loteCancelar: '✕ Cancelar',
+    loteTitulo: 'Editar en lote', loteInfo: 'Deja un campo en blanco para no modificarlo en los registros seleccionados.',
+    loteAplicar: 'Aplicar a seleccionados', recordatorio: '🔔 Recordatorio'
+  },
+  gl: {
+    titulo: 'REGHOR', fecha: 'Data', tarea: 'Tarefa', proyecto: 'Proxecto', bloque: 'Bloque',
+    horainicio: 'Hora inicio', horafin: 'Hora fin', comentario: 'Comentario', notas: 'Notas',
+    acciones: 'Accións', listado: 'Listaxe de tarefas', informes: '📊 Informes', graficos: '📈 Gráficas', semana: '📅 Rexistro Semana',
+    ausencia: '🚶 Ausencia', comida: '🍽️ Comida',
+    guardar: 'Gardar', actualizar: 'Actualizar', cancelar: 'Cancelar',
+    teorica: 'Xornada Teórica do Día:', total: 'Total Horas Traballadas:', balance: 'Balance / Horas Extra:',
+    menuEditar: '✏️ Editar', menuDuplicar: '📋 Duplicar', menuEliminar: '🗑️ Eliminar',
+    filtroPlaceholder: '🔎 Filtrar por tarefa, proxecto, bloque, comentario ou notas... (usa * como comodín)',
+    filtroHoy: 'Hoxe', filtroAyer: 'Onte', filtroSemana: 'Esta semana', filtroSemanaAnterior: 'Semana pasada',
+    filtroMes: 'Este mes', filtroMesAnterior: 'Mes pasado',
+    rangoDesde: 'Desde', rangoHasta: 'Ata', rangoFiltrar: '🔍 Filtrar',
+    rangoMes: 'Mes', rangoLimpiar: '🧹 Limpar filtro',
+    backup: '💾 Backup', loteEditar: '✏️ Editar en lote', loteEliminar: '🗑️ Eliminar seleccionados', loteCancelar: '✕ Cancelar',
+    loteTitulo: 'Editar en lote', loteInfo: 'Deixa un campo en branco para non modificalo nos rexistros seleccionados.',
+    loteAplicar: 'Aplicar aos seleccionados', recordatorio: '🔔 Recordatorio'
+  },
+  en: {
+    titulo: 'REGHOR', fecha: 'Date', tarea: 'Task', proyecto: 'Project', bloque: 'Block',
+    horainicio: 'Start Time', horafin: 'End Time', comentario: 'Comment', notas: 'Notes',
+    acciones: 'Actions', listado: 'Task list', informes: '📊 Reports', graficos: '📈 Charts', semana: '📅 Week Log',
+    ausencia: '🚶 Absence', comida: '🍽️ Meal',
+    guardar: 'Save', actualizar: 'Update', cancelar: 'Cancel',
+    teorica: 'Theoretical Day Hours:', total: 'Total Hours Worked:', balance: 'Balance / Overtime:',
+    menuEditar: '✏️ Edit', menuDuplicar: '📋 Duplicate', menuEliminar: '🗑️ Delete',
+    filtroPlaceholder: '🔎 Filter by task, project, block, comment or notes... (use * as wildcard)',
+    filtroHoy: 'Today', filtroAyer: 'Yesterday', filtroSemana: 'This week', filtroSemanaAnterior: 'Last week',
+    filtroMes: 'This month', filtroMesAnterior: 'Last month',
+    rangoDesde: 'From', rangoHasta: 'To', rangoFiltrar: '🔍 Filter',
+    rangoMes: 'Month', rangoLimpiar: '🧹 Clear filter',
+    backup: '💾 Backup', loteEditar: '✏️ Batch edit', loteEliminar: '🗑️ Delete selected', loteCancelar: '✕ Cancel',
+    loteTitulo: 'Batch edit', loteInfo: 'Leave a field blank to leave it unchanged on the selected records.',
+    loteAplicar: 'Apply to selected', recordatorio: '🔔 Reminder'
+  }
+};
+
+function cambiarIdioma(lang) {
+  idiomaActual = lang;
+  const t = TEXTOS_INDEX[lang];
+
+  actualizarTituloConDia();
+  document.getElementById('lbl-fecha').textContent = t.fecha;
+  document.getElementById('lbl-tarea').textContent = t.tarea;
+  document.getElementById('lbl-proyecto').textContent = t.proyecto;
+  document.getElementById('lbl-bloque').textContent = t.bloque;
+  document.getElementById('lbl-horainicio').textContent = t.horainicio;
+  document.getElementById('lbl-horafin').textContent = t.horafin;
+  document.getElementById('lbl-comentario').textContent = t.comentario;
+  document.getElementById('lbl-notas').textContent = t.notas;
+  document.getElementById('txt-listado').textContent = t.listado;
+  document.getElementById('btn-informes').textContent = t.informes;
+  document.getElementById('btn-graficos').textContent = t.graficos;
+  document.getElementById('btn-semana').textContent = t.semana;
+  document.getElementById('btn-ausencia').textContent = t.ausencia;
+  document.getElementById('btn-comida').textContent = t.comida;
+  document.getElementById('btn-cancelar').textContent = t.cancelar;
+
+  const idEditando = document.getElementById('tarea-id').value;
+  document.getElementById('btn-guardar').textContent = idEditando ? t.actualizar : t.guardar;
+
+  document.getElementById('txt-teorica-label').textContent = t.teorica;
+  document.getElementById('txt-total-label').textContent = t.total;
+  document.getElementById('txt-balance-label').textContent = t.balance;
+
+  poblarSelectorMeses();
+
+  document.getElementById('th-fecha').textContent = t.fecha;
+  document.getElementById('th-tarea').textContent = t.tarea;
+  document.getElementById('th-proyecto').textContent = t.proyecto;
+  document.getElementById('th-bloque').textContent = t.bloque;
+  document.getElementById('th-inicio').textContent = t.horainicio;
+  document.getElementById('th-fin').textContent = t.horafin;
+  document.getElementById('th-duracion').textContent = (lang === 'en') ? 'Duration' : 'Duración';
+  document.getElementById('th-comentario').textContent = t.comentario;
+  document.getElementById('th-notas').textContent = t.notas;
+
+  const btnMenuEditar = document.getElementById('menu-opcion-editar');
+  const btnMenuDuplicar = document.getElementById('menu-opcion-duplicar');
+  const btnMenuEliminar = document.getElementById('menu-opcion-eliminar');
+  if (btnMenuEditar) btnMenuEditar.textContent = t.menuEditar;
+  if (btnMenuDuplicar) btnMenuDuplicar.textContent = t.menuDuplicar;
+  if (btnMenuEliminar) btnMenuEliminar.textContent = t.menuEliminar;
+
+  const inputFiltro = document.getElementById('filtro-listado');
+  if (inputFiltro) inputFiltro.placeholder = t.filtroPlaceholder;
+
+  const btnFiltroHoy = document.getElementById('btn-filtro-hoy');
+  const btnFiltroAyer = document.getElementById('btn-filtro-ayer');
+  const btnFiltroSemana = document.getElementById('btn-filtro-semana');
+  const btnFiltroSemanaAnterior = document.getElementById('btn-filtro-semana-anterior');
+  const btnFiltroMes = document.getElementById('btn-filtro-mes');
+  const btnFiltroMesAnterior = document.getElementById('btn-filtro-mes-anterior');
+  if (btnFiltroHoy) btnFiltroHoy.textContent = t.filtroHoy;
+  if (btnFiltroAyer) btnFiltroAyer.textContent = t.filtroAyer;
+  if (btnFiltroSemana) btnFiltroSemana.textContent = t.filtroSemana;
+  if (btnFiltroSemanaAnterior) btnFiltroSemanaAnterior.textContent = t.filtroSemanaAnterior;
+  if (btnFiltroMes) btnFiltroMes.textContent = t.filtroMes;
+  if (btnFiltroMesAnterior) btnFiltroMesAnterior.textContent = t.filtroMesAnterior;
+
+  const lblRangoMes = document.getElementById('lbl-rango-mes');
+  const lblRangoDesde = document.getElementById('lbl-rango-desde');
+  const lblRangoHasta = document.getElementById('lbl-rango-hasta');
+  const btnFiltrarRango = document.getElementById('btn-filtrar-rango');
+  const btnLimpiarFiltro = document.getElementById('btn-limpiar-filtro');
+  if (lblRangoMes) lblRangoMes.textContent = t.rangoMes;
+  if (lblRangoDesde) lblRangoDesde.textContent = t.rangoDesde;
+  if (lblRangoHasta) lblRangoHasta.textContent = t.rangoHasta;
+  if (btnFiltrarRango) btnFiltrarRango.textContent = t.rangoFiltrar;
+  if (btnLimpiarFiltro) btnLimpiarFiltro.textContent = t.rangoLimpiar;
+
+  const btnBackup = document.getElementById('btn-backup');
+  if (btnBackup) btnBackup.textContent = t.backup;
+  const btnRecordatorio = document.getElementById('btn-recordatorio-salida');
+  if (btnRecordatorio) btnRecordatorio.textContent = t.recordatorio;
+  const btnLoteEditar = document.getElementById('btn-lote-editar');
+  const btnLoteEliminar = document.getElementById('btn-lote-eliminar');
+  const btnLoteCancelar = document.getElementById('btn-lote-cancelar');
+  if (btnLoteEditar) btnLoteEditar.textContent = t.loteEditar;
+  if (btnLoteEliminar) btnLoteEliminar.textContent = t.loteEliminar;
+  if (btnLoteCancelar) btnLoteCancelar.textContent = t.loteCancelar;
+  const modalLoteTitulo = document.getElementById('modal-lote-titulo');
+  const txtModalLoteInfo = document.getElementById('txt-modal-lote-info');
+  if (modalLoteTitulo) modalLoteTitulo.textContent = t.loteTitulo;
+  if (txtModalLoteInfo) txtModalLoteInfo.textContent = t.loteInfo;
+  const lblLoteTarea = document.getElementById('lbl-lote-tarea');
+  const lblLoteProyecto = document.getElementById('lbl-lote-proyecto');
+  const lblLoteBloque = document.getElementById('lbl-lote-bloque');
+  const lblLoteComentario = document.getElementById('lbl-lote-comentario');
+  if (lblLoteTarea) lblLoteTarea.textContent = t.tarea;
+  if (lblLoteProyecto) lblLoteProyecto.textContent = t.proyecto;
+  if (lblLoteBloque) lblLoteBloque.textContent = t.bloque;
+  if (lblLoteComentario) lblLoteComentario.textContent = t.comentario;
+  const btnLoteAplicar = document.getElementById('btn-lote-aplicar');
+  if (btnLoteAplicar) btnLoteAplicar.textContent = t.loteAplicar;
+  actualizarBarraLote();
+
+  actualizarEstadoDiaCerrado();
+  actualizarEtiquetaTeoricaSegunModo();
+  actualizarEtiquetaRangoActivo();
+
+  poblarSelects();
+  actualizarAvisoAbiertas(tareasCargadasCache);
+}
+
+
