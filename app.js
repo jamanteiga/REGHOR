@@ -379,11 +379,8 @@ function iniciarRecordatorioSalida() {
 // refresca cada vez que se guarda o borra un registro.
 // ------------------------------------------------------------
 
-// Tareas que pausan el contador de tiempo efectivo (no cuentan como trabajo).
-const TAREAS_PAUSA_CONTADOR = ["Fuera escritorio", "Comida", "Descanso 20'", "Descanso 30'", "Espera de nueva tarea"];
-
-// PROYECTOS_RENDIMIENTO y calcularPorcentajeRendimiento() viven en config.js
-// (compartidos con graficos.js).
+// TAREAS_PAUSA_CONTADOR, PROYECTOS_RENDIMIENTO y calcularPorcentajeRendimiento()
+// viven en config.js (compartidos con graficos.js e informes.js).
 
 let registrosHoyContadorCache = [];
 

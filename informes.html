@@ -268,6 +268,7 @@
 
     <div class="grupo-botones">
       <button class="btn-filtrar" id="btn-generar" onclick="cargarInforme()">Generar Informe</button>
+      <button class="btn-filtrar" id="btn-entrada-salida" style="background-color:#198754;" onclick="cargarInformeEntradaSalida()">🕒 Entrada/Salida</button>
       <button class="btn-xlsx" id="btn-xlsx" onclick="exportarXLSX()">📊 Exportar XLSX</button>
       <button class="btn-csv" id="btn-csv" onclick="exportarCSV()">📄 Exportar CSV</button>
       <button class="btn-pdf" id="btn-pdf" onclick="exportarPDF()">📕 Exportar PDF</button>
@@ -317,6 +318,20 @@
       <div><span id="lbl-vac-consumidos">Días consumidos</span>: <strong id="vac-consumidos">0</strong></div>
       <div><span id="lbl-vac-restantes">Días restantes</span>: <strong id="vac-restantes" class="saldo-positivo">0</strong></div>
     </div>
+  </div>
+
+  <div class="tabla-contenedor" id="panel-entrada-salida" style="display:none; margin-bottom: 20px; max-height: none;">
+    <table>
+      <thead>
+        <tr>
+          <th id="thes-fecha">Fecha</th>
+          <th id="thes-entrada">Hora entrada</th>
+          <th id="thes-salida">Hora salida</th>
+          <th id="thes-horas">Horas trabajadas</th>
+        </tr>
+      </thead>
+      <tbody id="tabla-entrada-salida-body"></tbody>
+    </table>
   </div>
 
   <div class="tabla-contenedor">

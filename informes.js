@@ -17,7 +17,8 @@ const TEXTOS_INFORME = {
     anio: 'Año', balanceAnual: '📅 Balance Anual', backupJson: '💾 Backup JSON (todo)', importarJson: '📥 Importar backup',
     thbMes: 'Mes', thbTeorica: 'Jornada Teórica', thbTrabajado: 'Horas Trabajadas', thbBalance: 'Balance del Mes', thbAcumulado: 'Balance Acumulado', totalAnio: 'Total {anio}',
     balanceVacaciones: '🏖️ Vacaciones', lblDiasAnio: 'Días vacaciones/año', vacTotal: 'Días/año', vacConsumidos: 'Días consumidos', vacRestantes: 'Días restantes',
-    vacImportar: '📥 Importador CSV', icsExportar: '🏖️ Exportar .ics'
+    vacImportar: '📥 Importador CSV', icsExportar: '🏖️ Exportar .ics',
+    entradaSalida: '🕒 Entrada/Salida', esFecha: 'Fecha', esEntrada: 'Hora entrada', esSalida: 'Hora salida', esHorasTrabajadas: 'Horas trabajadas', esSinCerrar: 'Sin cerrar', esTotal: 'Total'
   },
   gl: {
     titulo: '📊 Informes e Rexistros', cerrar: '❌ Pechar', rangoRapido: 'Intervalo Rápido',
@@ -30,7 +31,8 @@ const TEXTOS_INFORME = {
     anio: 'Ano', balanceAnual: '📅 Balance Anual', backupJson: '💾 Backup JSON (todo)', importarJson: '📥 Importar backup',
     thbMes: 'Mes', thbTeorica: 'Xornada Teórica', thbTrabajado: 'Horas Traballadas', thbBalance: 'Balance do Mes', thbAcumulado: 'Balance Acumulado', totalAnio: 'Total {anio}',
     balanceVacaciones: '🏖️ Vacacións', lblDiasAnio: 'Días vacacións/ano', vacTotal: 'Días/ano', vacConsumidos: 'Días consumidos', vacRestantes: 'Días restantes',
-    vacImportar: '📥 Importador CSV', icsExportar: '🏖️ Exportar .ics'
+    vacImportar: '📥 Importador CSV', icsExportar: '🏖️ Exportar .ics',
+    entradaSalida: '🕒 Entrada/Saída', esFecha: 'Data', esEntrada: 'Hora entrada', esSalida: 'Hora saída', esHorasTrabajadas: 'Horas traballadas', esSinCerrar: 'Sen pechar', esTotal: 'Total'
   },
   en: {
     titulo: '📊 Reports and Records', cerrar: '❌ Close', rangoRapido: 'Quick Range',
@@ -43,7 +45,8 @@ const TEXTOS_INFORME = {
     anio: 'Year', balanceAnual: '📅 Annual Balance', backupJson: '💾 JSON Backup (all)', importarJson: '📥 Import backup',
     thbMes: 'Month', thbTeorica: 'Theoretical Hours', thbTrabajado: 'Hours Worked', thbBalance: 'Month Balance', thbAcumulado: 'Cumulative Balance', totalAnio: 'Total {anio}',
     balanceVacaciones: '🏖️ Vacation', lblDiasAnio: 'Vacation days/year', vacTotal: 'Days/year', vacConsumidos: 'Days used', vacRestantes: 'Days left',
-    vacImportar: '📥 CSV import', icsExportar: '🏖️ Export .ics'
+    vacImportar: '📥 CSV import', icsExportar: '🏖️ Export .ics',
+    entradaSalida: '🕒 Clock In/Out', esFecha: 'Date', esEntrada: 'Clock in', esSalida: 'Clock out', esHorasTrabajadas: 'Hours worked', esSinCerrar: 'Not closed', esTotal: 'Total'
   }
 };
 
@@ -94,6 +97,12 @@ function cambiarIdioma(lang) {
   document.getElementById('thb-trabajado').textContent = t.thbTrabajado;
   document.getElementById('thb-balance').textContent = t.thbBalance;
   document.getElementById('thb-acumulado').textContent = t.thbAcumulado;
+
+  document.getElementById('btn-entrada-salida').textContent = t.entradaSalida;
+  document.getElementById('thes-fecha').textContent = t.esFecha;
+  document.getElementById('thes-entrada').textContent = t.esEntrada;
+  document.getElementById('thes-salida').textContent = t.esSalida;
+  document.getElementById('thes-horas').textContent = t.esHorasTrabajadas;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -649,6 +658,128 @@ async function cargarBalanceVacaciones() {
   const elRestantes = document.getElementById('vac-restantes');
   elRestantes.textContent = restantes;
   elRestantes.className = restantes < 0 ? 'saldo-negativo' : (restantes === 0 ? 'saldo-neutro' : 'saldo-positivo');
+}
+
+/**
+ * Informe sencillo de Entrada/Salida: para cada día del rango (Desde/Hasta,
+ * los mismos que el informe principal), muestra la hora de entrada (inicio
+ * del primer registro del día), la hora de salida (fin del último registro
+ * cerrado del día) y las horas trabajadas EFECTIVAS -mismo criterio que el
+ * contador en vivo de la cabecera de index.html (actualizarContadorEfectivoYRendimiento):
+ * (salida - entrada) descontando las tareas de TAREAS_PAUSA_CONTADOR (Comida,
+ * Descansos, etc. - ver config.js)-. Si el último registro del día aún no
+ * tiene hora de fin (jornada sin cerrar), la salida se muestra como "Sin
+ * cerrar" y ese día no entra en el total de horas trabajadas.
+ */
+async function cargarInformeEntradaSalida() {
+  if (!supabaseClient) return;
+
+  const desde = document.getElementById('filtro-desde').value;
+  const hasta = document.getElementById('filtro-hasta').value;
+
+  const panel = document.getElementById('panel-entrada-salida');
+  const tbody = document.getElementById('tabla-entrada-salida-body');
+  const t = TEXTOS_INFORME[idiomaActual] || TEXTOS_INFORME.es;
+  if (panel) panel.style.display = '';
+  if (tbody) tbody.innerHTML = `<tr><td colspan="4">Cargando...</td></tr>`;
+
+  // Igual que cargarInforme(): paginado, porque Supabase limita cada
+  // consulta a 1000 filas por defecto.
+  const TAMANO_PAGINA = 1000;
+  let data = [];
+  let desdeIndice = 0;
+  while (true) {
+    let query = supabaseClient
+      .from(TABLA)
+      .select('fecha,tarea,horainicio,horafin')
+      .order('fecha', { ascending: true })
+      .order('horainicio', { ascending: true })
+      .range(desdeIndice, desdeIndice + TAMANO_PAGINA - 1);
+
+    if (desde) query = query.gte('fecha', desde);
+    if (hasta) query = query.lte('fecha', hasta);
+
+    const { data: pagina, error } = await query;
+    if (error) {
+      console.error('Error al cargar el informe de entrada/salida:', error);
+      if (tbody) tbody.innerHTML = `<tr><td colspan="4" style="color:red;">Error Supabase: ${error.message}</td></tr>`;
+      return;
+    }
+
+    data = data.concat(pagina || []);
+    if (!pagina || pagina.length < TAMANO_PAGINA) break;
+    desdeIndice += TAMANO_PAGINA;
+  }
+
+  // Agrupar por día (ya viene ordenado por fecha y luego por horainicio).
+  const registrosPorDia = {};
+  data.forEach(item => {
+    let fechaKey = String(item.fecha || '').trim();
+    if (fechaKey.includes('T')) fechaKey = fechaKey.split('T')[0];
+    if (fechaKey.includes(' ')) fechaKey = fechaKey.split(' ')[0];
+    if (!fechaKey || !item.horainicio) return;
+    (registrosPorDia[fechaKey] = registrosPorDia[fechaKey] || []).push(item);
+  });
+
+  const fechasOrdenadas = Object.keys(registrosPorDia).sort();
+  let filasHtml = '';
+  let totalMinutosTrabajados = 0;
+
+  fechasOrdenadas.forEach(fechaKey => {
+    const registros = registrosPorDia[fechaKey];
+    const entrada = registros[0].horainicio;
+
+    // Salida = fin del último registro CERRADO del día (puede no ser el
+    // último de la lista, si la jornada terminó con una tarea que ya se
+    // cerró pero se registró después otra que no -caso raro pero posible-).
+    let salida = null;
+    registros.forEach(reg => {
+      if (reg.horafin && (!salida || reg.horafin > salida)) salida = reg.horafin;
+    });
+
+    let fechaMostrada = fechaKey;
+    const d = parsearFechaLocal(fechaKey);
+    if (d) fechaMostrada = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+
+    if (!salida) {
+      filasHtml += `
+        <tr>
+          <td>${fechaMostrada}</td>
+          <td>${entrada}</td>
+          <td>${t.esSinCerrar}</td>
+          <td>-</td>
+        </tr>
+      `;
+      return;
+    }
+
+    // Minutos de pausa (Comida, Descansos...) dentro de ese tramo entrada-salida.
+    let minutosPausa = 0;
+    registros.forEach(reg => {
+      if (!TAREAS_PAUSA_CONTADOR.includes(reg.tarea) || !reg.horafin) return;
+      minutosPausa += obtenerMinutosDuracion(reg.horainicio, reg.horafin);
+    });
+    const minutosEfectivos = Math.max(0, obtenerMinutosDuracion(entrada, salida) - minutosPausa);
+    totalMinutosTrabajados += minutosEfectivos;
+
+    filasHtml += `
+      <tr>
+        <td>${fechaMostrada}</td>
+        <td>${entrada}</td>
+        <td>${salida}</td>
+        <td>${formatearMinutosAHoras(minutosEfectivos)}</td>
+      </tr>
+    `;
+  });
+
+  filasHtml += `
+    <tr class="fila-total">
+      <td colspan="3">${t.esTotal}</td>
+      <td>${formatearMinutosAHoras(totalMinutosTrabajados)}</td>
+    </tr>
+  `;
+
+  if (tbody) tbody.innerHTML = filasHtml || `<tr><td colspan="4">-</td></tr>`;
 }
 
 /**

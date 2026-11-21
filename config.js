@@ -304,6 +304,14 @@ function calcularPorcentajeRendimiento(minutosProyectoRendimiento, fechaStr) {
 }
 
 /**
+ * Tareas que "pausan" la jornada (no cuentan como tiempo efectivo de
+ * trabajo): comida, descansos, espera, etc. Se usa tanto para el contador en
+ * vivo de la cabecera de index.html como para calcular las horas trabajadas
+ * efectivas en el informe de entrada/salida de informes.html.
+ */
+const TAREAS_PAUSA_CONTADOR = ["Fuera escritorio", "Comida", "Descanso 20'", "Descanso 30'", "Espera de nueva tarea"];
+
+/**
  * Jornada teórica "ajustada" de un día, pensada para el balance de horas
  * extra que se muestra en index.html. Para cualquier día que no sea viernes
  * devuelve exactamente lo mismo que obtenerJornadaTeoricaMinutos().
